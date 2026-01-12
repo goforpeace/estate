@@ -1,23 +1,20 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-export default function TenantIdPage() {
+export default function LoginPage({ params }: { params: { tenantId: string } }) {
   const router = useRouter();
-  const [tenantId, setTenantId] = useState('');
 
-  const handleContinue = (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (tenantId.trim()) {
-      router.push(`/${tenantId.trim()}/login`);
-    }
+    // Mock login logic
+    router.push(`/${params.tenantId}/dashboard`);
   };
 
   return (
@@ -28,27 +25,26 @@ export default function TenantIdPage() {
             <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
               <Building2 className="h-8 w-8" />
             </div>
-            <CardTitle className="font-headline text-3xl">EstateFlow</CardTitle>
-            <CardDescription>Your Real Estate Management Partner</CardDescription>
+            <CardTitle className="font-headline text-3xl">Welcome Back</CardTitle>
+            <CardDescription>
+              Sign in to tenant <span className="font-bold text-primary font-headline">{params.tenantId}</span>
+            </CardDescription>
           </CardHeader>
-          <form onSubmit={handleContinue}>
+          <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="tenantId" className="font-headline">Tenant ID</Label>
-                <Input
-                  id="tenantId"
-                  placeholder="your-company-id"
-                  value={tenantId}
-                  onChange={(e) => setTenantId(e.target.value)}
-                  required
-                  className="text-base"
-                />
+                <Label htmlFor="email" className="font-headline">Email</Label>
+                <Input id="email" type="email" placeholder="user@example.com" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" required />
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-4">
-              <Button type="submit" className="w-full font-headline">Continue</Button>
+            <CardFooter className="flex-col gap-2">
+              <Button type="submit" className="w-full font-headline">Login</Button>
               <Button variant="link" size="sm" asChild>
-                <Link href="/gopon">Admin Login</Link>
+                <Link href="/">Wrong Tenant ID?</Link>
               </Button>
             </CardFooter>
           </form>
