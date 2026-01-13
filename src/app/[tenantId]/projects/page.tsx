@@ -26,9 +26,11 @@ import {
   useCollection,
   useMemoFirebase,
   addDocumentNonBlocking,
+  updateDocumentNonBlocking,
+  deleteDocumentNonBlocking,
 } from "@/firebase";
-import { collection } from "firebase/firestore";
-import { useParams } from "next/navigation";
+import { collection, doc } from "firebase/firestore";
+import { useParams, useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,6 +41,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import Link from "next/link";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { format } from "date-fns";
 
 // Matches the Flat entity in backend.json but is nested here
 const flatSchema = z.object({
@@ -74,19 +79,26 @@ type Project = {
 };
 
 
-function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished: () => void }) {
+function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFinished: () => void; project?: Project }) {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const form = useForm<ProjectFormData>({
-    resolver: zodResolver(projectSchema),
-    defaultValues: {
+  
+  const defaultValues = project ? {
+      ...project,
+      // Format the ISO string date back to 'yyyy-MM-dd' for the date input
+      expectedHandoverDate: format(new Date(project.expectedHandoverDate), 'yyyy-MM-dd'),
+  } : {
       name: "",
       location: "",
       targetSell: 0,
-      status: "Upcoming",
+      status: "Upcoming" as const,
       flats: [],
       expectedHandoverDate: "",
-    },
+  };
+
+  const form = useForm<ProjectFormData>({
+    resolver: zodResolver(projectSchema),
+    defaultValues,
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -115,20 +127,31 @@ function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished
 
   const onSubmit = (data: ProjectFormData) => {
     if (!firestore) return;
-    const projectsCollection = collection(firestore, `tenants/${tenantId}/projects`);
-    const newProject = {
+
+    const projectData = {
       ...data,
       tenantId: tenantId,
       // Convert the string date from the input into an ISO string for consistent storage
       expectedHandoverDate: new Date(data.expectedHandoverDate).toISOString(),
     };
 
-    addDocumentNonBlocking(projectsCollection, newProject);
-    
-    toast({
-      title: "Project Added",
-      description: `${data.name} has been successfully added.`,
-    });
+    if (project) {
+        // Update existing project
+        const projectDocRef = doc(firestore, `tenants/${tenantId}/projects`, project.id);
+        updateDocumentNonBlocking(projectDocRef, projectData);
+         toast({
+          title: "Project Updated",
+          description: `${data.name} has been successfully updated.`,
+        });
+    } else {
+        // Add new project
+        const projectsCollection = collection(firestore, `tenants/${tenantId}/projects`);
+        addDocumentNonBlocking(projectsCollection, projectData);
+        toast({
+          title: "Project Added",
+          description: `${data.name} has been successfully added.`,
+        });
+    }
 
     onFinished();
     form.reset();
@@ -258,7 +281,7 @@ function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished
           </div>
         </ScrollArea>
         <div className="p-4 pt-0 border-t">
-          <Button type="submit" className="w-full mt-4">Add Project</Button>
+          <Button type="submit" className="w-full mt-4">{project ? 'Save Changes' : 'Add Project'}</Button>
         </div>
       </form>
     </Form>
@@ -268,9 +291,15 @@ function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished
 
 export default function ProjectsPage() {
   const params = useParams();
+  const router = useRouter();
   const tenantId = params.tenantId as string;
   const firestore = useFirestore();
-  const [isDialogOpen, setDialogOpen] = useState(false);
+  const { toast } = useToast();
+
+  const [isAddDialogOpen, setAddDialogOpen] = useState(false);
+  const [editProject, setEditProject] = useState<Project | undefined>(undefined);
+  const [deleteProject, setDeleteProject] = useState<Project | undefined>(undefined);
+
 
   const projectsQuery = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
@@ -278,6 +307,18 @@ export default function ProjectsPage() {
   }, [firestore, tenantId]);
 
   const { data: projects, isLoading } = useCollection<Project>(projectsQuery);
+  
+  const handleDelete = () => {
+    if (!firestore || !deleteProject) return;
+    const projectDoc = doc(firestore, `tenants/${tenantId}/projects`, deleteProject.id);
+    deleteDocumentNonBlocking(projectDoc);
+    toast({
+        variant: "destructive",
+        title: "Project Deleted",
+        description: `Project "${deleteProject.name}" has been deleted.`,
+    })
+    setDeleteProject(undefined);
+  }
 
   const statusVariant = {
     Ongoing: "default",
@@ -293,9 +334,9 @@ export default function ProjectsPage() {
         title="Projects"
         description="Manage your real estate projects."
       >
-        <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={isAddDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogTrigger asChild>
-             <Button size="sm" className="gap-1">
+             <Button size="sm" className="gap-1" onClick={() => setAddDialogOpen(true)}>
               <PlusCircle className="h-4 w-4" />
               Add Project
             </Button>
@@ -307,10 +348,41 @@ export default function ProjectsPage() {
                 Fill in the details below to create a new project for your tenant.
               </DialogDescription>
             </DialogHeader>
-            <AddProjectForm tenantId={tenantId} onFinished={() => setDialogOpen(false)} />
+            <ProjectForm tenantId={tenantId} onFinished={() => setAddDialogOpen(false)} />
           </DialogContent>
         </Dialog>
       </PageHeader>
+
+       {/* Edit Project Dialog */}
+      <Dialog open={!!editProject} onOpenChange={(isOpen) => !isOpen && setEditProject(undefined)}>
+          <DialogContent className="max-w-2xl p-0">
+              <DialogHeader className="p-6 pb-4">
+              <DialogTitle>Edit Project</DialogTitle>
+              <DialogDescription>
+                  Update the details for &quot;{editProject?.name}&quot;.
+              </DialogDescription>
+              </DialogHeader>
+              {editProject && <ProjectForm tenantId={tenantId} project={editProject} onFinished={() => setEditProject(undefined)} />}
+          </DialogContent>
+      </Dialog>
+      
+       {/* Delete Project Alert Dialog */}
+      <AlertDialog open={!!deleteProject} onOpenChange={(isOpen) => !isOpen && setDeleteProject(undefined)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the project
+                <span className="font-bold"> &quot;{deleteProject?.name}&quot;</span>.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -369,9 +441,11 @@ export default function ProjectsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem asChild>
+                             <Link href={`/${tenantId}/projects/${project.id}`}>View Details</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditProject(project)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => setDeleteProject(project)}>
                             Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
