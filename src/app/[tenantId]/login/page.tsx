@@ -7,13 +7,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth, initiateEmailSignIn } from '@/firebase';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage({ params }: { params: { tenantId: string } }) {
   const router = useRouter();
+  const auth = useAuth();
+  const { toast } = useToast();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login logic
+    if (!email || !password) {
+        toast({
+            variant: "destructive",
+            title: "Login Failed",
+            description: "Please enter both email and password.",
+        });
+        return;
+    }
+    initiateEmailSignIn(auth, email, password);
+    // The useUser hook in the layout will redirect on successful login
+    // We can push to dashboard optimistically
     router.push(`/${params.tenantId}/dashboard`);
   };
 
@@ -34,11 +51,11 @@ export default function LoginPage({ params }: { params: { tenantId: string } }) 
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="font-headline">Email</Label>
-                <Input id="email" type="email" placeholder="user@example.com" required />
+                <Input id="email" type="email" placeholder="user@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" required />
+                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
             </CardContent>
             <CardFooter className="flex-col gap-2">

@@ -46,6 +46,7 @@ export type Payment = {
     paymentDate: string;
 };
 
+// This mock data is no longer used for tenants, but is kept for other parts of the app.
 export const tenants: Tenant[] = [
   { id: 'propertyman', name: 'PropertyMan Inc.', status: 'active' },
   { id: 'realhomes', name: 'RealHomes Ltd.', status: 'active' },
