@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Calendar as CalendarIcon, Trash2, XCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import {
@@ -36,12 +36,9 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Matches the Flat entity in backend.json but is nested here
 const flatSchema = z.object({
@@ -55,8 +52,8 @@ const projectSchema = z.object({
   location: z.string().min(1, "Location is required."),
   targetSell: z.coerce.number().min(0, "Target sell must be a positive number."),
   status: z.enum(["Ongoing", "Upcoming", "Completed"]),
-  expectedHandoverDate: z.date({
-    required_error: "A handover date is required.",
+  expectedHandoverDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "A valid handover date is required.",
   }),
   flats: z.array(flatSchema).min(1, "At least one flat is required."),
 });
@@ -88,6 +85,7 @@ function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished
       targetSell: 0,
       status: "Upcoming",
       flats: [],
+      expectedHandoverDate: "",
     },
   });
 
@@ -120,7 +118,8 @@ function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished
     const newProject = {
       ...data,
       tenantId: tenantId,
-      expectedHandoverDate: data.expectedHandoverDate.toISOString(),
+      // Convert the string date from the input into an ISO string for consistent storage
+      expectedHandoverDate: new Date(data.expectedHandoverDate).toISOString(),
     };
 
     addDocumentNonBlocking(projectsCollection, newProject);
@@ -136,151 +135,130 @@ function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Project Name</FormLabel>
-                <FormControl>
-                    <Input placeholder="e.g., Emerald Heights" {...field} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-            <FormField
-            control={form.control}
-            name="location"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Location</FormLabel>
-                <FormControl>
-                    <Input placeholder="e.g., Gulshan, Dhaka" {...field} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-            <FormField
-            control={form.control}
-            name="targetSell"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Target Sell (TK)</FormLabel>
-                <FormControl>
-                    <Input type="number" placeholder="10000000" {...field} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-            <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select project status" />
-                    </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                    <SelectItem value="Upcoming">Upcoming</SelectItem>
-                    <SelectItem value="Ongoing">Ongoing</SelectItem>
-                    <SelectItem value="Completed">Completed</SelectItem>
-                    </SelectContent>
-                </Select>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-            <FormField
-            control={form.control}
-            name="expectedHandoverDate"
-            render={({ field }) => (
-                <FormItem className="flex flex-col">
-                <FormLabel>Expected Handover Date</FormLabel>
-                <Popover>
-                    <PopoverTrigger asChild>
-                    <FormControl>
-                        <Button
-                        variant={"outline"}
-                        className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                        )}
-                        >
-                        {field.value ? (
-                            format(field.value, "PPP")
-                        ) : (
-                            <span>Pick a date</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                    </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) => date < new Date("1990-01-01")}
-                        initialFocus
-                    />
-                    </PopoverContent>
-                </Popover>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-        </div>
-        
-        <div className="space-y-4 rounded-lg border p-4">
-            <h3 className="font-medium">Flats</h3>
-            <div className="space-y-2">
-                {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
-                        <span className="font-mono text-sm">{index + 1}.</span>
-                        <p className="flex-1 text-sm">
-                            <span className="font-medium">{field.name}</span>
-                             - {field.sizeSft} sft
-                        </p>
-                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => remove(index)}>
-                            <XCircle className="h-4 w-4" />
-                        </Button>
-                    </div>
-                ))}
-                 {fields.length === 0 && <p className="text-xs text-center text-muted-foreground py-2">No flats added yet.</p>}
-            </div>
-             <FormField
+       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <ScrollArea className="max-h-[70vh] p-1 pr-6">
+          <div className="space-y-6 p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
                 control={form.control}
-                name="flats"
-                render={() => (
+                name="name"
+                render={({ field }) => (
                     <FormItem>
+                    <FormLabel>Project Name</FormLabel>
+                    <FormControl>
+                        <Input placeholder="e.g., Emerald Heights" {...field} />
+                    </FormControl>
                     <FormMessage />
                     </FormItem>
                 )}
-            />
-
-            <div className="flex items-end gap-2">
-                <div className="grid gap-1.5 flex-1">
-                    <Label htmlFor="new-flat-name" className="text-xs">Flat Number/Name</Label>
-                    <Input id="new-flat-name" placeholder="e.g., A1" value={newFlatName} onChange={(e) => setNewFlatName(e.target.value)} />
-                </div>
-                 <div className="grid gap-1.5 w-28">
-                    <Label htmlFor="new-flat-size" className="text-xs">Size (sft)</Label>
-                    <Input id="new-flat-size" type="number" placeholder="1250" value={newFlatSize} onChange={(e) => setNewFlatSize(e.target.value)} />
-                </div>
-                <Button type="button" variant="outline" onClick={handleAddFlat}>Add Flat</Button>
+                />
+                <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Location</FormLabel>
+                    <FormControl>
+                        <Input placeholder="e.g., Gulshan, Dhaka" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="targetSell"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Target Sell (TK)</FormLabel>
+                    <FormControl>
+                        <Input type="number" placeholder="10000000" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select project status" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        <SelectItem value="Upcoming">Upcoming</SelectItem>
+                        <SelectItem value="Ongoing">Ongoing</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="expectedHandoverDate"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Expected Handover Date</FormLabel>
+                        <FormControl>
+                            <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+                />
             </div>
-        </div>
+            
+            <div className="space-y-4 rounded-lg border p-4">
+                <h3 className="font-medium">Flats</h3>
+                <div className="space-y-2">
+                    {fields.map((field, index) => (
+                        <div key={field.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                            <span className="font-mono text-sm">{index + 1}.</span>
+                            <p className="flex-1 text-sm">
+                                <span className="font-medium">{field.name}</span>
+                                - {field.sizeSft} sft
+                            </p>
+                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => remove(index)}>
+                                <XCircle className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ))}
+                    {fields.length === 0 && <p className="text-xs text-center text-muted-foreground py-2">No flats added yet.</p>}
+                </div>
+                <FormField
+                    control={form.control}
+                    name="flats"
+                    render={() => (
+                        <FormItem>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
-        <Button type="submit" className="w-full">Add Project</Button>
+                <div className="flex items-end gap-2">
+                    <div className="grid gap-1.5 flex-1">
+                        <Label htmlFor="new-flat-name" className="text-xs">Flat Number/Name</Label>
+                        <Input id="new-flat-name" placeholder="e.g., A1" value={newFlatName} onChange={(e) => setNewFlatName(e.target.value)} />
+                    </div>
+                    <div className="grid gap-1.5 w-28">
+                        <Label htmlFor="new-flat-size" className="text-xs">Size (sft)</Label>
+                        <Input id="new-flat-size" type="number" placeholder="1250" value={newFlatSize} onChange={(e) => setNewFlatSize(e.target.value)} />
+                    </div>
+                    <Button type="button" variant="outline" onClick={handleAddFlat}>Add Flat</Button>
+                </div>
+            </div>
+          </div>
+        </ScrollArea>
+        <div className="p-4 pt-0 border-t">
+          <Button type="submit" className="w-full mt-4">Add Project</Button>
+        </div>
       </form>
     </Form>
   );
@@ -321,8 +299,8 @@ export default function ProjectsPage() {
               Add Project
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl p-0">
+            <DialogHeader className="p-6 pb-0">
               <DialogTitle>Add a New Project</DialogTitle>
               <DialogDescription>
                 Fill in the details below to create a new project for your tenant.
