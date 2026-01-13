@@ -41,6 +41,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
 
 // Matches the Flat entity in backend.json but is nested here
 const flatSchema = z.object({
