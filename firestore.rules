@@ -7,27 +7,28 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper function to check if the signed-in user is an admin.
-    // The admin's email is hardcoded for this example.
+    // Helper function to check if the user is an admin via custom claims.
+    // To make a user an admin, you would need to set this claim using the Firebase Admin SDK.
     function isAdmin() {
-      return isSignedIn() && request.auth.email == 'admin@estateflow.com';
+      return isSignedIn() && request.auth.token.isAdmin == true;
     }
 
     // Helper function to check if the user belongs to the tenant.
-    // It checks if the user's profile document has a matching tenantId.
     function isTenantMember(tenantId) {
+      // It checks if the user's profile document has a matching tenantId.
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == tenantId;
     }
-    
-    // Admins can manage all tenant documents and all user documents.
+
+    // Admins can read and write all tenant documents.
     match /tenants/{tenantId} {
-        allow read, write: if isAdmin();
+      allow read, write: if isAdmin();
     }
-    
+
+    // Admins can manage all user documents.
     match /users/{userId} {
-       allow read, create, update: if isAdmin();
-       // Allow tenant members to read their own profile
-       allow read: if request.auth.uid == userId;
+      allow read, create, update, delete: if isAdmin();
+      // Any signed-in user can read their own profile.
+      allow read: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Tenant members can read and write all documents within their own tenant's data.
