@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, User, Phone, Home, BadgeInfo, Building, Briefcase, MinusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Progress } from '@/components/ui/progress';
+import { useMemo } from 'react';
 
 type Customer = {
   id: string;
