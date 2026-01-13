@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from "@/firebase";
@@ -49,7 +49,7 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
             enabled: true,
         };
 
-        await addDocumentNonBlocking(tenantsCol, newTenant);
+        addDocumentNonBlocking(tenantsCol, newTenant);
         
         toast({
             title: "Tenant Added",
@@ -103,20 +103,23 @@ export default function AdminDashboard() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   
+  useEffect(() => {
+    // If user is not logged in after check, redirect to login
+    if (!isUserLoading && !user) {
+      router.push('/gopon');
+    }
+  }, [isUserLoading, user, router]);
+
   const tenantsQuery = useMemoFirebase(() => {
-    // Only query if the user is authenticated and is the admin
+    // Only query if the user is authenticated
     if (!firestore || !user) return null;
     return collection(firestore, 'tenants');
   }, [firestore, user]);
 
   const { data: tenants, isLoading: isTenantsLoading, error } = useCollection<Tenant>(tenantsQuery);
-  const isLoading = isUserLoading || isTenantsLoading;
-
-  // If user is not logged in after check, redirect to login
-  if (!isUserLoading && !user) {
-    router.push('/gopon');
-    return null;
-  }
+  
+  // Combine loading states
+  const isLoading = isUserLoading || (user && isTenantsLoading);
 
   const toggleTenantStatus = (id: string, currentStatus: boolean) => {
     if (!firestore) return;
@@ -139,6 +142,16 @@ export default function AdminDashboard() {
     });
   };
 
+  // Show a loading screen while auth is being checked or data is being loaded.
+  // This also prevents rendering the main component when the user is not authenticated.
+  if (isLoading || !user) {
+    return (
+        <div className="flex h-full w-full items-center justify-center">
+            <p>Loading dashboard...</p>
+        </div>
+    )
+  }
+
   return (
     <>
       <PageHeader title="Tenant Management" description="Add, manage, and disable tenant accounts.">
@@ -159,17 +172,12 @@ export default function AdminDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && (
-                <TableRow>
-                    <TableCell colSpan={5} className="text-center">Loading tenants...</TableCell>
-                </TableRow>
-              )}
               {error && (
                  <TableRow>
                     <TableCell colSpan={5} className="text-center text-destructive">Error loading tenants: {error.message}</TableCell>
                 </TableRow>
               )}
-              {!isLoading && tenants?.map((tenant) => (
+              {!isTenantsLoading && tenants?.map((tenant) => (
                 <TableRow key={tenant.id}>
                   <TableCell className="font-medium">{tenant.name}</TableCell>
                   <TableCell>{tenant.domain}</TableCell>
