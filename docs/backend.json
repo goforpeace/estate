@@ -164,6 +164,10 @@
         "address": {
           "type": "string",
           "description": "The address of the customer."
+        },
+        "nid": {
+          "type": "string",
+          "description": "The National ID of the customer."
         }
       },
       "required": [
