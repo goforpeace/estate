@@ -8,27 +8,30 @@ service cloud.firestore {
     }
 
     // Helper function to check if the signed-in user is an admin.
-    // This assumes a specific UID for the admin user. 
-    // For a real app, you might use custom claims instead.
+    // In this simplified example, any authenticated user is considered an admin.
     function isAdmin() {
-      // Allow any authenticated user for this simplified example.
-      // In a real app, you'd check for a specific admin UID or a custom claim.
-      // e.g., return request.auth.uid == 'YOUR_ADMIN_UID';
-      // or return request.auth.token.isAdmin == true;
       return isSignedIn();
     }
-    
+
     // Rules for the 'tenants' collection
     match /tenants/{tenantId} {
-      // Admins can read, write, create, and delete any tenant document.
+      // Admins can manage all tenant documents.
       allow read, write: if isAdmin();
     }
 
-    // Tenant-specific data
+    // Rules for all sub-collections under a tenant
     match /tenants/{tenantId}/{document=**} {
-        // For now, allow any signed-in user to access sub-collections.
-        // In a multi-tenant app, you'd restrict this to users of that tenant.
-        allow read, write: if isSignedIn();
+      // Admins can manage all documents within any tenant's data.
+      allow read, write: if isAdmin();
+    }
+
+    // Rules for the top-level 'users' collection
+    match /users/{userId} {
+      // Admins can create user profiles.
+      // Tenant users will need rules to read/update their own profile.
+      allow create: if isAdmin();
+      // Allow a user to read their own profile, or an admin to read any profile.
+      allow read, update: if request.auth.uid == userId || isAdmin();
     }
   }
 }
