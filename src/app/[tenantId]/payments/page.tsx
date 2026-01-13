@@ -32,7 +32,7 @@ type Customer = { id: string; name: string; };
 const paymentSchema = z.object({
   flatSaleId: z.string().min(1, "A sold flat must be selected."),
   amount: z.coerce.number().min(1, "Payment amount must be greater than 0."),
-  type: z.enum(["Cash", "Cheque", "Bank Transfer", "Booking Money", "Installment"]),
+  type: z.enum(["Cash", "Cheque", "Bank Transfer"]),
   paymentDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid payment date is required." }),
   reference: z.string().optional(),
 });
@@ -186,8 +186,6 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
                                                 <SelectItem value="Cash">Cash</SelectItem>
                                                 <SelectItem value="Cheque">Cheque</SelectItem>
                                                 <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                                                <SelectItem value="Booking Money">Booking Money</SelectItem>
-                                                <SelectItem value="Installment">Installment</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />

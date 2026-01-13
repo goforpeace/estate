@@ -267,9 +267,7 @@
           "enum": [
             "Cash",
             "Cheque",
-            "Bank Transfer",
-            "Booking Money",
-            "Installment"
+            "Bank Transfer"
           ]
         },
         "reference": {
