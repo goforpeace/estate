@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Building, User, Tag, DollarSign, ParkingCircle, Wrench, HandCoins, Calendar, Link as LinkIcon, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { type FlatSale } from '../page';
+import { useMemo } from 'react';
 
 type Project = { id: string; name: string; location: string, flats: {name: string, sizeSft: number}[] };
 type Customer = { id: string; name: string; address: string; phoneNumber: string };
