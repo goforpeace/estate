@@ -18,6 +18,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import Link from "next/link";
 
 const customerSchema = z.object({
   name: z.string().min(1, "Customer name is required."),
@@ -264,6 +265,9 @@ export default function CustomersPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                           <DropdownMenuItem asChild>
+                            <Link href={`/${tenantId}/customers/${customer.id}`}>View Details</Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setEditCustomer(customer)}>Edit</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => setDeleteCustomer(customer)}>
                             Delete
