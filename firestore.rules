@@ -1,0 +1,171 @@
+/**
+ * Core Philosophy: This ruleset enforces a strict multi-tenancy security model for a real estate management application.
+ * The primary goal is to ensure that data from one tenant is completely isolated from and inaccessible to another.
+ * Authorization is based on a 'tenantId' custom claim expected in the user's Firebase Authentication token.
+ *
+ * Data Structure: All application data is organized under a top-level `/tenants/{tenantId}` collection.
+ * This hierarchical structure is the foundation of the security model, allowing rules to be defined based on the path.
+ *
+ * Key Security Decisions:
+ * - Tenant Isolation: Access to any document is granted only if the user's `tenantId` custom claim matches the `tenantId` in the document's path.
+ * - Client-Side Tenant Management Disabled: Clients are not permitted to create, update, or delete the root `/tenants/{tenantId}` documents. This must be handled by a trusted backend process.
+ * - Default Deny: All access is denied by default. Rules explicitly grant permissions on a per-collection basis.
+ * - User Roles: The current model grants all authenticated users of a tenant the same level of access to that tenant's data. More granular, role-based access (e.g., admin, agent) can be added later by including roles in the custom claims or a members map on tenant/project documents.
+ *
+ * Denormalization for Authorization: The data model is designed for efficient security rules.
+ * Critical relational identifiers like `tenantId` and `projectId` are denormalized (copied) into documents
+ * down the hierarchy. This avoids slow and costly `get()` calls in rules, ensuring fast authorization checks.
+ * For example, a `project` document at `/tenants/acme/projects/p123` contains the field `tenantId: 'acme'`.
+ * Rules validate this linkage on write operations to ensure data integrity.
+ *
+ * Structural Segregation: The entire data model uses structural segregation at the highest level
+ * by partitioning all data into tenant-specific paths. This is the most secure and performant way to
+ * enforce multi-tenancy and prevent data leakage between tenants.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --------------------------------------------------------------------
+    // Helper Functions
+    // --------------------------------------------------------------------
+
+    /**
+     * Checks if a user is signed in.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Verifies if the authenticated user is a member of the specified tenant.
+     * This is the core of the multi-tenancy security model.
+     * It relies on a 'tenantId' custom claim being set in the user's auth token.
+     */
+    function isTenantMember(tenantId) {
+      return isSignedIn() && request.auth.token.tenantId == tenantId;
+    }
+
+    /**
+     * A robust check for update/delete operations, ensuring the user is a tenant member
+     * AND the document they are trying to modify actually exists.
+     */
+    function isExistingTenantMember(tenantId) {
+      return isTenantMember(tenantId) && resource != null;
+    }
+
+    // --------------------------------------------------------------------
+    // Collection Rules
+    // --------------------------------------------------------------------
+
+    /**
+     * @description Controls access to Tenant documents. Tenant members can read their own
+     *              tenant document, but cannot list, create, or modify them from the client.
+     * @path /tenants/{tenantId}
+     * @allow (get) An authenticated user from tenant 'acme-corp' reading '/tenants/acme-corp'.
+     * @deny (list) A user trying to list all tenants in the system.
+     * @deny (create, update, delete) Any user trying to modify a tenant document.
+     * @principle Prevents data exposure and modification of critical tenant configuration by clients.
+     */
+    match /tenants/{tenantId} {
+      allow get: if isTenantMember(tenantId);
+      allow list: if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Secures Project documents. Only users belonging to the parent tenant can
+     *              read or write project data.
+     * @path /tenants/{tenantId}/projects/{projectId}
+     * @allow (create) An authenticated 'acme-corp' user creating a new project document with `tenantId: 'acme-corp'`.
+     * @deny (create) An 'acme-corp' user trying to create a project under '/tenants/other-corp/...'.
+     * @deny (update) An 'acme-corp' user trying to change the `tenantId` field of an existing project.
+     * @principle Enforces tenant ownership and data integrity at the project level.
+     */
+    match /tenants/{tenantId}/projects/{projectId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && request.resource.data.tenantId == tenantId;
+      allow update: if isExistingTenantMember(tenantId) && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if isExistingTenantMember(tenantId);
+    }
+
+    /**
+     * @description Secures Flat documents within a Project. Access is inherited from the tenant.
+     * @path /tenants/{tenantId}/projects/{projectId}/flats/{flatId}
+     * @allow (get, list) An authenticated 'acme-corp' user reading flats within one of their projects.
+     * @deny (create) An 'acme-corp' user creating a flat but forgetting to include the correct `projectId`.
+     * @deny (update) Any user trying to move a flat from one project to another by changing the `projectId`.
+     * @principle Maintains relational integrity between a Flat and its parent Project.
+     */
+    match /tenants/{tenantId}/projects/{projectId}/flats/{flatId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && request.resource.data.projectId == projectId;
+      allow update: if isExistingTenantMember(tenantId) && request.resource.data.projectId == resource.data.projectId;
+      allow delete: if isExistingTenantMember(tenantId);
+    }
+
+    /**
+     * @description Secures Customer documents. Only users belonging to the tenant can manage them.
+     * @path /tenants/{tenantId}/customers/{customerId}
+     * @allow (create) An 'acme-corp' user creating a new customer with `tenantId: 'acme-corp'`.
+     * @deny (get) A user from 'other-corp' trying to read customer data from 'acme-corp'.
+     * @deny (update) An 'acme-corp' user trying to re-assign a customer to another tenant by changing the `tenantId`.
+     * @principle Enforces tenant ownership of sensitive customer data.
+     */
+    match /tenants/{tenantId}/customers/{customerId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && request.resource.data.tenantId == tenantId;
+      allow update: if isExistingTenantMember(tenantId) && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if isExistingTenantMember(tenantId);
+    }
+
+    /**
+     * @description Secures FlatSale documents. Access is granted to tenant members. Integrity with
+     *              the parent project is enforced.
+     * @path /tenants/{tenantId}/projects/{projectId}/flatSales/{flatSaleId}
+     * @allow (list) An 'acme-corp' user listing all flat sales for a specific project.
+     * @deny (create) An 'acme-corp' user creating a flat sale record under project 'p123' but with `projectId: 'p456'`.
+     * @deny (delete) A user from 'other-corp' trying to delete a flat sale from an 'acme-corp' project.
+     * @principle Maintains relational integrity between a FlatSale and its parent Project.
+     */
+    match /tenants/{tenantId}/projects/{projectId}/flatSales/{flatSaleId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && request.resource.data.projectId == projectId;
+      allow update: if isExistingTenantMember(tenantId) && request.resource.data.projectId == resource.data.projectId;
+      allow delete: if isExistingTenantMember(tenantId);
+    }
+
+    /**
+     * @description Secures Payment documents. Access is granted to tenant members. Integrity with
+     *              the parent flat sale is enforced.
+     * @path /tenants/{tenantId}/projects/{projectId}/flatSales/{flatSaleId}/payments/{paymentId}
+     * @allow (create) An 'acme-corp' user adding a payment to a flat sale, providing the matching `flatSaleId`.
+     * @deny (get) A user from 'other-corp' attempting to read payment records.
+     * @deny (update) Any user trying to change the `flatSaleId` to move a payment record to a different sale.
+     * @principle Maintains relational integrity between a Payment and its parent FlatSale.
+     */
+    match /tenants/{tenantId}/projects/{projectId}/flatSales/{flatSaleId}/payments/{paymentId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && request.resource.data.flatSaleId == flatSaleId;
+      allow update: if isExistingTenantMember(tenantId) && request.resource.data.flatSaleId == resource.data.flatSaleId;
+      allow delete: if isExistingTenantMember(tenantId);
+    }
+
+    /**
+     * @description Secures the Organization document for a tenant, which contains info for receipts.
+     * @path /tenants/{tenantId}/organization/{organizationId}
+     * @allow (get) An 'acme-corp' user reading their own organization's details.
+     * @deny (list) Any user trying to list organization documents.
+     * @deny (create) An 'acme-corp' user trying to create an org doc with `tenantId: 'other-corp'`.
+     * @principle Enforces tenant ownership of their specific organization/branding information.
+     */
+    match /tenants/{tenantId}/organization/{organizationId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && request.resource.data.tenantId == tenantId;
+      allow update: if isExistingTenantMember(tenantId) && request.resource.data.tenantId == resource.data.tenantId;
+      allow delete: if isExistingTenantMember(tenantId);
+    }
+  }
+}

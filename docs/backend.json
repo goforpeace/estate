@@ -1,0 +1,500 @@
+{
+  "entities": {
+    "Tenant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tenant",
+      "type": "object",
+      "description": "Represents a tenant in the real estate management system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Tenant entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the tenant."
+        },
+        "domain": {
+          "type": "string",
+          "description": "The domain associated with the tenant."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Indicates whether the tenant account is enabled."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "domain",
+        "enabled"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user within a tenant's organization.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N User)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "The phone number of the user."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name",
+        "email"
+      ]
+    },
+    "Project": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Project",
+      "type": "object",
+      "description": "Represents a real estate project.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Project entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Project)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the project."
+        },
+        "location": {
+          "type": "string",
+          "description": "The location of the project."
+        },
+        "targetSell": {
+          "type": "number",
+          "description": "The target selling price of the project."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the project (Ongoing, Upcoming, Completed)."
+        },
+        "expectedHandoverDate": {
+          "type": "string",
+          "description": "The expected handover date of the project.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name",
+        "location",
+        "targetSell",
+        "status",
+        "expectedHandoverDate"
+      ]
+    },
+    "Flat": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Flat",
+      "type": "object",
+      "description": "Represents a flat within a project.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Flat entity."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project. (Relationship: Project 1:N Flat)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name/identifier of the flat (e.g., 2A, 3A)."
+        },
+        "sizeSft": {
+          "type": "number",
+          "description": "The size of the flat in square feet."
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "name",
+        "sizeSft"
+      ]
+    },
+    "Customer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Customer",
+      "type": "object",
+      "description": "Represents a customer.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Customer entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Customer)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the customer."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The phone number of the customer."
+        },
+        "address": {
+          "type": "string",
+          "description": "The address of the customer."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name",
+        "phoneNumber",
+        "address"
+      ]
+    },
+    "FlatSale": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FlatSale",
+      "type": "object",
+      "description": "Represents the sale of a flat to a customer.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FlatSale entity."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project. (Relationship: Project 1:N FlatSale)"
+        },
+        "flatId": {
+          "type": "string",
+          "description": "Reference to Flat. (Relationship: Flat 1:N FlatSale)"
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to Customer. (Relationship: Customer 1:N FlatSale)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The total amount of the flat sale."
+        },
+        "perSftPrice": {
+          "type": "number",
+          "description": "The price per square foot."
+        },
+        "parkingPrice": {
+          "type": "number",
+          "description": "The price of parking."
+        },
+        "utilityCost": {
+          "type": "number",
+          "description": "The utility cost."
+        },
+        "note": {
+          "type": "string",
+          "description": "Additional notes about the sale."
+        },
+        "deedLink": {
+          "type": "string",
+          "description": "Link to the deed document.",
+          "format": "uri"
+        },
+        "bookingMoney": {
+          "type": "number",
+          "description": "The amount of booking money."
+        },
+        "monthlyInstallment": {
+          "type": "number",
+          "description": "The amount of monthly installment."
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "flatId",
+        "customerId",
+        "amount",
+        "perSftPrice"
+      ]
+    },
+    "Payment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payment",
+      "type": "object",
+      "description": "Represents a payment made for a flat sale.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Payment entity."
+        },
+        "flatSaleId": {
+          "type": "string",
+          "description": "Reference to FlatSale. (Relationship: FlatSale 1:N Payment)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the payment."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of payment (cash, cheque, bank transfer)."
+        },
+        "reference": {
+          "type": "string",
+          "description": "The payment reference number."
+        },
+        "paymentDate": {
+          "type": "string",
+          "description": "The date of the payment.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "flatSaleId",
+        "amount",
+        "type",
+        "reference",
+        "paymentDate"
+      ]
+    },
+    "Organization": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Organization",
+      "type": "object",
+      "description": "Represents the organization's information for receipt generation.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Organization entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:1 Organization)"
+        },
+        "logoLink": {
+          "type": "string",
+          "description": "Link to the organization's logo image.",
+          "format": "uri"
+        },
+        "companyName": {
+          "type": "string",
+          "description": "The name of the company."
+        },
+        "website": {
+          "type": "string",
+          "description": "The website of the company.",
+          "format": "uri"
+        },
+        "address": {
+          "type": "string",
+          "description": "The address of the company."
+        },
+        "phone": {
+          "type": "string",
+          "description": "The phone number of the company."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the company.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "companyName",
+        "address",
+        "phone",
+        "email"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/tenants/{tenantId}",
+        "definition": {
+          "entityName": "Tenant",
+          "schema": {
+            "$ref": "#/backend/entities/Tenant"
+          },
+          "description": "Stores tenant information. Used for managing tenant accounts and access.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/projects/{projectId}",
+        "definition": {
+          "entityName": "Project",
+          "schema": {
+            "$ref": "#/backend/entities/Project"
+          },
+          "description": "Stores project details. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "projectId",
+              "description": "Unique identifier for the project."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/projects/{projectId}/flats/{flatId}",
+        "definition": {
+          "entityName": "Flat",
+          "schema": {
+            "$ref": "#/backend/entities/Flat"
+          },
+          "description": "Stores flat details. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "projectId",
+              "description": "Unique identifier for the project."
+            },
+            {
+              "name": "flatId",
+              "description": "Unique identifier for the flat."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/customers/{customerId}",
+        "definition": {
+          "entityName": "Customer",
+          "schema": {
+            "$ref": "#/backend/entities/Customer"
+          },
+          "description": "Stores customer information. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "customerId",
+              "description": "Unique identifier for the customer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/projects/{projectId}/flatSales/{flatSaleId}",
+        "definition": {
+          "entityName": "FlatSale",
+          "schema": {
+            "$ref": "#/backend/entities/FlatSale"
+          },
+          "description": "Stores flat sale information. Includes denormalized 'tenantId' and 'projectId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "projectId",
+              "description": "Unique identifier for the project."
+            },
+            {
+              "name": "flatSaleId",
+              "description": "Unique identifier for the flat sale."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/projects/{projectId}/flatSales/{flatSaleId}/payments/{paymentId}",
+        "definition": {
+          "entityName": "Payment",
+          "schema": {
+            "$ref": "#/backend/entities/Payment"
+          },
+          "description": "Stores payment information. Includes denormalized 'tenantId' and 'projectId' and 'flatSaleId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "projectId",
+              "description": "Unique identifier for the project."
+            },
+            {
+              "name": "flatSaleId",
+              "description": "Unique identifier for the flat sale."
+            },
+            {
+              "name": "paymentId",
+              "description": "Unique identifier for the payment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/organization/{organizationId}",
+        "definition": {
+          "entityName": "Organization",
+          "schema": {
+            "$ref": "#/backend/entities/Organization"
+          },
+          "description": "Stores organization information. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "organizationId",
+              "description": "Unique identifier for the organization. Should only be one per tenant."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support a multi-tenant real estate management SaaS application, focusing on authorization independence, scalability, and clear security rules.  Tenants are isolated from each other using a top-level `tenants` collection. Each tenant owns projects, customers, flats, flat sales, payments and organization data.  This design enables efficient querying and avoids complex rule logic. Each tenant has its own set of users managed via Firebase Authentication.\n\nAuthorization Independence: Achieved by storing the `tenantId` within each document that belongs to a tenant (Projects, Customers, Flats, FlatSales, Payments, Organization). This eliminates the need for `get()` calls in security rules to verify tenant ownership, thus improving performance and simplifying rule complexity. FlatSales also store `projectId` to ensure data integrity and simplify queries.\n\nQAPs Support:\n*   Secure List Operations: Path-based ownership (/tenants/{tenantId}/projects/{projectId}) enables secure listing of resources within a tenant's scope.\n*   Tenant Isolation: The structure inherently isolates data between tenants, preventing unauthorized access.\n*   Role-Based Access Control (Future Enhancement): While the current design uses path-based ownership, a membership map (`members: {uid: role}`) could be added to Project or other collections for collaborative access within a tenant, if required in the future. This would require denormalizing the members map into subcollections for authorization independence."
+  }
+}
