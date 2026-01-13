@@ -9,7 +9,7 @@ import {
     SidebarMenuButton,
     SidebarFooter
   } from "@/components/ui/sidebar"
-import { Building2, LayoutDashboard, Users, Waypoints, HandCoins, Settings, LogOut } from "lucide-react"
+import { Building2, LayoutDashboard, Users, Waypoints, HandCoins, Settings, LogOut, CreditCard } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -18,7 +18,7 @@ const navItems = [
     { href: "/projects", icon: Waypoints, label: "Projects" },
     { href: "/customers", icon: Users, label: "Customers" },
     { href: "/sales", icon: HandCoins, label: "Flat Sale" },
-    { href: "/payments", icon: "CreditCard", label: "Payments" }, // Using string for example
+    { href: "/payments", icon: CreditCard, label: "Payments" },
     { href: "/organization", icon: Settings, label: "Organization" },
 ]
 
@@ -27,7 +27,7 @@ const icons: { [key: string]: React.ElementType } = {
   Waypoints,
   Users,
   HandCoins,
-  CreditCard: HandCoins, // Fallback
+  CreditCard,
   Settings,
 };
 
@@ -81,3 +81,5 @@ export function AppSidebar({ tenantId }: { tenantId: string }) {
         </Sidebar>
     )
 }
+
+    

@@ -1,72 +1,86 @@
-'use client'
+'use client';
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Printer } from "lucide-react";
+import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { Loader2, Printer } from "lucide-react";
+import { doc } from "firebase/firestore";
 import Image from "next/image";
-import { useEffect } from "react";
-import { notFound } from "next/navigation";
+import { useSearchParams, useParams, notFound } from "next/navigation";
+import { useMemo } from "react";
+import { format } from "date-fns";
 
-// Since mock data is removed, we'll need placeholders
-const organization = {
-    logoUrl: 'https://picsum.photos/seed/102/200/60',
-    address: '123 Business Ave, Dhaka',
-    phone: 'N/A',
-    email: 'N/A',
-    name: 'Your Company'
-};
+// --- Type Definitions ---
+type Organization = { name: string; logoUrl?: string; address: string; phone: string; email: string; website?: string; };
+type Project = { name: string; flats: { name: string; sizeSft: number }[] };
+type Customer = { name: string; address: string; phoneNumber: string; };
+type FlatSale = { projectId: string; customerId: string; flatName: string; };
+type Payment = { amount: number; type: string; reference?: string; paymentDate: string; };
 
-export default function ReceiptPage({ params }: { params: { paymentId: string } }) {
+export default function ReceiptPage() {
+    const params = useParams();
+    const searchParams = useSearchParams();
+    const tenantId = params.tenantId as string;
+    const paymentId = params.paymentId as string;
+    const saleId = searchParams.get('saleId');
+
+    const firestore = useFirestore();
+
+    // --- Data Fetching Hooks ---
+    const orgRef = useMemoFirebase(() => doc(firestore, `tenants/${tenantId}/organization`, 'details'), [firestore, tenantId]);
+    const { data: organization, isLoading: orgLoading } = useDoc<Organization>(orgRef);
+
+    const saleRef = useMemoFirebase(() => saleId ? doc(firestore, `tenants/${tenantId}/flatSales`, saleId) : null, [firestore, tenantId, saleId]);
+    const { data: sale, isLoading: saleLoading } = useDoc<FlatSale>(saleRef);
+
+    const paymentRef = useMemoFirebase(() => saleId ? doc(firestore, `tenants/${tenantId}/flatSales/${saleId}/payments`, paymentId) : null, [firestore, tenantId, saleId, paymentId]);
+    const { data: payment, isLoading: paymentLoading } = useDoc<Payment>(paymentRef);
+
+    const projectRef = useMemoFirebase(() => sale ? doc(firestore, `tenants/${tenantId}/projects`, sale.projectId) : null, [firestore, tenantId, sale]);
+    const { data: project, isLoading: projectLoading } = useDoc<Project>(projectRef);
     
-    useEffect(() => {
-        // This is a placeholder for print functionality
-        // window.print();
-    }, []);
+    const customerRef = useMemoFirebase(() => sale ? doc(firestore, `tenants/${tenantId}/customers`, sale.customerId) : null, [firestore, tenantId, sale]);
+    const { data: customer, isLoading: customerLoading } = useDoc<Customer>(customerRef);
 
-    // Since there's no mock data, we cannot find a payment.
-    // In a real app, this would fetch from Firestore and show a not-found page if it fails.
-    const payment = null; // payments.find(p => p.id === params.paymentId);
-    
-    if (!payment) {
-        // A real implementation would show a more graceful loading/error state
-        // before concluding notFound. For now, we simulate it not being found.
-        // To see the receipt layout, you would need to implement Firestore fetching first.
+    const isLoading = orgLoading || saleLoading || paymentLoading || projectLoading || customerLoading;
+
+    // --- Memoized Derived Data ---
+    const flatDetails = useMemo(() => {
+        if (!project || !sale) return null;
+        return project.flats.find(f => f.name === sale.flatName);
+    }, [project, sale]);
+
+    const handlePrint = () => {
+        window.print();
+    };
+
+    // --- Render Logic ---
+    if (isLoading) {
         return (
-            <div className="p-8 text-center">
-                <h1 className="text-2xl font-bold">Payment Not Found</h1>
-                <p className="text-muted-foreground">This receipt could not be loaded. Please implement data fetching from Firestore.</p>
-                 <Button asChild className="mt-4">
-                    <a href
-                    ="javascript:history.back()">Go Back</a>
-                </Button>
+            <div className="flex h-screen items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-2">Generating Receipt...</p>
             </div>
         );
     }
     
-    // The rest of this component will not render until the above `if` block is modified
-    // after implementing data fetching.
-    const sale = null;
-    const customer = null;
-    const project = null;
-    const flat = null;
-
-    const handlePrint = () => {
-        window.print();
+    if (!payment || !sale || !customer || !project || !organization) {
+        notFound();
     }
 
     return (
-        <div className="bg-gray-100 min-h-screen p-4 sm:p-8 flex flex-col items-center">
-            <div className="w-full max-w-4xl bg-white shadow-lg p-8 sm:p-12" id="receipt">
+        <div className="bg-gray-100 dark:bg-gray-900 min-h-screen p-4 sm:p-8 flex flex-col items-center print:bg-white">
+            <div className="w-full max-w-4xl bg-white dark:bg-background shadow-lg p-8 sm:p-12 print:shadow-none print:p-0" id="receipt">
                 <header className="flex justify-between items-start mb-8">
                     <div>
-                        <Image src={organization.logoUrl} alt="Company Logo" width={180} height={50} data-ai-hint="company logo"/>
+                        {organization.logoUrl && <Image src={organization.logoUrl} alt="Company Logo" width={180} height={50} data-ai-hint="company logo" className="object-contain"/>}
                         <p className="text-xs text-gray-500 mt-2">{organization.address}</p>
-                         <p className="text-xs text-gray-500">{organization.phone} | {organization.email}</p>
+                        <p className="text-xs text-gray-500">{organization.phone} | {organization.email}</p>
                     </div>
                     <div className="text-right">
                         <h1 className="text-3xl font-bold text-primary font-headline">MONEY RECEIPT</h1>
-                        <p className="text-sm">Receipt No: <span className="font-mono">{/*{payment.id.toUpperCase()}*/}</span></p>
-                        <p className="text-sm">Date: <span className="font-mono">{/*{new Date(payment.paymentDate).toLocaleDateString('en-GB')}*/}</span></p>
+                        <p className="text-sm">Receipt No: <span className="font-mono">{payment.id.slice(0, 8).toUpperCase()}</span></p>
+                        <p className="text-sm">Date: <span className="font-mono">{format(new Date(payment.paymentDate), 'dd/MM/yyyy')}</span></p>
                     </div>
                 </header>
 
@@ -75,15 +89,15 @@ export default function ReceiptPage({ params }: { params: { paymentId: string } 
                 <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm mb-8">
                     <div>
                         <h2 className="font-bold mb-2 font-headline text-primary">BILLED TO</h2>
-                        <p className="font-semibold">{customer?.name}</p>
-                        <p>{customer?.address}</p>
-                        <p>Phone: {customer?.phone}</p>
+                        <p className="font-semibold">{customer.name}</p>
+                        <p>{customer.address}</p>
+                        <p>Phone: {customer.phoneNumber}</p>
                     </div>
                     <div className="text-right">
                          <h2 className="font-bold mb-2 font-headline text-primary">PROPERTY DETAILS</h2>
-                        <p>Project: <span className="font-semibold">{project?.name}</span></p>
-                        <p>Flat No: <span className="font-semibold">{flat?.name}</span></p>
-                         <p>Size: <span className="font-semibold">{flat?.size} sft</span></p>
+                        <p>Project: <span className="font-semibold">{project.name}</span></p>
+                        <p>Flat No: <span className="font-semibold">{sale.flatName}</span></p>
+                         <p>Size: <span className="font-semibold">{flatDetails?.sizeSft} sft</span></p>
                     </div>
                 </div>
 
@@ -96,8 +110,8 @@ export default function ReceiptPage({ params }: { params: { paymentId: string } 
                     </thead>
                     <tbody>
                         <tr className="border-b">
-                            <td className="p-3">Payment via {/*payment.type*/} (Ref: {/*payment.reference*/})</td>
-                            <td className="p-3 text-right font-mono">{/*payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })*/}</td>
+                            <td className="p-3">Payment via {payment.type} {payment.reference && `(Ref: ${payment.reference})`}</td>
+                            <td className="p-3 text-right font-mono">{payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -106,12 +120,12 @@ export default function ReceiptPage({ params }: { params: { paymentId: string } 
                     <div className="w-full max-w-xs">
                         <div className="flex justify-between text-sm py-2">
                             <span>Subtotal</span>
-                            <span className="font-mono">{/*payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })*/}</span>
+                            <span className="font-mono">{payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                         </div>
                         <Separator />
                         <div className="flex justify-between font-bold text-lg py-3 bg-primary text-primary-foreground px-2 rounded-md mt-2">
                             <span>TOTAL PAID</span>
-                            <span className="font-mono">৳ {/*payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })*/}</span>
+                            <span className="font-mono">৳ {payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                         </div>
                     </div>
                 </div>
@@ -127,7 +141,7 @@ export default function ReceiptPage({ params }: { params: { paymentId: string } 
                     </div>
                 </div>
 
-                <p className="text-center text-xs text-gray-500 mt-8">Thank you for your business!</p>
+                <p className="text-center text-xs text-gray-500 mt-8">Thank you for your business! | {organization.website}</p>
             </div>
              <div className="mt-4 w-full max-w-4xl text-right print:hidden">
                 <Button onClick={handlePrint} className="gap-2">
@@ -138,3 +152,5 @@ export default function ReceiptPage({ params }: { params: { paymentId: string } 
         </div>
     );
 }
+
+    

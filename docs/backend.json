@@ -263,16 +263,17 @@
         },
         "type": {
           "type": "string",
-          "description": "The type of payment (cash, cheque, bank transfer)."
+          "description": "The type of payment.",
+          "enum": ["Cash", "Cheque", "Bank Transfer"]
         },
         "reference": {
           "type": "string",
-          "description": "The payment reference number."
+          "description": "The payment reference number (e.g., cheque number, transaction ID)."
         },
         "paymentDate": {
           "type": "string",
           "description": "The date of the payment.",
-          "format": "date-time"
+          "format": "date"
         }
       },
       "required": [
@@ -280,7 +281,6 @@
         "flatSaleId",
         "amount",
         "type",
-        "reference",
         "paymentDate"
       ]
     },
@@ -292,18 +292,18 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Organization entity."
+          "description": "Unique identifier for the Organization entity. Only one per tenant."
         },
         "tenantId": {
           "type": "string",
           "description": "Reference to Tenant. (Relationship: Tenant 1:1 Organization)"
         },
-        "logoLink": {
+        "logoUrl": {
           "type": "string",
           "description": "Link to the organization's logo image.",
           "format": "uri"
         },
-        "companyName": {
+        "name": {
           "type": "string",
           "description": "The name of the company."
         },
@@ -329,7 +329,7 @@
       "required": [
         "id",
         "tenantId",
-        "companyName",
+        "name",
         "address",
         "phone",
         "email"
@@ -451,7 +451,7 @@
           "schema": {
             "$ref": "#/backend/entities/Organization"
           },
-          "description": "Stores organization information. Includes denormalized 'tenantId' for authorization independence.",
+          "description": "Stores organization information. This is a single document per tenant, so a fixed document ID can be used.",
           "params": [
             {
               "name": "tenantId",
@@ -459,7 +459,7 @@
             },
             {
               "name": "organizationId",
-              "description": "Unique identifier for the organization. Should only be one per tenant."
+              "description": "A fixed unique identifier for the organization document, e.g., 'details'."
             }
           ]
         }
@@ -468,3 +468,5 @@
     "reasoning": "The Firestore structure is designed to support a multi-tenant real estate management SaaS application, focusing on authorization independence, scalability, and clear security rules.  Tenants are isolated from each other using a top-level `tenants` collection. Each tenant owns projects, customers, flat sales, payments and organization data. This design enables efficient querying and avoids complex rule logic. Each tenant has its own set of users managed via Firebase Authentication.\n\nAuthorization Independence: Achieved by storing the `tenantId` within each document that belongs to a tenant (Projects, Customers, FlatSales, Payments, Organization). This eliminates the need for `get()` calls in security rules to verify tenant ownership, thus improving performance and simplifying rule complexity. FlatSales also store `projectId` and `customerId` to simplify queries and avoid expensive collection group queries where possible.\n\nQAPs Support:\n*   Secure List Operations: Path-based ownership (/tenants/{tenantId}/projects/{projectId}) and root collections with tenantId fields enable secure listing of resources within a tenant's scope.\n*   Tenant Isolation: The structure inherently isolates data between tenants, preventing unauthorized access.\n*   Role-Based Access Control (Future Enhancement): While the current design uses path-based ownership, a membership map (`members: {uid: role}`) could be added to Project or other collections for collaborative access within a tenant, if required in the future."
   }
 }
+
+    
