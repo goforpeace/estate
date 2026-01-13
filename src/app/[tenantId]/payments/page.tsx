@@ -33,6 +33,7 @@ const paymentSchema = z.object({
   flatSaleId: z.string().min(1, "A sold flat must be selected."),
   amount: z.coerce.number().min(1, "Payment amount must be greater than 0."),
   type: z.enum(["Cash", "Cheque", "Bank Transfer"]),
+  paymentFor: z.enum(["Booking Money", "Installment"]),
   paymentDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid payment date is required." }),
   reference: z.string().optional(),
 });
@@ -61,6 +62,7 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
             flatSaleId: '',
             amount: 0,
             type: 'Cash',
+            paymentFor: 'Installment',
             paymentDate: format(new Date(), 'yyyy-MM-dd'),
             reference: '',
         },
@@ -192,7 +194,24 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
                                     </FormItem>
                                 )}
                             />
-                            <FormField control={form.control} name="reference" render={({ field }) => (<FormItem><FormLabel>Reference</FormLabel><FormControl><Input placeholder="Cheque No. / TXN ID" {...field} /></FormControl><FormDescription className="text-xs">Optional. e.g., Cheque No.</FormDescription><FormMessage /></FormItem>)} />
+                            <FormField
+                                control={form.control}
+                                name="paymentFor"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Payment For</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="Booking Money">Booking Money</SelectItem>
+                                                <SelectItem value="Installment">Installment</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField control={form.control} name="reference" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Reference</FormLabel><FormControl><Input placeholder="Cheque No. / TXN ID" {...field} /></FormControl><FormDescription className="text-xs">Optional. e.g., Cheque No.</FormDescription><FormMessage /></FormItem>)} />
                         </div>
                     </div>
                 </ScrollArea>
@@ -311,6 +330,7 @@ export default function PaymentsPage({ params }: { params: { tenantId: string } 
               <TableRow>
                 <TableHead>Customer</TableHead>
                 <TableHead>Project</TableHead>
+                <TableHead>For</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="text-right">Amount (TK)</TableHead>
@@ -319,7 +339,7 @@ export default function PaymentsPage({ params }: { params: { tenantId: string } 
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="h-24 text-center">Loading payments...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="h-24 text-center">Loading payments...</TableCell></TableRow>
               ) : paymentsWithDetails.length > 0 ? (
                 paymentsWithDetails.map((payment) => {
                   const sale = sales?.find(s => s.id === payment.flatSaleId);
@@ -327,6 +347,7 @@ export default function PaymentsPage({ params }: { params: { tenantId: string } 
                   <TableRow key={payment.id}>
                     <TableCell className="font-medium">{payment.customerName}</TableCell>
                     <TableCell>{payment.projectName}</TableCell>
+                    <TableCell>{payment.paymentFor}</TableCell>
                     <TableCell>{format(new Date(payment.paymentDate), 'dd/MM/yyyy')}</TableCell>
                     <TableCell>{payment.type}</TableCell>
                     <TableCell className="text-right font-mono">{payment.amount.toLocaleString('en-IN')}</TableCell>
@@ -350,7 +371,7 @@ export default function PaymentsPage({ params }: { params: { tenantId: string } 
                   </TableRow>
                 )})
               ) : (
-                <TableRow><TableCell colSpan={6} className="h-24 text-center">No payments recorded yet.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="h-24 text-center">No payments recorded yet.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -359,3 +380,5 @@ export default function PaymentsPage({ params }: { params: { tenantId: string } 
     </>
   );
 }
+
+    
