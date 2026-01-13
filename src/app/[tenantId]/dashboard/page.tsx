@@ -1,14 +1,15 @@
+'use client';
+
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { projects, sales } from "@/lib/data";
 import { DollarSign, Building2, TrendingUp, CalendarCheck } from "lucide-react";
 
 export default function DashboardPage() {
 
-    const totalRevenue = sales.reduce((acc, sale) => acc + sale.amount, 0);
-    const totalProjects = projects.length;
-    const propertiesSold = sales.length;
-    const upcomingHandovers = projects.filter(p => p.status === 'Ongoing').length;
+    const totalRevenue = 0;
+    const totalProjects = 0;
+    const propertiesSold = 0;
+    const upcomingHandovers = 0;
 
     const summaryCards = [
         { title: "Total Revenue", value: `৳${(totalRevenue / 1000000).toFixed(2)}M`, icon: DollarSign, description: "All-time revenue" },

@@ -1,26 +1,54 @@
 'use client'
 
-import { payments, sales, customers, projects, organization } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Printer } from "lucide-react";
 import Image from "next/image";
 import { useEffect } from "react";
+import { notFound } from "next/navigation";
+
+// Since mock data is removed, we'll need placeholders
+const organization = {
+    logoUrl: 'https://picsum.photos/seed/102/200/60',
+    address: '123 Business Ave, Dhaka',
+    phone: 'N/A',
+    email: 'N/A',
+    name: 'Your Company'
+};
 
 export default function ReceiptPage({ params }: { params: { paymentId: string } }) {
     
     useEffect(() => {
-        // Automatically trigger print dialog when component mounts
+        // This is a placeholder for print functionality
         // window.print();
     }, []);
 
-    const payment = payments.find(p => p.id === params.paymentId);
-    if (!payment) return <div className="p-8">Payment not found.</div>;
+    // Since there's no mock data, we cannot find a payment.
+    // In a real app, this would fetch from Firestore and show a not-found page if it fails.
+    const payment = null; // payments.find(p => p.id === params.paymentId);
     
-    const sale = sales.find(s => s.id === payment.saleId);
-    const customer = customers.find(c => c.id === sale?.customerId);
-    const project = projects.find(p => p.id === sale?.projectId);
-    const flat = project?.flats.find(f => f.id === sale?.flatId);
+    if (!payment) {
+        // A real implementation would show a more graceful loading/error state
+        // before concluding notFound. For now, we simulate it not being found.
+        // To see the receipt layout, you would need to implement Firestore fetching first.
+        return (
+            <div className="p-8 text-center">
+                <h1 className="text-2xl font-bold">Payment Not Found</h1>
+                <p className="text-muted-foreground">This receipt could not be loaded. Please implement data fetching from Firestore.</p>
+                 <Button asChild className="mt-4">
+                    <a href
+                    ="javascript:history.back()">Go Back</a>
+                </Button>
+            </div>
+        );
+    }
+    
+    // The rest of this component will not render until the above `if` block is modified
+    // after implementing data fetching.
+    const sale = null;
+    const customer = null;
+    const project = null;
+    const flat = null;
 
     const handlePrint = () => {
         window.print();
@@ -37,8 +65,8 @@ export default function ReceiptPage({ params }: { params: { paymentId: string } 
                     </div>
                     <div className="text-right">
                         <h1 className="text-3xl font-bold text-primary font-headline">MONEY RECEIPT</h1>
-                        <p className="text-sm">Receipt No: <span className="font-mono">{payment.id.toUpperCase()}</span></p>
-                        <p className="text-sm">Date: <span className="font-mono">{new Date(payment.paymentDate).toLocaleDateString('en-GB')}</span></p>
+                        <p className="text-sm">Receipt No: <span className="font-mono">{/*{payment.id.toUpperCase()}*/}</span></p>
+                        <p className="text-sm">Date: <span className="font-mono">{/*{new Date(payment.paymentDate).toLocaleDateString('en-GB')}*/}</span></p>
                     </div>
                 </header>
 
@@ -68,8 +96,8 @@ export default function ReceiptPage({ params }: { params: { paymentId: string } 
                     </thead>
                     <tbody>
                         <tr className="border-b">
-                            <td className="p-3">Payment via {payment.type} (Ref: {payment.reference})</td>
-                            <td className="p-3 text-right font-mono">{payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td className="p-3">Payment via {/*payment.type*/} (Ref: {/*payment.reference*/})</td>
+                            <td className="p-3 text-right font-mono">{/*payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })*/}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -78,12 +106,12 @@ export default function ReceiptPage({ params }: { params: { paymentId: string } 
                     <div className="w-full max-w-xs">
                         <div className="flex justify-between text-sm py-2">
                             <span>Subtotal</span>
-                            <span className="font-mono">{payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span className="font-mono">{/*payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })*/}</span>
                         </div>
                         <Separator />
                         <div className="flex justify-between font-bold text-lg py-3 bg-primary text-primary-foreground px-2 rounded-md mt-2">
                             <span>TOTAL PAID</span>
-                            <span className="font-mono">৳ {payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span className="font-mono">৳ {/*payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })*/}</span>
                         </div>
                     </div>
                 </div>

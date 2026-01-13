@@ -5,8 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { organization as mockOrganization } from "@/lib/data";
 import Image from "next/image";
+
+// Placeholder for organization data, which will come from Firestore.
+const mockOrganization = {
+    logoUrl: 'https://picsum.photos/seed/102/200/60',
+    name: '',
+    website: '',
+    phone: '',
+    email: '',
+    address: ''
+}
 
 export default function OrganizationPage() {
   return (
@@ -29,30 +38,30 @@ export default function OrganizationPage() {
                     />
                     <div className="grid gap-2 flex-1">
                         <Label htmlFor="logo-url">Logo Link</Label>
-                        <Input id="logo-url" defaultValue={mockOrganization.logoUrl} />
+                        <Input id="logo-url" defaultValue={mockOrganization.logoUrl} placeholder="https://example.com/logo.png" />
                     </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                     <div className="grid gap-2">
                         <Label htmlFor="company-name">Company Name</Label>
-                        <Input id="company-name" defaultValue={mockOrganization.name} />
+                        <Input id="company-name" defaultValue={mockOrganization.name} placeholder="Your Company LLC" />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="website">Website</Label>
-                        <Input id="website" defaultValue={mockOrganization.website} />
+                        <Input id="website" defaultValue={mockOrganization.website} placeholder="https://yourcompany.com" />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="phone">Phone</Label>
-                        <Input id="phone" defaultValue={mockOrganization.phone} />
+                        <Input id="phone" defaultValue={mockOrganization.phone} placeholder="+1 (555) 123-4567" />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" defaultValue={mockOrganization.email} />
+                        <Input id="email" type="email" defaultValue={mockOrganization.email} placeholder="contact@yourcompany.com" />
                     </div>
                      <div className="grid gap-2 md:col-span-2">
                         <Label htmlFor="address">Address</Label>
-                        <Input id="address" defaultValue={mockOrganization.address} />
+                        <Input id="address" defaultValue={mockOrganization.address} placeholder="123 Main St, Anytown USA" />
                     </div>
                 </div>
             </CardContent>

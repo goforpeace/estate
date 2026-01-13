@@ -7,13 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { projects, customers } from "@/lib/data";
 import { useState } from "react";
+
+// Mock data has been removed. These should be empty arrays.
+// Data will be fetched from Firestore.
+const projects: any[] = [];
+const customers: any[] = [];
 
 export default function SalesPage() {
     const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
     const selectedProject = projects.find(p => p.id === selectedProjectId);
-    const availableFlats = selectedProject?.flats.filter(f => f.status === 'available');
+    const availableFlats = selectedProject?.flats.filter((f:any) => f.status === 'available');
 
   return (
     <>
@@ -26,7 +30,7 @@ export default function SalesPage() {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="space-y-2">
                 <Label htmlFor="project">Project</Label>
-                 <Select onValueChange={setSelectedProjectId}>
+                 <Select onValueChange={setSelectedProjectId} disabled={projects.length === 0}>
                     <SelectTrigger id="project">
                         <SelectValue placeholder="Select a project" />
                     </SelectTrigger>
@@ -40,12 +44,12 @@ export default function SalesPage() {
 
             <div className="space-y-2">
                 <Label htmlFor="flat">Available Flat</Label>
-                 <Select disabled={!selectedProject}>
+                 <Select disabled={!selectedProject || !availableFlats || availableFlats.length === 0}>
                     <SelectTrigger id="flat">
                         <SelectValue placeholder="Select a flat" />
                     </SelectTrigger>
                     <SelectContent>
-                        {availableFlats?.map(flat => (
+                        {availableFlats?.map((flat:any) => (
                              <SelectItem key={flat.id} value={flat.id}>{flat.name} ({flat.size} sft)</SelectItem>
                         ))}
                     </SelectContent>
@@ -54,7 +58,7 @@ export default function SalesPage() {
             
             <div className="space-y-2">
                 <Label htmlFor="customer">Customer</Label>
-                 <Select>
+                 <Select disabled={customers.length === 0}>
                     <SelectTrigger id="customer">
                         <SelectValue placeholder="Select a customer" />
                     </SelectTrigger>
