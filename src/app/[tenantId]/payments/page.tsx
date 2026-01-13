@@ -44,13 +44,20 @@ type Payment = PaymentFormData & { id: string; };
 function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers, paymentsBySale }: { tenantId: string; onFinished: () => void; payment?: Payment; sales: FlatSale[]; projects: Project[]; customers: Customer[], paymentsBySale: Record<string, Payment[]> }) {
     const firestore = useFirestore();
     const { toast } = useToast();
+    
+    // Create a new form schema that includes a temporary projectId field
+    const formSchema = paymentSchema.extend({
+        projectId: z.string().optional(),
+    });
 
-    const form = useForm<PaymentFormData>({
-        resolver: zodResolver(paymentSchema),
+    const form = useForm<z.infer<typeof formSchema>>({
+        resolver: zodResolver(formSchema),
         defaultValues: payment ? {
             ...payment,
+            projectId: sales.find(s => s.id === payment.flatSaleId)?.projectId,
             paymentDate: format(new Date(payment.paymentDate), 'yyyy-MM-dd'),
         } : {
+            projectId: '',
             flatSaleId: '',
             amount: 0,
             type: 'Cash',
@@ -59,9 +66,15 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
         },
     });
 
+    const selectedProjectId = form.watch('projectId');
     const selectedSaleId = form.watch('flatSaleId');
     const selectedSale = useMemo(() => sales.find(s => s.id === selectedSaleId), [sales, selectedSaleId]);
     
+    const availableSalesInProject = useMemo(() => {
+        if (!selectedProjectId) return [];
+        return sales.filter(s => s.projectId === selectedProjectId);
+    }, [sales, selectedProjectId]);
+
     const { dueAmount, project, customer } = useMemo(() => {
         if (!selectedSale) return { dueAmount: 0, project: null, customer: null };
 
@@ -105,27 +118,51 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
             <form onSubmit={form.handleSubmit(onSubmit)}>
                 <ScrollArea className="h-[70vh] p-1 pr-4">
                     <div className="space-y-4 p-4 pt-0">
-                        <FormField
-                            control={form.control}
-                            name="flatSaleId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Sold Property</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={sales.length === 0 || !!payment}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Select a project/flat..." /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {sales.map(sale => {
-                                                const proj = projects.find(p => p.id === sale.projectId);
-                                                return <SelectItem key={sale.id} value={sale.id}>{proj?.name} - {sale.flatName}</SelectItem>
-                                            })}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="projectId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Project</FormLabel>
+                                        <Select onValueChange={(value) => {
+                                            field.onChange(value);
+                                            form.setValue('flatSaleId', ''); // Reset flat selection
+                                        }} defaultValue={field.value} disabled={projects.length === 0 || !!payment}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name="flatSaleId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Sold Flat</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId || availableSalesInProject.length === 0 || !!payment}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Select a sold flat" /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {availableSalesInProject.map(sale => {
+                                                    const cust = customers.find(c => c.id === sale.customerId);
+                                                    return <SelectItem key={sale.id} value={sale.id}>{sale.flatName} ({cust?.name})</SelectItem>
+                                                })}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                        
                         {selectedSale && (
                             <Card className="bg-muted/50">
                                 <CardContent className="pt-4 text-sm space-y-2">
