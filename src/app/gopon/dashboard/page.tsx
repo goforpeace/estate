@@ -9,12 +9,13 @@ import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
-import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 // Matches the Tenant entity in backend.json, but 'id' will be the document ID.
 export type Tenant = {
@@ -99,13 +100,23 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
 export default function AdminDashboard() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
   
   const tenantsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    // Only query if the user is authenticated and is the admin
+    if (!firestore || !user) return null;
     return collection(firestore, 'tenants');
-  }, [firestore]);
+  }, [firestore, user]);
 
-  const { data: tenants, isLoading, error } = useCollection<Tenant>(tenantsQuery);
+  const { data: tenants, isLoading: isTenantsLoading, error } = useCollection<Tenant>(tenantsQuery);
+  const isLoading = isUserLoading || isTenantsLoading;
+
+  // If user is not logged in after check, redirect to login
+  if (!isUserLoading && !user) {
+    router.push('/gopon');
+    return null;
+  }
 
   const toggleTenantStatus = (id: string, currentStatus: boolean) => {
     if (!firestore) return;
