@@ -224,7 +224,8 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
     );
 }
 
-export default function PaymentsPage({ params }: { params: { tenantId: string } }) {
+export default function PaymentsPage() {
+  const params = useParams();
   const tenantId = params.tenantId as string;
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -261,15 +262,25 @@ export default function PaymentsPage({ params }: { params: { tenantId: string } 
     const bySale: Record<string, Payment[]> = {};
 
     allPayments.forEach(p => {
-        const sale = salesMap.get(p.flatSaleId);
+        // Extract saleId and paymentId from the document's full path
+        const pathSegments = p.id.split('/');
+        const saleId = pathSegments[pathSegments.length - 3];
+        const paymentId = pathSegments[pathSegments.length - 1];
+
+        const sale = salesMap.get(saleId);
         if (sale) {
-             details.push({
+             const paymentWithFullId = {
                 ...p,
+                id: paymentId, // Use the actual document ID
+                flatSaleId: saleId,
+             };
+             details.push({
+                ...paymentWithFullId,
                 projectName: projectsMap.get(sale.projectId) || 'Unknown Project',
                 customerName: customersMap.get(sale.customerId) || 'Unknown Customer',
              });
-             if (!bySale[p.flatSaleId]) bySale[p.flatSaleId] = [];
-             bySale[p.flatSaleId].push(p);
+             if (!bySale[saleId]) bySale[saleId] = [];
+             bySale[saleId].push(paymentWithFullId);
         }
     });
     return { paymentsWithDetails: details, paymentsBySale: bySale };
@@ -355,7 +366,7 @@ export default function PaymentsPage({ params }: { params: { tenantId: string } 
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
                           <Button asChild variant="outline" size="sm" className="gap-1">
-                              <Link href={`/${params.tenantId}/payments/${payment.id}/receipt?saleId=${payment.flatSaleId}`}>
+                              <Link href={`/${tenantId}/payments/${payment.id}/receipt?saleId=${payment.flatSaleId}`}>
                                   <Printer className="h-3.5 w-3.5" /><span className="sr-only sm:not-sr-only">Print</span>
                               </Link>
                           </Button>
