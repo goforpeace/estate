@@ -7,14 +7,31 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth, initiateEmailSignIn } from '@/firebase';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const auth = useAuth();
+  const { toast } = useToast();
+  const [email, setEmail] = useState('admin@estateflow.com');
+  const [password, setPassword] = useState('password');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock admin login logic
-    router.push('/gopon/dashboard');
+    // In a real app, you would have a secure way to verify admin credentials.
+    // For this demo, we'll use a hardcoded admin email.
+    if (email === 'admin@estateflow.com') {
+      initiateEmailSignIn(auth, email, password);
+      router.push('/gopon/dashboard');
+    } else {
+        toast({
+            variant: "destructive",
+            title: "Admin Login Failed",
+            description: "Invalid admin credentials provided.",
+        });
+    }
   };
 
   return (
@@ -32,11 +49,11 @@ export default function AdminLoginPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="font-headline">Admin Email</Label>
-                <Input id="email" type="email" placeholder="admin@estateflow.com" required />
+                <Input id="email" type="email" placeholder="admin@estateflow.com" required value={email} onChange={e => setEmail(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" required />
+                <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
               </div>
             </CardContent>
             <CardFooter className="flex-col gap-2">
