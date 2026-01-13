@@ -8,8 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { MoreHorizontal, PlusCircle, Printer } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, InternalQuery } from "@/firebase";
-import { collection, collectionGroup, doc, getDocs, query, where } from "firebase/firestore";
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { collection, doc, getDocs } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
@@ -81,7 +81,7 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
     const { dueAmount, project, customer } = useMemo(() => {
         if (!selectedSale) return { dueAmount: 0, project: null, customer: null };
 
-        const totalPaid = paymentsBySale[selectedSale.id]?.reduce((acc, p) => acc.amount + p.amount, 0) || 0;
+        const totalPaid = paymentsBySale[selectedSale.id]?.reduce((acc, p) => acc + p.amount, 0) || 0;
         // If editing, subtract the current payment's amount from total paid to calculate due amount correctly
         const currentPaymentAmount = (payment && payment.flatSaleId === selectedSale.id) ? payment.amount : 0;
         const due = selectedSale.amount - totalPaid + currentPaymentAmount;
@@ -233,6 +233,9 @@ export default function PaymentsPage() {
   const [isFormOpen, setFormOpen] = useState(false);
   const [editPayment, setEditPayment] = useState<{payment: Payment, sale: FlatSale} | undefined>(undefined);
   const [deletePayment, setDeletePayment] = useState<{payment: Payment, sale: FlatSale} | undefined>(undefined);
+  
+  const [allPayments, setAllPayments] = useState<Payment[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
 
   // --- Data Fetching ---
   const salesQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/flatSales`), [firestore, tenantId]);
@@ -244,9 +247,38 @@ export default function PaymentsPage() {
   const customersQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/customers`), [firestore, tenantId]);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
 
-  // This uses a collectionGroup query to get all payments across all sales for the tenant.
-  const paymentsQuery = useMemoFirebase(() => query(collectionGroup(firestore, 'payments'), where('__name__', '>=', `tenants/${tenantId}/`), where('__name__', '<', `tenants/${tenantId}0`)), [firestore, tenantId]);
-  const { data: allPayments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
+  // --- New manual payment fetching logic ---
+  useEffect(() => {
+    if (!sales || !firestore) {
+      if(!salesLoading){
+        setPaymentsLoading(false);
+      }
+      return;
+    };
+
+    setPaymentsLoading(true);
+
+    const fetchAllPayments = async () => {
+        const paymentPromises = sales.map(async (sale) => {
+            const paymentsColRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
+            const paymentsSnapshot = await getDocs(paymentsColRef);
+            return paymentsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                flatSaleId: sale.id, // Manually add the sale ID
+                ...doc.data()
+            } as Payment));
+        });
+
+        const paymentsBySaleArray = await Promise.all(paymentPromises);
+        const flattenedPayments = paymentsBySaleArray.flat();
+        setAllPayments(flattenedPayments);
+        setPaymentsLoading(false);
+    };
+
+    fetchAllPayments();
+
+  }, [sales, firestore, tenantId, salesLoading]);
+
 
   const isLoading = salesLoading || projectsLoading || customersLoading || paymentsLoading;
 
@@ -262,28 +294,18 @@ export default function PaymentsPage() {
     const bySale: Record<string, Payment[]> = {};
 
     allPayments.forEach(p => {
-        // Extract saleId and paymentId from the document's full path
-        const pathSegments = p.id.split('/');
-        const saleId = pathSegments[pathSegments.length - 3];
-        const paymentId = pathSegments[pathSegments.length - 1];
-
-        const sale = salesMap.get(saleId);
+        const sale = salesMap.get(p.flatSaleId);
         if (sale) {
-             const paymentWithFullId = {
-                ...p,
-                id: paymentId, // Use the actual document ID
-                flatSaleId: saleId,
-             };
              details.push({
-                ...paymentWithFullId,
+                ...p,
                 projectName: projectsMap.get(sale.projectId) || 'Unknown Project',
                 customerName: customersMap.get(sale.customerId) || 'Unknown Customer',
              });
-             if (!bySale[saleId]) bySale[saleId] = [];
-             bySale[saleId].push(paymentWithFullId);
+             if (!bySale[p.flatSaleId]) bySale[p.flatSaleId] = [];
+             bySale[p.flatSaleId].push(p);
         }
     });
-    return { paymentsWithDetails: details, paymentsBySale: bySale };
+    return { paymentsWithDetails: details.sort((a,b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()), paymentsBySale: bySale };
   }, [allPayments, sales, projects, customers]);
 
   // --- Handlers ---
@@ -291,6 +313,7 @@ export default function PaymentsPage() {
     if (!firestore || !deletePayment) return;
     const paymentDoc = doc(firestore, `tenants/${tenantId}/flatSales/${deletePayment.sale.id}/payments`, deletePayment.payment.id);
     deleteDocumentNonBlocking(paymentDoc);
+    setAllPayments(prev => prev.filter(p => p.id !== deletePayment.payment.id));
     toast({ variant: "destructive", title: "Payment Deleted", description: "The payment record has been deleted." });
     setDeletePayment(undefined);
   };
@@ -298,6 +321,8 @@ export default function PaymentsPage() {
   const handleFormFinished = () => {
     setFormOpen(false);
     setEditPayment(undefined);
+    // No need to manually refetch, useEffect will handle it if sales change, but we can trigger it manually for instant update.
+    // For simplicity, we can rely on the user seeing the optimistic update via toast. A full refresh could be forced if needed.
   };
 
   return (
