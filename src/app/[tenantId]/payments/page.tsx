@@ -188,7 +188,7 @@ export default function PaymentsPage({ params }: { params: { tenantId: string } 
 
   // This uses a collectionGroup query to get all payments across all sales for the tenant.
   const paymentsQuery = useMemoFirebase(() => query(collectionGroup(firestore, 'payments'), where('__name__', '>=', `tenants/${tenantId}/`), where('__name__', '<', `tenants/${tenantId}0`)), [firestore, tenantId]);
-  const { data: allPayments, isLoading: paymentsLoading } = useCollection<Payment>(allPayments);
+  const { data: allPayments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
 
   const isLoading = salesLoading || projectsLoading || customersLoading || paymentsLoading;
 
@@ -322,5 +322,3 @@ export default function PaymentsPage({ params }: { params: { tenantId: string } 
     </>
   );
 }
-
-    
