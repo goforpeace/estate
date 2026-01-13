@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { MoreHorizontal, PlusCircle, Printer } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, InternalQuery } from "@/firebase";
 import { collection, collectionGroup, doc, getDocs, query, where } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -40,6 +40,7 @@ const paymentSchema = z.object({
 
 type PaymentFormData = z.infer<typeof paymentSchema>;
 type Payment = PaymentFormData & { id: string; };
+type PaymentWithDetails = Payment & { projectName: string; customerName: string; };
 
 
 function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers, paymentsBySale }: { tenantId: string; onFinished: () => void; payment?: Payment; sales: FlatSale[]; projects: Project[]; customers: Customer[], paymentsBySale: Record<string, Payment[]> }) {
@@ -80,7 +81,7 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
     const { dueAmount, project, customer } = useMemo(() => {
         if (!selectedSale) return { dueAmount: 0, project: null, customer: null };
 
-        const totalPaid = paymentsBySale[selectedSale.id]?.reduce((acc, p) => acc + p.amount, 0) || 0;
+        const totalPaid = paymentsBySale[selectedSale.id]?.reduce((acc, p) => acc.amount + p.amount, 0) || 0;
         // If editing, subtract the current payment's amount from total paid to calculate due amount correctly
         const currentPaymentAmount = (payment && payment.flatSaleId === selectedSale.id) ? payment.amount : 0;
         const due = selectedSale.amount - totalPaid + currentPaymentAmount;
@@ -256,7 +257,7 @@ export default function PaymentsPage({ params }: { params: { tenantId: string } 
     const customersMap = new Map(customers.map(c => [c.id, c.name]));
     const salesMap = new Map(sales.map(s => [s.id, s]));
 
-    const details: any[] = [];
+    const details: PaymentWithDetails[] = [];
     const bySale: Record<string, Payment[]> = {};
 
     allPayments.forEach(p => {
@@ -380,5 +381,3 @@ export default function PaymentsPage({ params }: { params: { tenantId: string } 
     </>
   );
 }
-
-    
