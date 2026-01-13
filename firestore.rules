@@ -1,162 +1,16 @@
-/**
- * Core Philosophy: This ruleset enforces a strict multi-tenancy security model for a real estate management application.
- * The primary goal is to ensure that data from one tenant is completely isolated from and inaccessible to another.
- * Authorization is based on a 'tenantId' custom claim expected in the user's Firebase Authentication token.
- * An admin user (identified by a specific UID) has global access.
- *
- * Data Structure: All application data is organized under a top-level `/tenants/{tenantId}` collection.
- * This hierarchical structure is the foundation of the security model, allowing rules to be defined based on the path.
- *
- * Key Security Decisions:
- * - Admin Access: A designated admin user (with a known UID, e.g., for the 'admin@estateflow.com' account) is granted full read/write access to all data for administrative purposes.
- * - Tenant Isolation: Access to any document is granted only if the user's `tenantId` custom claim matches the `tenantId` in the document's path.
- * - Client-Side Tenant Management Disabled: Clients (except the admin) are not permitted to create, update, or delete the root `/tenants/{tenantId}` documents. This must be handled by a trusted backend process or the admin.
- * - Default Deny: All access is denied by default. Rules explicitly grant permissions on a per-collection basis.
- * - User Roles: The current model grants all authenticated users of a tenant the same level of access to that tenant's data. More granular, role-based access can be added later.
- *
- * Denormalization for Authorization: The data model is designed for efficient security rules.
- * Critical relational identifiers like `tenantId` are denormalized (copied) into documents
- * down the hierarchy. This avoids slow and costly `get()` calls in rules, ensuring fast authorization checks.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --------------------------------------------------------------------
-    // Helper Functions
-    // --------------------------------------------------------------------
-
-    /**
-     * Checks if a user is signed in.
-     */
+    // Helper function to check if a user is signed in.
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the user is the designated system administrator.
-     * In a real app, this UID would correspond to your admin user account.
-     * For this demo, we'll use a placeholder or a specific UID.
-     */
-    function isAdmin() {
-      // This UID should correspond to the admin user (e.g., admin@estateflow.com)
-      // You can find a user's UID in the Firebase Authentication console.
-      // Let's assume a placeholder UID for now. To make this work, create a user
-      // with email 'admin@estateflow.com' and replace 'ADMIN_USER_UID' with its actual UID.
-      return isSignedIn() && request.auth.uid == "3b4f6b8a-1b1a-4b1a-9a6a-9a4f6a8b1b1a"; // Replace with your actual admin UID
-    }
-
-
-    /**
-     * Verifies if the authenticated user is a member of the specified tenant.
-     * This is the core of the multi-tenancy security model.
-     * It relies on a 'tenantId' custom claim being set in the user's auth token.
-     */
-    function isTenantMember(tenantId) {
-      return isSignedIn() && request.auth.token.tenantId == tenantId;
-    }
-
-    /**
-     * A robust check for update/delete operations, ensuring the user is a tenant member
-     * AND the document they are trying to modify actually exists.
-     */
-    function isExistingTenantMember(tenantId) {
-      return isTenantMember(tenantId) && resource != null;
-    }
-
-    // --------------------------------------------------------------------
-    // Collection Rules
-    // --------------------------------------------------------------------
-
-    /**
-     * @description Controls access to Tenant documents. The admin can manage all tenants.
-     *              Regular tenant members can read their own tenant document.
-     * @path /tenants/{tenantId}
-     * @allow (get, list, create, update, delete) The admin can perform any action on tenants.
-     * @allow (get) An authenticated user from tenant 'acme-corp' reading '/tenants/acme-corp'.
-     * @deny (list, create, update, delete) Non-admin users trying to modify tenant documents.
-     */
-    match /tenants/{tenantId} {
-      allow read, write: if isAdmin();
-      allow get: if isTenantMember(tenantId);
-      allow list, create, update, delete: if false;
-    }
-
-    /**
-     * @description Secures Project documents. Only users belonging to the parent tenant can
-     *              read or write project data. Admin has full access.
-     * @path /tenants/{tenantId}/projects/{projectId}
-     */
-    match /tenants/{tenantId}/projects/{projectId} {
-      allow read, write: if isAdmin();
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && request.resource.data.tenantId == tenantId;
-      allow update: if isExistingTenantMember(tenantId) && request.resource.data.tenantId == resource.data.tenantId;
-      allow delete: if isExistingTenantMember(tenantId);
-    }
-
-    /**
-     * @description Secures Flat documents within a Project. Access is inherited from the tenant.
-     *              Admin has full access.
-     * @path /tenants/{tenantId}/projects/{projectId}/flats/{flatId}
-     */
-    match /tenants/{tenantId}/projects/{projectId}/flats/{flatId} {
-      allow read, write: if isAdmin();
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && request.resource.data.projectId == projectId;
-      allow update: if isExistingTenantMember(tenantId) && request.resource.data.projectId == resource.data.projectId;
-      allow delete: if isExistingTenantMember(tenantId);
-    }
-
-    /**
-     * @description Secures Customer documents. Only users belonging to the tenant can manage them.
-     *              Admin has full access.
-     * @path /tenants/{tenantId}/customers/{customerId}
-     */
-    match /tenants/{tenantId}/customers/{customerId} {
-      allow read, write: if isAdmin();
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && request.resource.data.tenantId == tenantId;
-      allow update: if isExistingTenantMember(tenantId) && request.resource.data.tenantId == resource.data.tenantId;
-      allow delete: if isExistingTenantMember(tenantId);
-    }
-
-    /**
-     * @description Secures FlatSale documents. Access is granted to tenant members. Integrity with
-     *              the parent project is enforced. Admin has full access.
-     * @path /tenants/{tenantId}/projects/{projectId}/flatSales/{flatSaleId}
-     */
-    match /tenants/{tenantId}/projects/{projectId}/flatSales/{flatSaleId} {
-      allow read, write: if isAdmin();
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && request.resource.data.projectId == projectId;
-      allow update: if isExistingTenantMember(tenantId) && request.resource.data.projectId == resource.data.projectId;
-      allow delete: if isExistingTenantMember(tenantId);
-    }
-
-    /**
-     * @description Secures Payment documents. Access is granted to tenant members. Integrity with
-     *              the parent flat sale is enforced. Admin has full access.
-     * @path /tenants/{tenantId}/projects/{projectId}/flatSales/{flatSaleId}/payments/{paymentId}
-     */
-    match /tenants/{tenantId}/projects/{projectId}/flatSales/{flatSaleId}/payments/{paymentId} {
-        allow read, write: if isAdmin();
-        allow get, list: if isTenantMember(tenantId);
-        allow create: if isTenantMember(tenantId) && request.resource.data.flatSaleId == flatSaleId;
-        allow update: if isExistingTenantMember(tenantId) && request.resource.data.flatSaleId == resource.data.flatSaleId;
-        allow delete: if isExistingTenantMember(tenantId);
-    }
-
-    /**
-     * @description Secures the Organization document for a tenant. Admin has full access.
-     * @path /tenants/{tenantId}/organization/{organizationId}
-     */
-    match /tenants/{tenantId}/organization/{organizationId} {
-        allow read, write: if isAdmin();
-        allow get, list: if isTenantMember(tenantId);
-        allow create: if isTenantMember(tenantId) && request.resource.data.tenantId == tenantId;
-        allow update: if isExistingTenantMember(tenantId) && request.resource.data.tenantId == resource.data.tenantId;
-        allow delete: if isExistingTenantMember(tenantId);
+    // Allow read and write access to the entire database for any authenticated user.
+    // This is a simple rule for quick setup. For production, you'd want more granular control.
+    match /{document=**} {
+      allow read, write: if isSignedIn();
     }
   }
 }
