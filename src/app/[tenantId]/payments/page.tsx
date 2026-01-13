@@ -263,8 +263,8 @@ export default function PaymentsPage() {
             const paymentsColRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
             const paymentsSnapshot = await getDocs(paymentsColRef);
             return paymentsSnapshot.docs.map(doc => ({
-                id: doc.id,
-                flatSaleId: sale.id, // Manually add the sale ID
+                id: doc.id, // This is the actual payment document ID
+                flatSaleId: sale.id, 
                 ...doc.data()
             } as Payment));
         });
