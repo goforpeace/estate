@@ -1,21 +1,21 @@
 'use client'
 
-import { PlusCircle, MoreHorizontal } from "lucide-react";
+import { PlusCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
-import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 // Matches the Tenant entity in backend.json, but 'id' will be the document ID.
 export type Tenant = {
@@ -131,17 +131,6 @@ export default function AdminDashboard() {
     });
   };
 
-  const deleteTenant = (id: string) => {
-    if (!firestore) return;
-    const tenantRef = doc(firestore, 'tenants', id);
-    deleteDocumentNonBlocking(tenantRef);
-    toast({
-        variant: "destructive",
-        title: "Tenant Deleted",
-        description: `The tenant has been permanently deleted.`,
-    });
-  };
-
   // Show a loading screen while auth is being checked or data is being loaded.
   // This also prevents rendering the main component when the user is not authenticated.
   if (isLoading || !user) {
@@ -166,9 +155,7 @@ export default function AdminDashboard() {
                 <TableHead>Tenant Domain</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Access</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -193,26 +180,13 @@ export default function AdminDashboard() {
                       aria-label="Toggle tenant access"
                     />
                   </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Manage Users</DropdownMenuItem>
-                        <DropdownMenuItem
-                            onClick={() => deleteTenant(tenant.id)}
-                            className="text-destructive"
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <TableCell className="text-right">
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/gopon/tenants/${tenant.id}`}>
+                        <Settings className="h-4 w-4 mr-2" />
+                        Manage
+                      </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
