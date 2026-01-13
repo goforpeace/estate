@@ -1,7 +1,7 @@
 'use client';
 
 import { useUser } from '@/firebase';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/sidebar";
@@ -9,11 +9,11 @@ import { AppHeader } from "@/components/layout/header";
 
 export default function AppLayout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: { tenantId: string };
 }) {
+  const params = useParams();
+  const tenantId = params.tenantId as string;
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
@@ -28,11 +28,11 @@ export default function AppLayout({
     else if (!isUserLoading && !user) {
       setIsAuthenticated(false);
       // But don't redirect if they are already ON the login page.
-      if (pathname !== `/${params.tenantId}/login`) {
-        router.push(`/${params.tenantId}/login`);
+      if (pathname !== `/${tenantId}/login`) {
+        router.push(`/${tenantId}/login`);
       }
     }
-  }, [user, isUserLoading, router, params.tenantId, pathname]);
+  }, [user, isUserLoading, router, tenantId, pathname]);
 
   // While checking auth, show a loading screen.
   if (isUserLoading) {
@@ -44,7 +44,7 @@ export default function AppLayout({
   }
 
   // If the user is on the login page, just render the login page content without the main layout.
-  if (pathname === `/${params.tenantId}/login`) {
+  if (pathname === `/${tenantId}/login`) {
     return <>{children}</>;
   }
   
@@ -52,9 +52,9 @@ export default function AppLayout({
   if (isAuthenticated) {
     return (
       <SidebarProvider>
-        <AppSidebar tenantId={params.tenantId} />
+        <AppSidebar tenantId={tenantId} />
         <div className="flex flex-col flex-1">
-          <AppHeader tenantId={params.tenantId} />
+          <AppHeader tenantId={tenantId} />
           <main className="flex-1 p-4 sm:p-6 bg-muted/30">
             {children}
           </main>
