@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Trash2, XCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import {
@@ -114,6 +114,7 @@ function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished
 
 
   const onSubmit = (data: ProjectFormData) => {
+    if (!firestore) return;
     const projectsCollection = collection(firestore, `tenants/${tenantId}/projects`);
     const newProject = {
       ...data,
@@ -135,9 +136,9 @@ function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished
 
   return (
     <Form {...form}>
-       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <ScrollArea className="max-h-[70vh] p-1 pr-6">
-          <div className="space-y-6 p-4">
+       <form onSubmit={form.handleSubmit(onSubmit)}>
+        <ScrollArea className="h-[70vh] p-1 pr-4">
+          <div className="space-y-6 p-4 pt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
@@ -300,7 +301,7 @@ export default function ProjectsPage() {
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl p-0">
-            <DialogHeader className="p-6 pb-0">
+            <DialogHeader className="p-6 pb-4">
               <DialogTitle>Add a New Project</DialogTitle>
               <DialogDescription>
                 Fill in the details below to create a new project for your tenant.
@@ -311,7 +312,7 @@ export default function ProjectsPage() {
         </Dialog>
       </PageHeader>
       <Card>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
