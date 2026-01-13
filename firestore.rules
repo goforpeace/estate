@@ -14,9 +14,10 @@ service cloud.firestore {
     }
 
     // Helper function to check if the user belongs to the tenant.
+    // This requires that a user's profile document exists and has a tenantId field.
     function isTenantMember(tenantId) {
-      // It checks if the user's profile document has a matching tenantId.
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == tenantId;
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == tenantId;
     }
 
     // Admins can read and write all tenant documents.
@@ -24,14 +25,16 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // Admins can manage all user documents.
+    // Rule for the entire users collection
     match /users/{userId} {
-      allow read, create, update, delete: if isAdmin();
-      // Any signed-in user can read their own profile.
+      // Admins can perform any action on any user document. This also covers listing users.
+      allow read, write: if isAdmin();
+      
+      // A signed-in user can read their own profile.
       allow read: if isSignedIn() && request.auth.uid == userId;
     }
-
-    // Tenant members can read and write all documents within their own tenant's data.
+    
+    // Tenant members can read and write all documents within their own tenant's data space.
     match /tenants/{tenantId}/{document=**} {
       allow read, write: if isTenantMember(tenantId);
     }
