@@ -8,30 +8,36 @@ service cloud.firestore {
     }
 
     // Helper function to check if the signed-in user is an admin.
-    // In this simplified example, any authenticated user is considered an admin.
+    // The admin's email is hardcoded for this example.
     function isAdmin() {
-      return isSignedIn();
+      return isSignedIn() && request.auth.email == 'admin@estateflow.com';
     }
 
-    // Rules for the 'tenants' collection
-    match /tenants/{tenantId} {
-      // Admins can manage all tenant documents.
+    // Helper function to check if the user belongs to the tenant.
+    function isTenantMember(tenantId) {
+      // Allow if the user is signed in and their user profile's tenantId
+      // matches the tenantId in the document path.
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == tenantId;
+    }
+
+    // Admins can read and write to all collections.
+    match /{document=**} {
       allow read, write: if isAdmin();
     }
-
-    // Rules for all sub-collections under a tenant
+    
+    // Tenant members can read/write everything under their tenant's path.
     match /tenants/{tenantId}/{document=**} {
-      // Admins can manage all documents within any tenant's data.
-      allow read, write: if isAdmin();
+      allow read, write: if isTenantMember(tenantId);
+    }
+    
+    // Allow tenant members to read their own tenant's document
+     match /tenants/{tenantId} {
+      allow read: if isTenantMember(tenantId);
     }
 
-    // Rules for the top-level 'users' collection
+    // Allow users to read their own profile.
     match /users/{userId} {
-      // Admins can create user profiles.
-      // Tenant users will need rules to read/update their own profile.
-      allow create: if isAdmin();
-      // Allow a user to read their own profile, or an admin to read any profile.
-      allow read, update: if request.auth.uid == userId || isAdmin();
+      allow read: if request.auth.uid == userId;
     }
   }
 }

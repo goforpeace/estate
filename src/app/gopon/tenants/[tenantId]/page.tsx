@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc, useFirestore, useMemoFirebase, deleteDocumentNonBlocking, useAuth } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useDoc, useFirestore, useMemoFirebase, deleteDocumentNonBlocking, useAuth, useCollection } from '@/firebase';
+import { collection, doc, query, setDoc, where } from 'firebase/firestore';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,9 +12,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, UserPlus, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, UserPlus, Send, Trash2, UserX } from 'lucide-react';
 import Link from 'next/link';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 type Tenant = {
   id: string;
@@ -22,6 +24,15 @@ type Tenant = {
   domain: string;
   enabled: boolean;
 };
+
+// Matches the User entity in backend.json
+type UserProfile = {
+    id: string;
+    tenantId: string;
+    name: string;
+    email: string;
+    phone?: string;
+}
 
 export default function ManageTenantPage() {
   const params = useParams();
@@ -42,6 +53,13 @@ export default function ManageTenantPage() {
   }, [firestore, tenantId]);
 
   const { data: tenant, isLoading, error } = useDoc<Tenant>(tenantRef);
+
+  const usersQuery = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return query(collection(firestore, 'users'), where('tenantId', '==', tenantId));
+  }, [firestore, tenantId]);
+
+  const { data: users, isLoading: isUsersLoading, error: usersError } = useCollection<UserProfile>(usersQuery);
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,7 +174,53 @@ export default function ManageTenantPage() {
           </Link>
         </Button>
       </PageHeader>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+            <CardHeader>
+                <CardTitle className="font-headline">User List</CardTitle>
+                <CardDescription>Users associated with this tenant.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isUsersLoading && (
+                             <TableRow>
+                                <TableCell colSpan={3} className="text-center">Loading users...</TableCell>
+                            </TableRow>
+                        )}
+                        {usersError && (
+                             <TableRow>
+                                <TableCell colSpan={3} className="text-center text-destructive">Error: {usersError.message}</TableCell>
+                            </TableRow>
+                        )}
+                        {!isUsersLoading && users?.map(user => (
+                            <TableRow key={user.id}>
+                                <TableCell className="font-medium">{user.name}</TableCell>
+                                <TableCell>{user.email}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" className="text-destructive" title="Remove User (not implemented)">
+                                        <UserX className="h-4 w-4"/>
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                         {!isUsersLoading && users?.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={3} className="text-center text-muted-foreground">No users found for this tenant.</TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+
         <Card>
           <form onSubmit={handleAddUser}>
             <CardHeader>
@@ -186,7 +250,7 @@ export default function ManageTenantPage() {
           </form>
         </Card>
 
-        <Card>
+        <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="font-headline">Send Push Notification</CardTitle>
             <CardDescription>Send a broadcast message to all users of this tenant.</CardDescription>
@@ -211,7 +275,7 @@ export default function ManageTenantPage() {
           </form>
         </Card>
 
-        <Card className="md:col-span-2 border-destructive">
+        <Card className="lg:col-span-3 border-destructive">
             <CardHeader>
                 <CardTitle className="font-headline text-destructive">Danger Zone</CardTitle>
                 <CardDescription>These actions are irreversible. Please proceed with caution.</CardDescription>
