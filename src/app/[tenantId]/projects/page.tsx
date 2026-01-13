@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Calendar as CalendarIcon } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Calendar as CalendarIcon, Trash2, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import {
@@ -30,7 +30,7 @@ import {
 import { collection } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -42,6 +42,27 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
+// Matches the Flat entity in backend.json but is nested here
+const flatSchema = z.object({
+  name: z.string().min(1, "Flat name is required."),
+  sizeSft: z.coerce.number().min(1, "Size must be greater than 0."),
+});
+
+// Matches the Project entity in backend.json
+const projectSchema = z.object({
+  name: z.string().min(1, "Project name is required."),
+  location: z.string().min(1, "Location is required."),
+  targetSell: z.coerce.number().min(0, "Target sell must be a positive number."),
+  status: z.enum(["Ongoing", "Upcoming", "Completed"]),
+  expectedHandoverDate: z.date({
+    required_error: "A handover date is required.",
+  }),
+  flats: z.array(flatSchema).min(1, "At least one flat is required."),
+});
+
+type ProjectFormData = z.infer<typeof projectSchema>;
+type FlatFormData = z.infer<typeof flatSchema>;
+
 // Matches the Project entity in backend.json
 type Project = {
   id: string;
@@ -51,19 +72,9 @@ type Project = {
   targetSell: number;
   status: "Ongoing" | "Upcoming" | "Completed";
   expectedHandoverDate: string; // Stored as ISO string
+  flats: FlatFormData[];
 };
 
-const projectSchema = z.object({
-  name: z.string().min(1, "Project name is required."),
-  location: z.string().min(1, "Location is required."),
-  targetSell: z.coerce.number().min(0, "Target sell must be a positive number."),
-  status: z.enum(["Ongoing", "Upcoming", "Completed"]),
-  expectedHandoverDate: z.date({
-    required_error: "A handover date is required.",
-  }),
-});
-
-type ProjectFormData = z.infer<typeof projectSchema>;
 
 function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished: () => void }) {
   const firestore = useFirestore();
@@ -75,8 +86,33 @@ function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished
       location: "",
       targetSell: 0,
       status: "Upcoming",
+      flats: [],
     },
   });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "flats",
+  });
+
+  const [newFlatName, setNewFlatName] = useState("");
+  const [newFlatSize, setNewFlatSize] = useState("");
+
+  const handleAddFlat = () => {
+    const size = parseFloat(newFlatSize);
+    if (newFlatName.trim() && !isNaN(size) && size > 0) {
+      append({ name: newFlatName, sizeSft: size });
+      setNewFlatName("");
+      setNewFlatSize("");
+    } else {
+        toast({
+            variant: "destructive",
+            title: "Invalid Flat",
+            description: "Please enter a valid name and size for the flat."
+        })
+    }
+  };
+
 
   const onSubmit = (data: ProjectFormData) => {
     const projectsCollection = collection(firestore, `tenants/${tenantId}/projects`);
@@ -99,107 +135,150 @@ function AddProjectForm({ tenantId, onFinished }: { tenantId: string; onFinished
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Project Name</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Emerald Heights" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="location"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Location</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Gulshan, Dhaka" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="targetSell"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Target Sell (TK)</FormLabel>
-              <FormControl>
-                <Input type="number" placeholder="10000000" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="status"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Status</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Project Name</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project status" />
-                  </SelectTrigger>
+                    <Input placeholder="e.g., Emerald Heights" {...field} />
                 </FormControl>
-                <SelectContent>
-                  <SelectItem value="Upcoming">Upcoming</SelectItem>
-                  <SelectItem value="Ongoing">Ongoing</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="expectedHandoverDate"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Expected Handover Date</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value ? (
-                        format(field.value, "PPP")
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    disabled={(date) => date < new Date("1990-01-01")}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="location"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Location</FormLabel>
+                <FormControl>
+                    <Input placeholder="e.g., Gulshan, Dhaka" {...field} />
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="targetSell"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Target Sell (TK)</FormLabel>
+                <FormControl>
+                    <Input type="number" placeholder="10000000" {...field} />
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select project status" />
+                    </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                    <SelectItem value="Upcoming">Upcoming</SelectItem>
+                    <SelectItem value="Ongoing">Ongoing</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="expectedHandoverDate"
+            render={({ field }) => (
+                <FormItem className="flex flex-col">
+                <FormLabel>Expected Handover Date</FormLabel>
+                <Popover>
+                    <PopoverTrigger asChild>
+                    <FormControl>
+                        <Button
+                        variant={"outline"}
+                        className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                        )}
+                        >
+                        {field.value ? (
+                            format(field.value, "PPP")
+                        ) : (
+                            <span>Pick a date</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                    </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) => date < new Date("1990-01-01")}
+                        initialFocus
+                    />
+                    </PopoverContent>
+                </Popover>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+        </div>
+        
+        <div className="space-y-4 rounded-lg border p-4">
+            <h3 className="font-medium">Flats</h3>
+            <div className="space-y-2">
+                {fields.map((field, index) => (
+                    <div key={field.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                        <span className="font-mono text-sm">{index + 1}.</span>
+                        <p className="flex-1 text-sm">
+                            <span className="font-medium">{field.name}</span>
+                             - {field.sizeSft} sft
+                        </p>
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => remove(index)}>
+                            <XCircle className="h-4 w-4" />
+                        </Button>
+                    </div>
+                ))}
+                 {fields.length === 0 && <p className="text-xs text-center text-muted-foreground py-2">No flats added yet.</p>}
+            </div>
+             <FormField
+                control={form.control}
+                name="flats"
+                render={() => (
+                    <FormItem>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
+
+            <div className="flex items-end gap-2">
+                <div className="grid gap-1.5 flex-1">
+                    <Label htmlFor="new-flat-name" className="text-xs">Flat Number/Name</Label>
+                    <Input id="new-flat-name" placeholder="e.g., A1" value={newFlatName} onChange={(e) => setNewFlatName(e.target.value)} />
+                </div>
+                 <div className="grid gap-1.5 w-28">
+                    <Label htmlFor="new-flat-size" className="text-xs">Size (sft)</Label>
+                    <Input id="new-flat-size" type="number" placeholder="1250" value={newFlatSize} onChange={(e) => setNewFlatSize(e.target.value)} />
+                </div>
+                <Button type="button" variant="outline" onClick={handleAddFlat}>Add Flat</Button>
+            </div>
+        </div>
+
         <Button type="submit" className="w-full">Add Project</Button>
       </form>
     </Form>
@@ -241,7 +320,7 @@ export default function ProjectsPage() {
               Add Project
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Add a New Project</DialogTitle>
               <DialogDescription>
@@ -260,6 +339,7 @@ export default function ProjectsPage() {
                 <TableHead>Project Name</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Flats</TableHead>
                 <TableHead className="text-right">Target Sell (TK)</TableHead>
                 <TableHead>Handover Date</TableHead>
                 <TableHead>
@@ -270,7 +350,7 @@ export default function ProjectsPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     Loading projects...
                   </TableCell>
                 </TableRow>
@@ -288,6 +368,7 @@ export default function ProjectsPage() {
                         {project.status}
                       </Badge>
                     </TableCell>
+                    <TableCell>{project.flats?.length || 0}</TableCell>
                     <TableCell className="text-right">
                       {project.targetSell.toLocaleString("en-IN")}
                     </TableCell>
@@ -320,7 +401,7 @@ export default function ProjectsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No projects found. Get started by creating a new project.
                   </TableCell>
                 </TableRow>

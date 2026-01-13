@@ -99,6 +99,13 @@
           "type": "string",
           "description": "The expected handover date of the project.",
           "format": "date-time"
+        },
+        "flats": {
+          "type": "array",
+          "description": "A list of flats within the project.",
+          "items": {
+            "$ref": "#/entities/Flat"
+          }
         }
       },
       "required": [
@@ -108,23 +115,16 @@
         "location",
         "targetSell",
         "status",
-        "expectedHandoverDate"
+        "expectedHandoverDate",
+        "flats"
       ]
     },
     "Flat": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Flat",
       "type": "object",
-      "description": "Represents a flat within a project.",
+      "description": "Represents a flat within a project. Can be a sub-collection or embedded.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Flat entity."
-        },
-        "projectId": {
-          "type": "string",
-          "description": "Reference to Project. (Relationship: Project 1:N Flat)"
-        },
         "name": {
           "type": "string",
           "description": "The name/identifier of the flat (e.g., 2A, 3A)."
@@ -135,8 +135,6 @@
         }
       },
       "required": [
-        "id",
-        "projectId",
         "name",
         "sizeSft"
       ]
@@ -385,7 +383,7 @@
           "schema": {
             "$ref": "#/backend/entities/Flat"
           },
-          "description": "Stores flat details. Includes denormalized 'tenantId' for authorization independence.",
+          "description": "Stores flat details as a subcollection. This is now superseded by embedding flats in the Project document.",
           "params": [
             {
               "name": "tenantId",
