@@ -321,8 +321,9 @@ export default function PaymentsPage() {
   const handleFormFinished = () => {
     setFormOpen(false);
     setEditPayment(undefined);
-    // No need to manually refetch, useEffect will handle it if sales change, but we can trigger it manually for instant update.
-    // For simplicity, we can rely on the user seeing the optimistic update via toast. A full refresh could be forced if needed.
+    // This is a temporary way to force a refresh. A more elegant solution would involve
+    // state management or another useEffect trigger.
+    window.location.reload();
   };
 
   return (
@@ -417,3 +418,5 @@ export default function PaymentsPage() {
     </>
   );
 }
+
+    
