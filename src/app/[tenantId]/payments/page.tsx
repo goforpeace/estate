@@ -20,13 +20,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useForm, Controller } from 'react-hook-form';
 import {
   collection,
   doc,
   addDoc,
+  collectionGroup,
+  query,
+  where,
 } from 'firebase/firestore';
 import {
   useFirestore,
@@ -40,6 +43,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import Link from 'next/link';
 
 type Project = { id: string; name: string; flats: { name: string }[] };
 type Customer = { id: string; name: string, address: string };
@@ -59,6 +64,7 @@ export type InflowTransaction = {
   chequeNo: string;
   chequeDate: string;
   note: string;
+  tenantId: string; // Added for collectionGroup query
 };
 
 const AddPaymentForm = ({
@@ -113,12 +119,13 @@ const AddPaymentForm = ({
       .map((s) => s.flatName);
   }, [selectedCustomerId, selectedProjectId, sales]);
 
-  const onSubmit = async (data: Omit<InflowTransaction, 'id' | 'receiptId'>) => {
+  const onSubmit = async (data: Omit<InflowTransaction, 'id' | 'receiptId' | 'tenantId'>) => {
     if (!firestore) return;
     try {
       const receiptId = await getNextReceiptId(firestore);
       const transactionData = {
         ...data,
+        tenantId, // Add tenantId to the transaction
         receiptId,
         date: new Date(data.date).toISOString(),
         amount: Number(data.amount),
@@ -333,7 +340,6 @@ export default function PaymentsPage() {
   const [lastTransactionCustomer, setLastTransactionCustomer] = useState<any>(null);
   const [lastTransactionProject, setLastTransactionProject] = useState<any>(null);
 
-
   const projectsQuery = useMemoFirebase(
     () =>
       firestore && tenantId
@@ -341,8 +347,7 @@ export default function PaymentsPage() {
         : null,
     [firestore, tenantId]
   );
-  const { data: projects, isLoading: projectsLoading } =
-    useCollection<Project>(projectsQuery);
+  const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
   const customersQuery = useMemoFirebase(
     () =>
@@ -351,8 +356,7 @@ export default function PaymentsPage() {
         : null,
     [firestore, tenantId]
   );
-  const { data: customers, isLoading: customersLoading } =
-    useCollection<Customer>(customersQuery);
+  const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
 
   const salesQuery = useMemoFirebase(
     () =>
@@ -361,8 +365,21 @@ export default function PaymentsPage() {
         : null,
     [firestore, tenantId]
   );
-  const { data: sales, isLoading: salesLoading } =
-    useCollection<FlatSale>(salesQuery);
+  const { data: sales, isLoading: salesLoading } = useCollection<FlatSale>(salesQuery);
+  
+  const paymentsQuery = useMemoFirebase(
+    () =>
+      firestore && tenantId
+        ? query(collectionGroup(firestore, 'inflowTransactions'), where('tenantId', '==', tenantId))
+        : null,
+    [firestore, tenantId]
+  );
+  const { data: payments, isLoading: paymentsLoading } = useCollection<InflowTransaction>(paymentsQuery);
+
+  const isLoading = projectsLoading || customersLoading || salesLoading || paymentsLoading;
+  
+  const projectsMap = useMemo(() => new Map(projects?.map(p => [p.id, p.name])), [projects]);
+  const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c.name])), [customers]);
   
   const allDataAvailable = projects && customers && sales;
 
@@ -381,12 +398,12 @@ export default function PaymentsPage() {
       >
         <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="gap-1">
+            <Button size="sm" className="gap-1" disabled={!allDataAvailable}>
               <PlusCircle className="h-4 w-4" />
               Add Payment
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl p-0">
+          <DialogContent className="max-w-2xl p-0">
             <DialogHeader className="p-6 pb-4">
               <DialogTitle>Record a New Payment</DialogTitle>
               <DialogDescription>
@@ -430,7 +447,7 @@ export default function PaymentsPage() {
               <TableRow>
                 <TableHead>Customer</TableHead>
                 <TableHead>Project</TableHead>
-                <TableHead>For</TableHead>
+                <TableHead>Flat</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="text-right">Amount (TK)</TableHead>
@@ -438,9 +455,41 @@ export default function PaymentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isLoading ? (
+                <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center">Loading payments...</TableCell>
+                </TableRow>
+              ) : payments && payments.length > 0 ? (
+                payments.map((payment) => (
+                    <TableRow key={payment.id}>
+                        <TableCell className="font-medium">{customersMap.get(payment.customerId) || 'N/A'}</TableCell>
+                        <TableCell>{projectsMap.get(payment.projectId) || 'N/A'}</TableCell>
+                        <TableCell>{payment.flatId}</TableCell>
+                        <TableCell>{format(new Date(payment.date), 'dd MMM, yyyy')}</TableCell>
+                        <TableCell>{payment.paymentType}</TableCell>
+                        <TableCell className="text-right">{payment.amount.toLocaleString('en-IN')}</TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button aria-haspopup="true" size="icon" variant="ghost">
+                                <MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem>View Receipt</DropdownMenuItem>
+                              <DropdownMenuItem>Edit</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                    </TableRow>
+                ))
+              ) : (
                 <TableRow>
                     <TableCell colSpan={7} className="h-24 text-center">No payments recorded yet.</TableCell>
                 </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

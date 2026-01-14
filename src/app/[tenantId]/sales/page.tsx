@@ -269,7 +269,7 @@ export default function SalesPage() {
         <PageHeader title="Flat Sales" description="Manage and record all property sales.">
             <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
                 <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1" onClick={() => { setEditSale(undefined); setFormOpen(true); }}>
+                    <Button size="sm" className="gap-1" onClick={() => { setEditSale(undefined); setFormOpen(true); }} disabled={isLoading}>
                         <PlusCircle className="h-4 w-4" />
                         Add Sale
                     </Button>
