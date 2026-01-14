@@ -9,7 +9,7 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc, collectionGroup, query } from "firebase/firestore";
+import { collection, doc, collectionGroup, query, where } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
@@ -42,7 +42,7 @@ type PaymentFormData = z.infer<typeof paymentSchema>;
 // This now represents the full payment document from the collectionGroup query
 type Payment = PaymentFormData & { 
   id: string; 
-  // flatSaleId is already in PaymentFormData
+  tenantId: string;
 };
 type PaymentWithDetails = Payment & { projectName: string; customerName: string; };
 
@@ -105,6 +105,7 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
             paymentDate: new Date(data.paymentDate).toISOString(),
             reference: data.reference,
             flatSaleId: data.flatSaleId,
+            tenantId, // Ensure tenantId is included
         };
 
         if (payment) {
@@ -252,10 +253,8 @@ export default function PaymentsPage() {
 
   // The robust way to get all payments for a tenant
   const paymentsCollectionGroup = useMemoFirebase(() => {
-    return query(collectionGroup(firestore, 'payments'));
-    // In a real multi-tenant app, you'd add: where('tenantId', '==', tenantId)
-    // This requires a composite index on (tenantId) for the 'payments' collection group.
-    // For this app's structure, we assume all payments belong to the current tenant.
+    if (!firestore || !tenantId) return null;
+    return query(collectionGroup(firestore, 'payments'), where('tenantId', '==', tenantId));
   }, [firestore, tenantId]);
   
   const { data: allPayments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsCollectionGroup);

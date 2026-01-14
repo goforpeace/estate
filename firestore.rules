@@ -12,5 +12,12 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if isSignedIn();
     }
+    
+    // This index is required for the collectionGroup query on 'payments'
+    // to filter by tenantId.
+    match /tenants/{tenantId}/flatSales/{flatSaleId}/payments/{paymentId} {
+      // Indexes are not security rules, they just enable queries.
+      // The actual security is handled by the rule above.
+    }
   }
 }
