@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 
-export function numberToWords(num: number) {
+export function numberToWords(num: number): string {
   const a = [
     '',
     'one',
@@ -55,11 +55,11 @@ export function numberToWords(num: number) {
     'nonillion',
   ];
 
-  const makeGroup = ([ones, tens, huns]: number[]) => {
+  const makeGroup = ([ones, tens, huns]: (number | undefined)[]) => {
     return [
-      num(huns) === 0 ? '' : a[huns] + ' hundred ',
-      num(ones) === 0 ? b[tens] : (b[tens] && b[tens] + '-') || '',
-      a[tens + ones] || a[ones],
+      huns === 0 || huns === undefined ? '' : a[huns] + ' hundred ',
+      ones === 0 || ones === undefined ? b[tens!] : (b[tens!] && b[tens!] + '-') || '',
+      a[(tens ?? 0) + (ones ?? 0)] || a[ones!],
     ].join('');
   };
 
@@ -70,7 +70,7 @@ export function numberToWords(num: number) {
     return numberToWords(String(num));
   if (num === '0') return 'zero';
 
-  const num = (str: string | number) => parseInt(str as string, 10);
+  const parseNum = (str: string | number) => parseInt(str as string, 10);
   const toWords = (str: string) => {
     let quintet = str
       .split('')
@@ -82,11 +82,10 @@ export function numberToWords(num: number) {
       });
     return quintet
       .map(function (x, i) {
-        let n = num(x);
+        let n = parseNum(x);
         if (n === 0 && i + 1 < quintet.length) {
-          // Check if there are non-zero digits in subsequent quintets
           let remainingQuintets = quintet.slice(i + 1);
-          if (remainingQuintets.some(q => num(q) !== 0)) {
+          if (remainingQuintets.some(q => parseNum(q) !== 0)) {
             return '';
           }
         }
@@ -116,5 +115,3 @@ export function numberToWords(num: number) {
     })
     .join(' ');
 }
-
-    
