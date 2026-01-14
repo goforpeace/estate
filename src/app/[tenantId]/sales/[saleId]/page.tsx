@@ -5,7 +5,7 @@ import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Building, User, Tag, DollarSign, ParkingCircle, Wrench, HandCoins, Calendar, Link as LinkIcon, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { type FlatSale } from '../page';
@@ -98,11 +98,13 @@ export default function SaleDetailsPage() {
         <div className="md:col-span-2 space-y-6">
             <Card>
                 <CardHeader>
-                    <div className="flex items-center gap-4">
-                        <div className="bg-primary text-primary-foreground rounded-full p-2"><User className="h-6 w-6" /></div>
-                        <div>
-                            <CardTitle className="font-headline">{customer?.name || 'Loading...'}</CardTitle>
-                            <CardDescription>Customer Profile</CardDescription>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-primary text-primary-foreground rounded-full p-2"><User className="h-6 w-6" /></div>
+                            <div>
+                                <CardTitle className="font-headline">{customer?.name || 'Loading...'}</CardTitle>
+                                <CardDescription>Customer Profile</CardDescription>
+                            </div>
                         </div>
                     </div>
                 </CardHeader>
@@ -110,6 +112,13 @@ export default function SaleDetailsPage() {
                     <p><span className="text-muted-foreground">Address:</span> {customer?.address}</p>
                     <p><span className="text-muted-foreground">Phone:</span> {customer?.phoneNumber}</p>
                 </CardContent>
+                <CardFooter>
+                    {customer && (
+                        <Button asChild variant="outline" className="w-full">
+                            <Link href={`/${tenantId}/customers/${customer.id}`}>View Profile</Link>
+                        </Button>
+                    )}
+                </CardFooter>
             </Card>
             <Card>
                  <CardHeader>
