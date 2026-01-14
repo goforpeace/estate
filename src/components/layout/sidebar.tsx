@@ -55,7 +55,7 @@ export function AppSidebar({ tenantId }: { tenantId: string }) {
 
                         return (
                             <SidebarMenuItem key={item.label}>
-                                <Link href={fullPath} legacyBehavior passHref>
+                                <Link href={fullPath}>
                                     <SidebarMenuButton tooltip={item.label} isActive={isActive}>
                                         <Icon />
                                         <span>{item.label}</span>
@@ -69,7 +69,7 @@ export function AppSidebar({ tenantId }: { tenantId: string }) {
             <SidebarFooter>
                  <SidebarMenu>
                      <SidebarMenuItem>
-                         <Link href={`/${tenantId}/login`} legacyBehavior passHref>
+                         <Link href={`/${tenantId}/login`}>
                             <SidebarMenuButton tooltip="Logout">
                                 <LogOut />
                                 <span>Logout</span>
