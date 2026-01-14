@@ -1,9 +1,156 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write access to all collections for any signed-in user.
-    match /{path=**} {
-      allow read, write: if request.auth != null;
+
+    //============================================================
+    //  Helper Functions
+    //============================================================
+
+    /**
+     * Returns true if the user is signed in.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the requesting user has the 'Admin' role.
+     * Role is determined by the existence of a document in the 'roles_admin' collection.
+     */
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /**
+     * Checks if the user is the owner of the document they are trying to access.
+     * This is typically used for user-specific data like profiles.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    //============================================================
+    //  Collection Rules
+    //============================================================
+
+    /**
+     * Users Collection:
+     * - A user can create their own user document.
+     * - A user can read and update their own profile.
+     * - Admins can read any user's profile.
+     */
+    match /users/{userId} {
+      allow create: if isSignedIn() && isOwner(userId);
+      allow read, update: if isSignedIn() && isOwner(userId);
+      allow list: if isAdmin(); // Only admins can list all users.
+    }
+    
+    /**
+     * Admin Roles Collection:
+     * - This collection is used to grant admin privileges.
+     * - Only Admins can see who else is an admin.
+     * - Writes from the client are disabled to prevent users from making themselves admins.
+     *   (This should be managed from a secure backend environment or the Firebase Console).
+     */
+    match /roles_admin/{userId} {
+      allow read, list: if isAdmin();
+      allow write: if false; // Disable client-side writes for security.
+    }
+
+    /**
+     * Projects Collection and its Subcollections:
+     * - Any signed-in user can read project data.
+     * - Only Admins can create, update, or delete projects and their contents.
+     */
+    match /projects/{projectId} {
+      allow read, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+
+      /**
+       * Flats Subcollection:
+       * - Any signed-in user can read/list flats.
+       * - Only Admins can write/delete flats.
+       */
+      match /flats/{flatId} {
+        allow read, list: if isSignedIn();
+        allow write, delete: if isAdmin();
+      }
+
+      /**
+       * Inflow Transactions (Payments) Subcollection:
+       * - Any signed-in user can create new payments.
+       * - All signed-in users can read/list payments.
+       * - Only Admins can update/delete payments to protect financial records.
+       */
+      match /inflowTransactions/{transactionId} {
+        allow create, read, list: if isSignedIn();
+        allow update, delete: if isAdmin();
+      }
+
+      /**
+       * Outflow Transactions (Expenses) Subcollection:
+       * - Any signed-in user can create expense payments.
+       * - All signed-in users can read/list them.
+       * - Only Admins can update/delete them.
+       */
+      match /outflowTransactions/{transactionId} {
+        allow create, read, list: if isSignedIn();
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    /**
+     * Customers, Sales, Vendors, Expenses Collections:
+     * - For these core business data collections, we allow any signed-in user to
+     *   read the data, but restrict write operations (create, update, delete) to Admins.
+     */
+    match /customers/{customerId} {
+      allow read, list: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /sales/{saleId} {
+      allow read, list: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /vendors/{vendorId} {
+       allow read, list: if isSignedIn();
+       allow write: if isAdmin();
+    }
+
+    match /expenseItems/{itemId} {
+       allow read, list: if isSignedIn();
+       allow write: if isAdmin();
+    }
+
+    match /expenses/{expenseId} {
+        allow read, list: if isSignedIn();
+        // Allow any signed-in user to create an expense record initially.
+        allow create: if isSignedIn();
+        // But only Admins can modify or delete it later.
+        allow update, delete: if isAdmin();
+    }
+    
+    match /operatingCostItems/{itemId} {
+      allow read, list: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /operatingCosts/{costId} {
+      allow read, list: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    /**
+     * Counters for IDs:
+     * - This is a backend-only collection used for atomic operations (transactions).
+     * - Client-side writes should be disabled.
+     */
+    match /counters/{counterId} {
+      allow read: if isSignedIn(); // Allow reading if needed, but not writing.
+      allow write: if false; 
     }
   }
 }
