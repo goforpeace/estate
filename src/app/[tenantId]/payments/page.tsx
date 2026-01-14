@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,11 +30,15 @@ import {
   collectionGroup,
   query,
   where,
+  deleteDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import {
   useFirestore,
   useCollection,
   useMemoFirebase,
+  updateDocumentNonBlocking,
+  deleteDocumentNonBlocking,
 } from '@/firebase';
 import { useParams } from 'next/navigation';
 import { getNextReceiptId } from '@/lib/data';
@@ -45,6 +49,8 @@ import { format } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+
 
 type Project = { id: string; name: string; flats: { name: string }[] };
 type Customer = { id: string; name: string, address: string };
@@ -65,6 +71,8 @@ export type InflowTransaction = {
   chequeDate: string;
   note: string;
   tenantId: string; // Added for collectionGroup query
+  // For editing, we need the original path
+  _originalPath?: string; 
 };
 
 const AddPaymentForm = ({
@@ -74,6 +82,7 @@ const AddPaymentForm = ({
   customers,
   sales,
   onPaymentAdded,
+  transactionToEdit
 }: {
   onFinished: () => void;
   tenantId: string;
@@ -85,16 +94,28 @@ const AddPaymentForm = ({
     customer: Customer,
     project: Project
   ) => void;
+  transactionToEdit?: InflowTransaction;
 }) => {
   const { toast } = useToast();
   const firestore = useFirestore();
+
+  const defaultValues = useMemo(() => {
+    if (!transactionToEdit) return { date: format(new Date(), 'yyyy-MM-dd') };
+    return {
+        ...transactionToEdit,
+        date: format(new Date(transactionToEdit.date), 'yyyy-MM-dd'),
+        chequeDate: transactionToEdit.chequeDate ? format(new Date(transactionToEdit.chequeDate), 'yyyy-MM-dd') : '',
+    }
+  }, [transactionToEdit]);
+
+
   const {
     register,
     handleSubmit,
     control,
     watch,
     formState: { errors },
-  } = useForm<Omit<InflowTransaction, 'id' | 'receiptId'>>();
+  } = useForm<Omit<InflowTransaction, 'id' | 'receiptId'>>({ defaultValues });
 
   const selectedCustomerId = watch('customerId');
   const selectedProjectId = watch('projectId');
@@ -122,41 +143,59 @@ const AddPaymentForm = ({
   const onSubmit = async (data: Omit<InflowTransaction, 'id' | 'receiptId' | 'tenantId'>) => {
     if (!firestore) return;
     try {
-      const receiptId = await getNextReceiptId(firestore);
-      const transactionData = {
-        ...data,
-        tenantId, // Add tenantId to the transaction
-        receiptId,
-        date: new Date(data.date).toISOString(),
-        amount: Number(data.amount),
-      };
+        if(transactionToEdit) {
+            // Logic for updating
+            const transactionRef = doc(firestore, transactionToEdit._originalPath!);
+            const updatedData = {
+                ...data,
+                date: new Date(data.date).toISOString(),
+                amount: Number(data.amount),
+            };
+            await updateDoc(transactionRef, updatedData);
+            toast({
+                title: 'Payment Updated',
+                description: 'The payment has been updated successfully.',
+            });
+            onFinished();
 
-      const docRef = await addDoc(
-        collection(
-          firestore,
-          `tenants/${tenantId}/projects/${data.projectId}/inflowTransactions`
-        ),
-        transactionData
-      );
+        } else {
+            // Logic for creating
+            const receiptId = await getNextReceiptId(firestore);
+            const transactionData = {
+                ...data,
+                tenantId,
+                receiptId,
+                date: new Date(data.date).toISOString(),
+                amount: Number(data.amount),
+            };
 
-      const fullTransaction: InflowTransaction = { ...transactionData, id: docRef.id };
-      const customer = customers.find(c => c.id === data.customerId);
-      const project = projects.find(p => p.id === data.projectId);
+            const docRef = await addDoc(
+                collection(
+                firestore,
+                `tenants/${tenantId}/projects/${data.projectId}/inflowTransactions`
+                ),
+                transactionData
+            );
 
-      toast({
-        title: 'Payment Added',
-        description: 'The payment has been recorded successfully.',
-      });
-      onFinished();
-      if(customer && project) {
-          onPaymentAdded(fullTransaction, customer, project);
-      }
+            const fullTransaction: InflowTransaction = { ...transactionData, id: docRef.id };
+            const customer = customers.find(c => c.id === data.customerId);
+            const project = projects.find(p => p.id === data.projectId);
+
+            toast({
+                title: 'Payment Added',
+                description: 'The payment has been recorded successfully.',
+            });
+            onFinished();
+            if(customer && project) {
+                onPaymentAdded(fullTransaction, customer, project);
+            }
+        }
     } catch (error) {
-      console.error('Error adding payment:', error);
+      console.error('Error saving payment:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to record payment.',
+        description: 'Failed to save payment.',
       });
     }
   };
@@ -173,7 +212,7 @@ const AddPaymentForm = ({
                     control={control}
                     rules={{ required: true }}
                     render={({ field }) => (
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!transactionToEdit}>
                         <SelectTrigger>
                         <SelectValue placeholder="Select Customer" />
                         </SelectTrigger>
@@ -199,7 +238,7 @@ const AddPaymentForm = ({
                     <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
-                        disabled={!selectedCustomerId}
+                        disabled={!selectedCustomerId || !!transactionToEdit}
                     >
                         <SelectTrigger>
                         <SelectValue placeholder="Select Project" />
@@ -226,7 +265,7 @@ const AddPaymentForm = ({
                         <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
-                        disabled={!selectedProjectId}
+                        disabled={!selectedProjectId || !!transactionToEdit}
                         >
                         <SelectTrigger>
                             <SelectValue placeholder="Select Flat" />
@@ -253,7 +292,7 @@ const AddPaymentForm = ({
                 </div>
                 <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
-                <Input id="date" type="date" {...register('date', { required: true })} defaultValue={format(new Date(), 'yyyy-MM-dd')}/>
+                <Input id="date" type="date" {...register('date', { required: true })} />
                 {errors.date && <p className="text-red-500 text-xs">Date is required</p>}
                 </div>
             </div>
@@ -323,7 +362,7 @@ const AddPaymentForm = ({
 
         </ScrollArea>
         <div className="p-4 pt-0 border-t">
-          <Button type="submit" className="w-full mt-4">Record Payment</Button>
+          <Button type="submit" className="w-full mt-4">{transactionToEdit ? 'Update Payment' : 'Record Payment'}</Button>
         </div>
     </form>
   );
@@ -333,12 +372,15 @@ export default function PaymentsPage() {
   const params = useParams();
   const tenantId = params.tenantId as string;
   const firestore = useFirestore();
+  const { toast } = useToast();
 
-  const [isAddFormOpen, setAddFormOpen] = useState(false);
+  const [isFormOpen, setFormOpen] = useState(false);
   const [isReceiptOpen, setReceiptOpen] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<InflowTransaction | null>(null);
   const [lastTransactionCustomer, setLastTransactionCustomer] = useState<any>(null);
   const [lastTransactionProject, setLastTransactionProject] = useState<any>(null);
+  const [editTransaction, setEditTransaction] = useState<InflowTransaction | undefined>(undefined);
+  const [deleteTransaction, setDeleteTransaction] = useState<InflowTransaction | undefined>(undefined);
 
   const projectsQuery = useMemoFirebase(
     () =>
@@ -368,12 +410,13 @@ export default function PaymentsPage() {
   const { data: sales, isLoading: salesLoading } = useCollection<FlatSale>(salesQuery);
   
   const paymentsQuery = useMemoFirebase(
-    () =>
-      firestore && tenantId
-        ? query(collectionGroup(firestore, 'inflowTransactions'), where('tenantId', '==', tenantId))
-        : null,
+    () => {
+        if (!firestore || !tenantId) return null; // THIS IS THE FIX
+        return query(collectionGroup(firestore, 'inflowTransactions'), where('tenantId', '==', tenantId))
+    },
     [firestore, tenantId]
   );
+
   const { data: payments, isLoading: paymentsLoading } = useCollection<InflowTransaction>(paymentsQuery);
 
   const isLoading = projectsLoading || customersLoading || salesLoading || paymentsLoading;
@@ -388,7 +431,30 @@ export default function PaymentsPage() {
     setLastTransactionCustomer(customer);
     setLastTransactionProject(project);
     setReceiptOpen(true);
-  }
+  };
+
+  const handleFormFinished = () => {
+    setFormOpen(false);
+    setEditTransaction(undefined);
+  };
+
+  const handleDelete = () => {
+    if (!firestore || !deleteTransaction?._originalPath) return;
+    const transactionDoc = doc(firestore, deleteTransaction._originalPath);
+    deleteDocumentNonBlocking(transactionDoc);
+    toast({
+        variant: "destructive",
+        title: "Payment Deleted",
+        description: `Payment record has been deleted.`,
+    })
+    setDeleteTransaction(undefined);
+  };
+  
+   const getFullTransaction = (payment: InflowTransaction): InflowTransaction | undefined => {
+    if (!payment) return undefined;
+    const path = `tenants/${payment.tenantId}/projects/${payment.projectId}/inflowTransactions/${payment.id}`;
+    return { ...payment, _originalPath: path };
+  };
 
   return (
     <>
@@ -396,28 +462,29 @@ export default function PaymentsPage() {
         title="Payments"
         description="Record and track customer payments."
       >
-        <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
+        <Dialog open={isFormOpen} onOpenChange={(isOpen) => { if (!isOpen) handleFormFinished(); else setFormOpen(true); }}>
           <DialogTrigger asChild>
-            <Button size="sm" className="gap-1" disabled={!allDataAvailable}>
+            <Button size="sm" className="gap-1" disabled={!allDataAvailable} onClick={() => { setEditTransaction(undefined); setFormOpen(true);}}>
               <PlusCircle className="h-4 w-4" />
               Add Payment
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl p-0">
             <DialogHeader className="p-6 pb-4">
-              <DialogTitle>Record a New Payment</DialogTitle>
+              <DialogTitle>{editTransaction ? 'Edit Payment' : 'Record a New Payment'}</DialogTitle>
               <DialogDescription>
-                Fill in the details to record a new payment.
+                {editTransaction ? 'Update the details for this payment.' : 'Fill in the details to record a new payment.'}
               </DialogDescription>
             </DialogHeader>
             {allDataAvailable ? (
               <AddPaymentForm
-                onFinished={() => setAddFormOpen(false)}
+                onFinished={handleFormFinished}
                 tenantId={tenantId}
                 projects={projects}
                 customers={customers}
                 sales={sales}
                 onPaymentAdded={handlePaymentAdded}
+                transactionToEdit={editTransaction}
               />
             ) : (
               <p className="p-6">Loading form data...</p>
@@ -435,6 +502,21 @@ export default function PaymentsPage() {
           project={lastTransactionProject}
         />
       )}
+
+      <AlertDialog open={!!deleteTransaction} onOpenChange={(isOpen) => !isOpen && setDeleteTransaction(undefined)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete this payment record.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
        <Card>
         <CardHeader>
@@ -478,8 +560,17 @@ export default function PaymentsPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem>View Receipt</DropdownMenuItem>
-                              <DropdownMenuItem>Edit</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                const fullTransaction = getFullTransaction(payment);
+                                if (fullTransaction) {
+                                    setEditTransaction(fullTransaction);
+                                    setFormOpen(true);
+                                }
+                              }}>Edit</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onClick={() => {
+                                 const fullTransaction = getFullTransaction(payment);
+                                 if (fullTransaction) setDeleteTransaction(fullTransaction);
+                              }}>Delete</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
