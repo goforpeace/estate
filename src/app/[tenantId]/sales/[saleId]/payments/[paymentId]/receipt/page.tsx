@@ -15,7 +15,7 @@ type Organization = { name: string; logoUrl?: string; address: string; phone: st
 type Project = { name: string; flats: { name: string; sizeSft: number }[] };
 type Customer = { name: string; address: string; phoneNumber: string; };
 type FlatSale = { projectId: string; customerId: string; flatName: string; };
-type Payment = { id: string; amount: number; type: string; reference?: string; paymentDate: string; };
+type Payment = { id: string; amount: number; type: string; reference?: string; paymentDate: string; paymentFor: string; };
 
 export default function ReceiptPage() {
     const params = useParams();
@@ -109,7 +109,7 @@ export default function ReceiptPage() {
                     </thead>
                     <tbody>
                         <tr className="border-b">
-                            <td className="p-3">Payment via {payment.type} {payment.reference && `(Ref: ${payment.reference})`}</td>
+                            <td className="p-3">Payment for {payment.paymentFor} via {payment.type} {payment.reference && `(Ref: ${payment.reference})`}</td>
                             <td className="p-3 text-right font-mono">{payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         </tr>
                     </tbody>
