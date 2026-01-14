@@ -1,33 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check if a user is signed in.
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Tenant documents can be read by any signed-in user to verify domain.
-    match /tenants/{tenantId} {
-      allow read: if isSignedIn();
-      allow write: if false; // Tenants should be managed by an admin process, not client-side.
-    }
-    
-    // User can read their own user profile document.
-    match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
-    }
-
-    // Rules for all tenant-specific data collections.
-    match /tenants/{tenantId}/{collection}/{docId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    // This rule allows collectionGroup queries on 'payments' by ensuring
-    // the user is authenticated. This path must exactly match the subcollection
-    // structure.
-    match /tenants/{tenantId}/flatSales/{flatSaleId}/payments/{paymentId} {
-      allow read, write: if isSignedIn();
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
