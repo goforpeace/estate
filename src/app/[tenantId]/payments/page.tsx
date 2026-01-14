@@ -4,11 +4,13 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PlusCircle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { collection, collectionGroup, doc, query, where } from "firebase/firestore";
 import { useParams } from "next/navigation";
+import Link from 'next/link';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,11 +21,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from 'date-fns';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 // --- Type Definitions ---
 type Project = { id: string; name: string; };
 type Customer = { id: string; name: string; };
 type FlatSale = { id: string; projectId: string; customerId: string; flatName: string; };
+type Payment = { id: string; flatSaleId: string; tenantId: string; amount: number; type: string; paymentFor: string; paymentDate: string; };
 
 const paymentSchema = z.object({
   flatSaleId: z.string().min(1, "A flat sale must be selected."),
@@ -39,13 +43,16 @@ const paymentSchema = z.object({
 type PaymentFormData = z.infer<typeof paymentSchema>;
 
 // --- Payment Form Component ---
-function PaymentForm({ tenantId, onFinished, flatSales, projectsMap, customersMap }: { tenantId: string; onFinished: () => void; flatSales: FlatSale[], projectsMap: Map<string, string>, customersMap: Map<string, string> }) {
+function PaymentForm({ tenantId, onFinished, flatSales, projectsMap, customersMap, payment }: { tenantId: string; onFinished: () => void; flatSales: FlatSale[], projectsMap: Map<string, string>, customersMap: Map<string, string>, payment?: Payment }) {
     const firestore = useFirestore();
     const { toast } = useToast();
 
     const form = useForm<PaymentFormData>({
         resolver: zodResolver(paymentSchema),
-        defaultValues: {
+        defaultValues: payment ? {
+            ...payment,
+            paymentDate: format(new Date(payment.paymentDate), 'yyyy-MM-dd')
+        } : {
             flatSaleId: '',
             amount: 0,
             type: 'Cash',
@@ -60,13 +67,19 @@ function PaymentForm({ tenantId, onFinished, flatSales, projectsMap, customersMa
 
         const paymentData = { 
             ...data, 
-            tenantId, // Ensure tenantId is included
+            tenantId,
             paymentDate: new Date(data.paymentDate).toISOString(),
         };
-        const paymentCollectionRef = collection(firestore, `tenants/${tenantId}/flatSales/${data.flatSaleId}/payments`);
 
-        addDocumentNonBlocking(paymentCollectionRef, paymentData);
-        toast({ title: "Payment Recorded", description: "The new payment has been successfully recorded." });
+        if (payment) {
+            const paymentDocRef = doc(firestore, `tenants/${tenantId}/flatSales/${payment.flatSaleId}/payments`, payment.id);
+            updateDocumentNonBlocking(paymentDocRef, paymentData);
+            toast({ title: "Payment Updated", description: "The payment details have been successfully updated." });
+        } else {
+            const paymentCollectionRef = collection(firestore, `tenants/${tenantId}/flatSales/${data.flatSaleId}/payments`);
+            addDocumentNonBlocking(paymentCollectionRef, paymentData);
+            toast({ title: "Payment Recorded", description: "The new payment has been successfully recorded." });
+        }
         
         onFinished();
         form.reset();
@@ -115,7 +128,7 @@ function PaymentForm({ tenantId, onFinished, flatSales, projectsMap, customersMa
                     </div>
                 </ScrollArea>
                 <div className="p-4 pt-0 border-t">
-                    <Button type="submit" className="w-full mt-4">Record Payment</Button>
+                    <Button type="submit" className="w-full mt-4">{payment ? 'Update Payment' : 'Record Payment'}</Button>
                 </div>
             </form>
         </Form>
@@ -127,33 +140,60 @@ export default function PaymentsPage() {
     const params = useParams();
     const tenantId = params.tenantId as string;
     const firestore = useFirestore();
+    const { toast } = useToast();
 
-    const [isFormOpen, setFormOpen] = useState(false);
+    const [isAddFormOpen, setAddFormOpen] = useState(false);
+    const [editPayment, setEditPayment] = useState<Payment | undefined>(undefined);
+    const [deletePayment, setDeletePayment] = useState<Payment | undefined>(undefined);
 
-    // --- Data Fetching for the form ---
+    // --- Data Fetching for the form and display ---
     const projectsQuery = useMemoFirebase(() => !firestore || !tenantId ? null : collection(firestore, `tenants/${tenantId}/projects`), [firestore, tenantId]);
-    const { data: projects } = useCollection<Project>(projectsQuery);
+    const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
     const customersQuery = useMemoFirebase(() => !firestore || !tenantId ? null : collection(firestore, `tenants/${tenantId}/customers`), [firestore, tenantId]);
-    const { data: customers } = useCollection<Customer>(customersQuery);
+    const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
 
     const flatSalesQuery = useMemoFirebase(() => !firestore || !tenantId ? null : collection(firestore, `tenants/${tenantId}/flatSales`), [firestore, tenantId]);
-    const { data: flatSales } = useCollection<FlatSale>(flatSalesQuery);
+    const { data: flatSales, isLoading: salesLoading } = useCollection<FlatSale>(flatSalesQuery);
+    
+    const paymentsQuery = useMemoFirebase(() => {
+        if (!firestore || !tenantId) return null;
+        return query(collectionGroup(firestore, 'payments'), where('tenantId', '==', tenantId));
+    }, [firestore, tenantId]);
+    const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
     
     // --- Data Mapping for Display ---
     const projectsMap = useMemo(() => new Map(projects?.map(p => [p.id, p.name])), [projects]);
     const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c.name])), [customers]);
+    const salesMap = useMemo(() => new Map(flatSales?.map(s => [s.id, s])), [flatSales]);
 
-    const handleFormFinished = () => {
-        setFormOpen(false);
+    const isLoading = paymentsLoading || projectsLoading || customersLoading || salesLoading;
+
+    const handleDelete = () => {
+        if (!firestore || !deletePayment) return;
+        const paymentDoc = doc(firestore, `tenants/${deletePayment.tenantId}/flatSales/${deletePayment.flatSaleId}/payments`, deletePayment.id);
+        deleteDocumentNonBlocking(paymentDoc);
+        toast({
+            variant: "destructive",
+            title: "Payment Deleted",
+            description: `The payment record has been deleted.`,
+        });
+        setDeletePayment(undefined);
     };
+    
+    const handleFormFinished = () => {
+        setAddFormOpen(false);
+        setEditPayment(undefined);
+    };
+
+    const allDataAvailable = projects && customers && flatSales;
 
   return (
     <>
       <PageHeader title="Payments" description="Record and track customer payments.">
-        <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+        <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
           <DialogTrigger asChild>
-             <Button size="sm" className="gap-1" onClick={() => setFormOpen(true)}>
+             <Button size="sm" className="gap-1" onClick={() => { setEditPayment(undefined); setAddFormOpen(true); }}>
                 <PlusCircle className="h-4 w-4" />
                 Add Payment
             </Button>
@@ -163,10 +203,33 @@ export default function PaymentsPage() {
                 <DialogTitle>Record a New Payment</DialogTitle>
                 <DialogDescription>Fill in the details to record a new payment.</DialogDescription>
             </DialogHeader>
-            {isFormOpen && <PaymentForm tenantId={tenantId} onFinished={handleFormFinished} flatSales={flatSales || []} projectsMap={projectsMap} customersMap={customersMap} />}
+            {isAddFormOpen && allDataAvailable && <PaymentForm tenantId={tenantId} onFinished={handleFormFinished} flatSales={flatSales} projectsMap={projectsMap} customersMap={customersMap} />}
           </DialogContent>
         </Dialog>
       </PageHeader>
+
+      <Dialog open={!!editPayment} onOpenChange={(isOpen) => !isOpen && setEditPayment(undefined)}>
+            <DialogContent className="max-w-2xl p-0">
+                <DialogHeader className="p-6 pb-4">
+                    <DialogTitle>Edit Payment</DialogTitle>
+                    <DialogDescription>Update this payment record.</DialogDescription>
+                </DialogHeader>
+                {editPayment && allDataAvailable && <PaymentForm tenantId={tenantId} onFinished={handleFormFinished} flatSales={flatSales} projectsMap={projectsMap} customersMap={customersMap} payment={editPayment} />}
+            </DialogContent>
+        </Dialog>
+
+      <AlertDialog open={!!deletePayment} onOpenChange={(isOpen) => !isOpen && setDeletePayment(undefined)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone. This will permanently delete this payment record.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardHeader>
@@ -187,11 +250,50 @@ export default function PaymentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-                <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                        Payment history is temporarily unavailable. You can still add new payments.
-                    </TableCell>
-                </TableRow>
+               {isLoading ? (
+                    <TableRow>
+                        <TableCell colSpan={7} className="h-24 text-center">Loading payments...</TableCell>
+                    </TableRow>
+                ) : payments && payments.length > 0 ? (
+                    payments.map(payment => {
+                        const sale = salesMap.get(payment.flatSaleId);
+                        if (!sale) return null;
+                        const customer = customersMap.get(sale.customerId);
+                        const project = projectsMap.get(sale.projectId);
+
+                        return (
+                            <TableRow key={payment.id}>
+                                <TableCell className="font-medium">{customer?.name || 'N/A'}</TableCell>
+                                <TableCell>{project?.name || 'N/A'}</TableCell>
+                                <TableCell>{payment.paymentFor}</TableCell>
+                                <TableCell>{format(new Date(payment.paymentDate), 'dd/MM/yyyy')}</TableCell>
+                                <TableCell>{payment.type}</TableCell>
+                                <TableCell className="text-right">{payment.amount.toLocaleString('en-IN')}</TableCell>
+                                <TableCell>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                                <MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem asChild>
+                                                <Link href={`/${tenantId}/sales/${payment.flatSaleId}/payments/${payment.id}/receipt`}>View Receipt</Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => setEditPayment(payment)}>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem className="text-destructive" onClick={() => setDeletePayment(payment)}>Delete</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        )
+                    })
+                ) : (
+                     <TableRow>
+                        <TableCell colSpan={7} className="h-24 text-center">No payments recorded yet.</TableCell>
+                    </TableRow>
+                )}
             </TableBody>
           </Table>
         </CardContent>
