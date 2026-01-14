@@ -27,93 +27,98 @@ export const Receipt = forwardRef<
   return (
     <div
       ref={ref}
-      className="p-8 bg-white text-black font-sans text-sm"
+      className="bg-white text-black font-sans text-sm"
       style={{ width: '210mm', minHeight: '297mm', margin: 'auto' }}
     >
-      <div className="p-6 h-full flex flex-col">
-        <header className="text-center mb-6">
-          {organization?.logoUrl && <img src={organization.logoUrl} alt="logo" className="h-20 mx-auto mb-4" data-ai-hint="company logo" />}
-          <h2 className="text-xl font-bold">{organization?.name}</h2>
-          <p className="text-xs">{organization?.address}</p>
-          <p className="text-xs">Phone: {organization?.phone}, Email: {organization?.email}</p>
-          <h1 className="text-2xl font-bold underline mt-4">MONEY RECEIPT</h1>
+      <div className="p-8 h-full flex flex-col">
+        {/* Header */}
+        <header className="flex justify-between items-start pb-6 border-b-2 border-gray-200">
+          <div className="flex items-start gap-4">
+            {organization?.logoUrl && <img src={organization.logoUrl} alt="logo" className="h-20 w-auto object-contain" data-ai-hint="company logo" />}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">{organization?.name}</h2>
+              <p className="text-xs text-gray-500 max-w-xs">{organization?.address}</p>
+              <p className="text-xs text-gray-500">Phone: {organization?.phone}</p>
+              <p className="text-xs text-gray-500">Email: {organization?.email}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <h1 className="text-4xl font-bold uppercase text-gray-700">Money Receipt</h1>
+            <div className="mt-2 text-xs">
+                <p><span className="font-bold text-gray-600">Receipt No:</span> {transaction.receiptId}</p>
+                <p><span className="font-bold text-gray-600">Date:</span> {format(new Date(transaction.date), 'dd MMMM, yyyy')}</p>
+            </div>
+          </div>
         </header>
 
-        <div className="flex justify-between mb-6">
-          <div>
-            <strong>Receipt No:</strong> {transaction.receiptId}
-          </div>
-          <div>
-            <strong>Date:</strong> {format(new Date(transaction.date), 'dd/MM/yyyy')}
-          </div>
+        {/* Bill To Section */}
+        <div className="py-6">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase">Received From</h3>
+            <p className="font-bold text-lg text-gray-800">{customer?.name || 'N/A'}</p>
+            <p className="text-xs text-gray-600">{customer?.address || 'N/A'}</p>
         </div>
 
-        <div className="mb-4">
-          <p>
-            Received with thanks from{' '}
-            <strong>{customer?.name || 'N/A'}</strong> of address{' '}
-            <strong>{customer?.address || 'N/A'}</strong>
-          </p>
+        {/* Items Table */}
+        <div className="flex-grow">
+            <table className="w-full text-left">
+                <thead>
+                    <tr className="bg-gray-100 text-gray-600 uppercase text-xs">
+                        <th className="p-3">Description</th>
+                        <th className="p-3 text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr className="border-b border-gray-100">
+                        <td className="p-3 align-top">
+                            <p className="font-semibold text-gray-800">Payment for {transaction.paymentType}</p>
+                            <p className="text-xs text-gray-500">
+                                Project: {project?.name || 'N/A'} <br />
+                                Apartment No: {transaction.flatName}
+                            </p>
+                        </td>
+                        <td className="p-3 text-right align-top font-medium">TK {transaction.amount.toLocaleString('en-IN')}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
-        <div className="mb-4">
-          <p>
-            The sum of Taka (in words):{' '}
-            <strong>
-              {amountInWords} Taka Only
-            </strong>
-          </p>
+        {/* Total and Footer */}
+        <div className="pt-6">
+             <div className="flex justify-end">
+                <div className="w-2/5">
+                    <div className="flex justify-between py-2 border-b">
+                        <span className="font-medium text-gray-600">Subtotal</span>
+                        <span className="font-medium">TK {transaction.amount.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between py-3 bg-gray-100 px-3">
+                        <span className="font-bold text-gray-800">Total</span>
+                        <span className="font-bold text-lg">TK {transaction.amount.toLocaleString('en-IN')} /=</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="py-6">
+                <p className="text-sm text-gray-600">
+                    <span className="font-semibold">Amount in Words:</span> {amountInWords} Taka Only.
+                </p>
+                <p className="text-sm text-gray-600">
+                    <span className="font-semibold">Paid By:</span> {transaction.paymentMethod}
+                    {transaction.chequeNo && `, Cheque No: ${transaction.chequeNo}`}
+                    {transaction.bankName && `, Bank: ${transaction.bankName}`}
+                    {transaction.chequeDate && `, Date: ${format(new Date(transaction.chequeDate), 'dd/MM/yyyy')}`}
+                </p>
+                {transaction.note && <p className="text-xs text-gray-500 mt-2"><strong>Note:</strong> {transaction.note}</p>}
+            </div>
+
+            <div className="flex justify-between items-end mt-16 pt-8 border-t border-gray-200">
+              <div className="w-1/3 text-center">
+                <p className="border-t-2 border-gray-400 pt-2 text-xs text-gray-600">Receiver's Signature</p>
+              </div>
+              <div className="w-1/3 text-center">
+                <p className="border-t-2 border-gray-400 pt-2 text-xs text-gray-600">For {organization?.name}</p>
+              </div>
+            </div>
         </div>
-        
-        <div className="mb-4">
-          <p>
-            On account of{' '}
-            <strong>
-              {transaction.paymentType}
-            </strong>{' '}
-            against Apartment No.{' '}
-            <strong>{transaction.flatName}</strong> of{' '}
-            Project{' '}
-            <strong>{project?.name || 'N/A'}</strong>
-          </p>
-        </div>
-
-        <div className="mb-6">
-          <p>
-            By{' '}
-            <strong>
-              {transaction.paymentMethod}
-              {transaction.chequeNo && `, Cheque No: ${transaction.chequeNo}`}
-              {transaction.bankName && `, Bank: ${transaction.bankName}`}
-              {transaction.chequeDate && `, Date: ${format(new Date(transaction.chequeDate), 'dd/MM/yyyy')}`}
-            </strong>
-          </p>
-        </div>
-        
-        {transaction.note && <div className="mb-6">
-          <p>
-            <strong>Note:</strong> {transaction.note}
-          </p>
-        </div>}
-
-        <div className="flex justify-between items-center bg-gray-100 p-2 font-bold mb-20">
-            <span>In Figure</span>
-            <span>TK. {transaction.amount.toLocaleString('en-IN')} /=</span>
-        </div>
-
-
-        <div className="flex-grow"></div>
-
-        <footer className="flex justify-between items-end">
-          <div className="w-1/3 text-center">
-            <hr className="border-black" />
-            <p className="pt-2">Receiver's Signature</p>
-          </div>
-          <div className="w-1/3 text-center">
-            <hr className="border-black" />
-            <p className="pt-2">for {organization?.name}</p>
-          </div>
-        </footer>
       </div>
     </div>
   );
