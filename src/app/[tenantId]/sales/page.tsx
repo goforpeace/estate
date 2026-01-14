@@ -92,7 +92,7 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
     }, [selectedProject, existingSales, sale]);
     
     const onSubmit = (data: FlatSaleFormData) => {
-        if (!firestore) return;
+        if (!firestore || !tenantId) return;
 
         const saleData = { ...data, tenantId };
 
@@ -227,13 +227,22 @@ export default function SalesPage() {
     const [deleteSale, setDeleteSale] = useState<FlatSale | undefined>(undefined);
 
     // Fetch dependent data
-    const projectsQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/projects`), [firestore, tenantId]);
+    const projectsQuery = useMemoFirebase(() => {
+        if (!firestore || !tenantId) return null;
+        return collection(firestore, `tenants/${tenantId}/projects`);
+    }, [firestore, tenantId]);
     const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
     
-    const customersQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/customers`), [firestore, tenantId]);
+    const customersQuery = useMemoFirebase(() => {
+        if (!firestore || !tenantId) return null;
+        return collection(firestore, `tenants/${tenantId}/customers`);
+    }, [firestore, tenantId]);
     const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
 
-    const salesQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/flatSales`), [firestore, tenantId]);
+    const salesQuery = useMemoFirebase(() => {
+        if (!firestore || !tenantId) return null;
+        return collection(firestore, `tenants/${tenantId}/flatSales`);
+    }, [firestore, tenantId]);
     const { data: sales, isLoading: salesLoading } = useCollection<FlatSale>(salesQuery);
 
     const isLoading = projectsLoading || customersLoading || salesLoading;
@@ -243,7 +252,7 @@ export default function SalesPage() {
     const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c.name])), [customers]);
 
     const handleDelete = () => {
-        if (!firestore || !deleteSale) return;
+        if (!firestore || !deleteSale || !tenantId) return;
         const saleDoc = doc(firestore, `tenants/${tenantId}/flatSales`, deleteSale.id);
         deleteDocumentNonBlocking(saleDoc);
         toast({ variant: "destructive", title: "Sale Record Deleted", description: "The flat sale record has been permanently deleted." });

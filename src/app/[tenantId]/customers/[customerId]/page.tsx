@@ -40,10 +40,14 @@ type Payment = {
 function SaleInfoCard({ tenantId, sale }: { tenantId: string, sale: FlatSale }) {
     const firestore = useFirestore();
 
-    const projectRef = useMemoFirebase(() => doc(firestore, `tenants/${tenantId}/projects`, sale.projectId), [firestore, tenantId, sale.projectId]);
+    const projectRef = useMemoFirebase(() => {
+        if (!firestore || !tenantId || !sale.projectId) return null;
+        return doc(firestore, `tenants/${tenantId}/projects`, sale.projectId);
+    }, [firestore, tenantId, sale.projectId]);
     const { data: project } = useDoc<Project>(projectRef);
     
     const paymentsQuery = useMemoFirebase(() => {
+        if (!firestore || !tenantId || !sale.id) return null;
         const salePaymentsPath = `tenants/${tenantId}/flatSales/${sale.id}/payments`;
         return collection(firestore, salePaymentsPath);
     }, [firestore, tenantId, sale.id]);

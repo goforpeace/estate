@@ -68,7 +68,7 @@ export default function OrganizationPage() {
   }, [organization, form]);
 
   const onSubmit = (data: OrganizationFormData) => {
-    if (!orgDocRef) return;
+    if (!orgDocRef || !tenantId) return;
     
     const orgData = {
         ...data,

@@ -53,7 +53,7 @@ function CustomerForm({ tenantId, onFinished, customer }: { tenantId: string; on
   });
 
   const onSubmit = (data: CustomerFormData) => {
-    if (!firestore) return;
+    if (!firestore || !tenantId) return;
 
     const customerData = {
       ...data,
@@ -161,7 +161,7 @@ export default function CustomersPage() {
   const hasCustomers = useMemo(() => customers && customers.length > 0, [customers]);
 
   const handleDelete = () => {
-    if (!firestore || !deleteCustomer) return;
+    if (!firestore || !deleteCustomer || !tenantId) return;
     const customerDoc = doc(firestore, `tenants/${tenantId}/customers`, deleteCustomer.id);
     deleteDocumentNonBlocking(customerDoc);
     toast({

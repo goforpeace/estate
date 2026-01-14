@@ -71,7 +71,7 @@ export default function ManageTenantPage() {
       });
       return;
     }
-    if (!auth || !firestore) {
+    if (!auth || !firestore || !tenantId) {
         toast({
         variant: 'destructive',
         title: 'Firebase not available',

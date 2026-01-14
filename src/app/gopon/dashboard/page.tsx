@@ -42,6 +42,7 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
             return;
         }
         
+        if (!firestore) return;
         const tenantsCol = collection(firestore, 'tenants');
         const newTenant = {
             name,
@@ -111,10 +112,9 @@ export default function AdminDashboard() {
   }, [isUserLoading, user, router]);
 
   const tenantsQuery = useMemoFirebase(() => {
-    // Only query if the user is authenticated
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return collection(firestore, 'tenants');
-  }, [firestore, user]);
+  }, [firestore]);
 
   const { data: tenants, isLoading: isTenantsLoading, error } = useCollection<Tenant>(tenantsQuery);
   

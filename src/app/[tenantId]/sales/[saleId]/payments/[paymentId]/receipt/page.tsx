@@ -26,19 +26,34 @@ export default function ReceiptPage() {
     const firestore = useFirestore();
 
     // --- Data Fetching Hooks ---
-    const orgRef = useMemoFirebase(() => doc(firestore, `tenants/${tenantId}/organization`, 'details'), [firestore, tenantId]);
+    const orgRef = useMemoFirebase(() => {
+        if (!firestore || !tenantId) return null;
+        return doc(firestore, `tenants/${tenantId}/organization`, 'details');
+    }, [firestore, tenantId]);
     const { data: organization, isLoading: orgLoading } = useDoc<Organization>(orgRef);
 
-    const saleRef = useMemoFirebase(() => saleId ? doc(firestore, `tenants/${tenantId}/flatSales`, saleId) : null, [firestore, tenantId, saleId]);
+    const saleRef = useMemoFirebase(() => {
+        if (!firestore || !tenantId || !saleId) return null;
+        return doc(firestore, `tenants/${tenantId}/flatSales`, saleId);
+    }, [firestore, tenantId, saleId]);
     const { data: sale, isLoading: saleLoading } = useDoc<FlatSale>(saleRef);
 
-    const paymentRef = useMemoFirebase(() => (saleId && paymentId) ? doc(firestore, `tenants/${tenantId}/flatSales/${saleId}/payments`, paymentId) : null, [firestore, tenantId, saleId, paymentId]);
+    const paymentRef = useMemoFirebase(() => {
+        if (!firestore || !tenantId || !saleId || !paymentId) return null;
+        return doc(firestore, `tenants/${tenantId}/flatSales/${saleId}/payments`, paymentId);
+    }, [firestore, tenantId, saleId, paymentId]);
     const { data: payment, isLoading: paymentLoading } = useDoc<Payment>(paymentRef);
 
-    const projectRef = useMemoFirebase(() => sale ? doc(firestore, `tenants/${tenantId}/projects`, sale.projectId) : null, [firestore, tenantId, sale]);
+    const projectRef = useMemoFirebase(() => {
+        if (!firestore || !tenantId || !sale) return null;
+        return doc(firestore, `tenants/${tenantId}/projects`, sale.projectId);
+    }, [firestore, tenantId, sale]);
     const { data: project, isLoading: projectLoading } = useDoc<Project>(projectRef);
     
-    const customerRef = useMemoFirebase(() => sale ? doc(firestore, `tenants/${tenantId}/customers`, sale.customerId) : null, [firestore, tenantId, sale]);
+    const customerRef = useMemoFirebase(() => {
+        if (!firestore || !tenantId || !sale) return null;
+        return doc(firestore, `tenants/${tenantId}/customers`, sale.customerId);
+    }, [firestore, tenantId, sale]);
     const { data: customer, isLoading: customerLoading } = useDoc<Customer>(customerRef);
 
     const isLoading = orgLoading || saleLoading || paymentLoading || projectLoading || customerLoading;

@@ -96,7 +96,7 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
     }, [selectedSale, allPayments, projects, customers, payment]);
     
     const onSubmit = (data: z.infer<typeof formSchema>) => {
-        if (!firestore || !selectedSaleId) return;
+        if (!firestore || !selectedSaleId || !tenantId) return;
 
         const paymentData = {
             amount: data.amount,
@@ -242,13 +242,22 @@ export default function PaymentsPage() {
   const [deletePayment, setDeletePayment] = useState<Payment | undefined>(undefined);
 
   // --- Simplified Data Fetching ---
-  const salesQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/flatSales`), [firestore, tenantId]);
+  const salesQuery = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return collection(firestore, `tenants/${tenantId}/flatSales`);
+  }, [firestore, tenantId]);
   const { data: sales, isLoading: salesLoading } = useCollection<FlatSale>(salesQuery);
   
-  const projectsQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/projects`), [firestore, tenantId]);
+  const projectsQuery = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return collection(firestore, `tenants/${tenantId}/projects`);
+  }, [firestore, tenantId]);
   const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const customersQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/customers`), [firestore, tenantId]);
+  const customersQuery = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return collection(firestore, `tenants/${tenantId}/customers`);
+  }, [firestore, tenantId]);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
 
   // The robust way to get all payments for a tenant
@@ -286,7 +295,7 @@ export default function PaymentsPage() {
 
   // --- Handlers ---
   const handleDelete = () => {
-    if (!firestore || !deletePayment) return;
+    if (!firestore || !deletePayment || !tenantId) return;
     // The path to the payment is under its parent flatSale document
     const paymentDoc = doc(firestore, `tenants/${tenantId}/flatSales/${deletePayment.flatSaleId}/payments`, deletePayment.id);
     deleteDocumentNonBlocking(paymentDoc);

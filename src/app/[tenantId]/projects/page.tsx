@@ -126,7 +126,7 @@ function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFi
 
 
   const onSubmit = (data: ProjectFormData) => {
-    if (!firestore) return;
+    if (!firestore || !tenantId) return;
 
     const projectData = {
       ...data,
@@ -309,7 +309,7 @@ export default function ProjectsPage() {
   const { data: projects, isLoading } = useCollection<Project>(projectsQuery);
   
   const handleDelete = () => {
-    if (!firestore || !deleteProject) return;
+    if (!firestore || !deleteProject || !tenantId) return;
     const projectDoc = doc(firestore, `tenants/${tenantId}/projects`, deleteProject.id);
     deleteDocumentNonBlocking(projectDoc);
     toast({
