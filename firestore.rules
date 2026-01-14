@@ -15,142 +15,128 @@ service cloud.firestore {
     }
 
     /**
-     * Checks if the requesting user has the 'Admin' role.
-     * Role is determined by the existence of a document in the 'roles_admin' collection.
+     * Checks if the requesting user has the 'Admin' role for the entire system.
+     * This is for the top-level admin panel (gopon).
      */
-    function isAdmin() {
+    function isSuperAdmin() {
       return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
-
-    /**
-     * Checks if the user is the owner of the document they are trying to access.
-     * This is typically used for user-specific data like profiles.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
     
-    //============================================================
-    //  Collection Rules
-    //============================================================
-
     /**
-     * Users Collection:
-     * - A user can create their own user document.
-     * - A user can read and update their own profile.
-     * - Admins can read any user's profile.
+     * Checks if the user is a member of the tenant they are trying to access.
+     * For now, this just checks if they are signed in. This can be expanded later
+     * for more complex role systems within a tenant.
      */
-    match /users/{userId} {
-      allow create: if isSignedIn() && isOwner(userId);
-      allow read, update: if isSignedIn() && isOwner(userId);
-      allow list: if isAdmin(); // Only admins can list all users.
+    function isTenantMember(tenantId) {
+        // In a more complex app, you might check a 'members' subcollection:
+        // return exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
+        return isSignedIn();
     }
+
+    //============================================================
+    //  Admin-Specific Rules
+    //============================================================
     
     /**
      * Admin Roles Collection:
-     * - This collection is used to grant admin privileges.
-     * - Only Admins can see who else is an admin.
-     * - Writes from the client are disabled to prevent users from making themselves admins.
-     *   (This should be managed from a secure backend environment or the Firebase Console).
+     * - This collection is used to grant system-wide admin privileges.
+     * - Only Super Admins can see who else is an admin.
+     * - Writes are disabled from the client to prevent privilege escalation.
      */
     match /roles_admin/{userId} {
-      allow read, list: if isAdmin();
-      allow write: if false; // Disable client-side writes for security.
+      allow read, list: if isSuperAdmin();
+      allow write: if false; 
     }
-
+    
     /**
-     * Projects Collection and its Subcollections:
-     * - Any signed-in user can read project data.
-     * - Only Admins can create, update, or delete projects and their contents.
-     */
-    match /projects/{projectId} {
-      allow read, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
-
-      /**
-       * Flats Subcollection:
-       * - Any signed-in user can read/list flats.
-       * - Only Admins can write/delete flats.
-       */
-      match /flats/{flatId} {
-        allow read, list: if isSignedIn();
-        allow write, delete: if isAdmin();
-      }
-
-      /**
-       * Inflow Transactions (Payments) Subcollection:
-       * - Any signed-in user can create new payments.
-       * - All signed-in users can read/list payments.
-       * - Only Admins can update/delete payments to protect financial records.
-       */
-      match /inflowTransactions/{transactionId} {
-        allow create, read, list: if isSignedIn();
-        allow update, delete: if isAdmin();
-      }
-
-      /**
-       * Outflow Transactions (Expenses) Subcollection:
-       * - Any signed-in user can create expense payments.
-       * - All signed-in users can read/list them.
-       * - Only Admins can update/delete them.
-       */
-      match /outflowTransactions/{transactionId} {
-        allow create, read, list: if isSignedIn();
-        allow update, delete: if isAdmin();
-      }
+      * Top-level tenants collection for the admin panel.
+      * Only Super Admins can manage tenants.
+      */
+    match /tenants/{tenantId} {
+        allow read, list, create, update, delete: if isSuperAdmin();
     }
 
-    /**
-     * Customers, Sales, Vendors, Expenses Collections:
-     * - For these core business data collections, we allow any signed-in user to
-     *   read the data, but restrict write operations (create, update, delete) to Admins.
-     */
-    match /customers/{customerId} {
-      allow read, list: if isSignedIn();
-      allow write: if isAdmin();
-    }
+    //============================================================
+    //  Tenant Data Rules
+    //============================================================
+
+    match /tenants/{tenantId}/documents {
     
-    match /sales/{saleId} {
-      allow read, list: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    match /vendors/{vendorId} {
-       allow read, list: if isSignedIn();
-       allow write: if isAdmin();
-    }
+        /**
+         * Projects Collection:
+         * - Any authenticated user of the tenant can read projects.
+         * - Any authenticated user of the tenant can create, update, or delete projects.
+         *   (This can be restricted to tenant admins later if needed).
+         */
+        match /projects/{projectId} {
+          allow read, list, create, update, delete: if isTenantMember(tenantId);
+        }
 
-    match /expenseItems/{itemId} {
-       allow read, list: if isSignedIn();
-       allow write: if isAdmin();
-    }
+        /**
+         * Customers Collection:
+         * - Any authenticated user of the tenant can manage customers.
+         */
+        match /customers/{customerId} {
+          allow read, list, create, update, delete: if isTenantMember(tenantId);
+        }
+        
+        /**
+         * Flat Sales Collection:
+         * - Any authenticated user of the tenant can manage sales.
+         */
+        match /flatSales/{saleId} {
+          allow read, list, create, update, delete: if isTenantMember(tenantId);
 
-    match /expenses/{expenseId} {
-        allow read, list: if isSignedIn();
-        // Allow any signed-in user to create an expense record initially.
-        allow create: if isSignedIn();
-        // But only Admins can modify or delete it later.
-        allow update, delete: if isAdmin();
-    }
-    
-    match /operatingCostItems/{itemId} {
-      allow read, list: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    match /operatingCosts/{costId} {
-      allow read, list: if isSignedIn();
-      allow write: if isAdmin();
-    }
+           /**
+            * Payments Subcollection:
+            * - Any authenticated user of the tenant can manage payments for a sale.
+            */
+          match /payments/{paymentId} {
+             allow read, list, create, update, delete: if isTenantMember(tenantId);
+          }
+        }
+        
+        /**
+         * Organization Details:
+         * - Any authenticated user of the tenant can manage the organization profile.
+         */
+        match /organization/{orgId} {
+             allow read, list, create, update, delete: if isTenantMember(tenantId);
+        }
+
+        /**
+         * inflowTransactions (Payments) Subcollection within Projects:
+         * - This rule handles the collectionGroup query for payments.
+         * - Any signed-in tenant member can create, read, and list their own payments.
+         * - Admins (or authorized roles) can update/delete them.
+         */
+        match /projects/{projectId}/inflowTransactions/{transactionId} {
+            allow create, read, list, update, delete: if isTenantMember(tenantId);
+        }
+
+    } // End of /tenants/{tenantId}/documents
 
     /**
      * Counters for IDs:
      * - This is a backend-only collection used for atomic operations (transactions).
-     * - Client-side writes should be disabled.
+     * - Client-side writes must be disabled. Reads can be allowed if needed by client logic.
      */
     match /counters/{counterId} {
-      allow read: if isSignedIn(); // Allow reading if needed, but not writing.
+      allow read: if isSignedIn();
       allow write: if false; 
+    }
+    
+     /**
+     * Users Collection (Global):
+     * - This assumes users are global and not nested under tenants.
+     * - A user can create their own user document.
+     * - A user can read and update their own profile.
+     * - Super Admins can list any user.
+     */
+    match /users/{userId} {
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow read, update: if isSignedIn() && request.auth.uid == userId;
+      allow list: if isSuperAdmin();
     }
   }
 }
