@@ -30,7 +30,7 @@ export const Receipt = forwardRef<
       className="p-8 bg-white text-black font-sans text-sm"
       style={{ width: '210mm', minHeight: '297mm', margin: 'auto' }}
     >
-      <div className="border border-black p-6 h-full flex flex-col">
+      <div className="p-6 h-full flex flex-col">
         <header className="text-center mb-6">
           {organization?.logoUrl && <img src={organization.logoUrl} alt="logo" className="h-20 mx-auto mb-4" data-ai-hint="company logo" />}
           <h2 className="text-xl font-bold">{organization?.name}</h2>
@@ -120,5 +120,3 @@ export const Receipt = forwardRef<
 });
 
 Receipt.displayName = 'Receipt';
-
-    
