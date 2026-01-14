@@ -265,9 +265,9 @@ export default function PaymentsPage() {
             const paymentsSnapshot = await getDocs(paymentsColRef);
             // THIS IS THE FIX: Correctly map doc.id to the payment's id field.
             return paymentsSnapshot.docs.map(doc => ({
+                ...(doc.data() as Omit<Payment, 'id' | 'flatSaleId'>),
                 id: doc.id, // The unique ID of the payment document itself
                 flatSaleId: sale.id, 
-                ...(doc.data() as Omit<Payment, 'id' | 'flatSaleId'>)
             } as Payment));
         });
 
@@ -392,7 +392,7 @@ export default function PaymentsPage() {
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">
                           <Button asChild variant="outline" size="sm" className="gap-1">
-                              <Link href={`/${tenantId}/payments/${payment.id}/receipt?saleId=${payment.flatSaleId}`}>
+                              <Link href={`/${tenantId}/sales/${payment.flatSaleId}/payments/${payment.id}/receipt`}>
                                   <Printer className="h-3.5 w-3.5" /><span className="sr-only sm:not-sr-only">Print</span>
                               </Link>
                           </Button>

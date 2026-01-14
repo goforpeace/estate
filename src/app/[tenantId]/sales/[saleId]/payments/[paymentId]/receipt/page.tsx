@@ -6,7 +6,7 @@ import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
 import { Loader2, Printer } from "lucide-react";
 import { doc } from "firebase/firestore";
 import Image from "next/image";
-import { useSearchParams, useParams, notFound } from "next/navigation";
+import { useParams, notFound } from "next/navigation";
 import { useMemo } from "react";
 import { format } from "date-fns";
 
@@ -15,14 +15,13 @@ type Organization = { name: string; logoUrl?: string; address: string; phone: st
 type Project = { name: string; flats: { name: string; sizeSft: number }[] };
 type Customer = { name: string; address: string; phoneNumber: string; };
 type FlatSale = { projectId: string; customerId: string; flatName: string; };
-type Payment = { amount: number; type: string; reference?: string; paymentDate: string; };
+type Payment = { id: string; amount: number; type: string; reference?: string; paymentDate: string; };
 
 export default function ReceiptPage() {
     const params = useParams();
-    const searchParams = useSearchParams();
     const tenantId = params.tenantId as string;
+    const saleId = params.saleId as string;
     const paymentId = params.paymentId as string;
-    const saleId = searchParams.get('saleId');
 
     const firestore = useFirestore();
 
@@ -33,7 +32,7 @@ export default function ReceiptPage() {
     const saleRef = useMemoFirebase(() => saleId ? doc(firestore, `tenants/${tenantId}/flatSales`, saleId) : null, [firestore, tenantId, saleId]);
     const { data: sale, isLoading: saleLoading } = useDoc<FlatSale>(saleRef);
 
-    const paymentRef = useMemoFirebase(() => saleId ? doc(firestore, `tenants/${tenantId}/flatSales/${saleId}/payments`, paymentId) : null, [firestore, tenantId, saleId, paymentId]);
+    const paymentRef = useMemoFirebase(() => (saleId && paymentId) ? doc(firestore, `tenants/${tenantId}/flatSales/${saleId}/payments`, paymentId) : null, [firestore, tenantId, saleId, paymentId]);
     const { data: payment, isLoading: paymentLoading } = useDoc<Payment>(paymentRef);
 
     const projectRef = useMemoFirebase(() => sale ? doc(firestore, `tenants/${tenantId}/projects`, sale.projectId) : null, [firestore, tenantId, sale]);
@@ -152,5 +151,3 @@ export default function ReceiptPage() {
         </div>
     );
 }
-
-    
