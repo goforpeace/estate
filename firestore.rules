@@ -48,20 +48,15 @@ service cloud.firestore {
       allow write: if false; 
     }
     
-    /**
-      * Top-level tenants collection for the admin panel.
-      * Only Super Admins can manage tenants.
-      */
-    match /tenants/{tenantId} {
-        allow read, list, create, update, delete: if isSuperAdmin();
-    }
-
     //============================================================
     //  Tenant Data Rules
     //============================================================
 
-    match /tenants/{tenantId}/documents {
-    
+    match /tenants/{tenantId} {
+        // This rule allows Super Admins to manage the tenant documents themselves.
+        // It does NOT grant access to subcollections.
+        allow read, list, create, update, delete: if isSuperAdmin();
+
         /**
          * Projects Collection:
          * - Any authenticated user of the tenant can read projects.
@@ -70,6 +65,14 @@ service cloud.firestore {
          */
         match /projects/{projectId} {
           allow read, list, create, update, delete: if isTenantMember(tenantId);
+          
+           /**
+             * inflowTransactions (Payments) Subcollection within Projects:
+             * - Any signed-in tenant member can create, read, and list their own payments.
+             */
+            match /inflowTransactions/{transactionId} {
+                allow create, read, list, update, delete: if isTenantMember(tenantId);
+            }
         }
 
         /**
@@ -103,18 +106,7 @@ service cloud.firestore {
         match /organization/{orgId} {
              allow read, list, create, update, delete: if isTenantMember(tenantId);
         }
-
-        /**
-         * inflowTransactions (Payments) Subcollection within Projects:
-         * - This rule handles the collectionGroup query for payments.
-         * - Any signed-in tenant member can create, read, and list their own payments.
-         * - Admins (or authorized roles) can update/delete them.
-         */
-        match /projects/{projectId}/inflowTransactions/{transactionId} {
-            allow create, read, list, update, delete: if isTenantMember(tenantId);
-        }
-
-    } // End of /tenants/{tenantId}/documents
+    }
 
     /**
      * Counters for IDs:
