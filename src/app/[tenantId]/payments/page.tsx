@@ -27,10 +27,6 @@ import {
   collection,
   doc,
   addDoc,
-  collectionGroup,
-  query,
-  where,
-  deleteDoc,
   updateDoc,
   getDocs,
 } from 'firebase/firestore';
@@ -421,25 +417,46 @@ export default function PaymentsPage() {
   useEffect(() => {
     if (!firestore || !tenantId || !sales) {
         setPaymentsLoading(sales === undefined); // Still loading if sales are undefined
+        if(sales === null) setPayments([]); // If sales are loaded but null (no sales), set payments to empty and stop loading.
         return;
     }
 
     const fetchPayments = async () => {
         setPaymentsLoading(true);
-        const allPayments: PaymentRecord[] = [];
-        for (const sale of sales) {
-            const paymentsCollectionRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
-            const paymentsSnapshot = await getDocs(paymentsCollectionRef);
-            paymentsSnapshot.forEach(doc => {
-                allPayments.push({ ...(doc.data() as InflowTransaction), id: doc.id, saleId: sale.id });
+        try {
+            const allPayments: PaymentRecord[] = [];
+            // Create a list of promises for all the payment fetches
+            const paymentPromises = sales.map(async (sale) => {
+                const paymentsCollectionRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
+                const paymentsSnapshot = await getDocs(paymentsCollectionRef);
+                return paymentsSnapshot.docs.map(doc => {
+                    const data = doc.data() as InflowTransaction;
+                    const path = doc.ref.path;
+                    return { ...data, id: doc.id, saleId: sale.id, _originalPath: path };
+                });
             });
+
+            // Wait for all promises to resolve
+            const paymentsBySale = await Promise.all(paymentPromises);
+            
+            // Flatten the array of arrays into a single array of payments
+            const flattenedPayments = paymentsBySale.flat();
+
+            setPayments(flattenedPayments);
+        } catch (error) {
+            console.error("Error fetching payments:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error fetching payments',
+                description: 'Could not load payment records.'
+            });
+        } finally {
+            setPaymentsLoading(false);
         }
-        setPayments(allPayments);
-        setPaymentsLoading(false);
     };
 
     fetchPayments();
-  }, [firestore, tenantId, sales]);
+  }, [firestore, tenantId, sales, toast]);
 
   const isLoading = projectsLoading || customersLoading || salesLoading || paymentsLoading;
   
@@ -453,27 +470,19 @@ export default function PaymentsPage() {
     setLastTransactionCustomer(customer);
     setLastTransactionProject(project);
     setReceiptOpen(true);
-    // Refetch payments
-    if(firestore && tenantId && sales) {
-        const fetchPayments = async () => {
-            const allPayments: PaymentRecord[] = [];
-            for (const sale of sales) {
-                const paymentsCollectionRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
-                const paymentsSnapshot = await getDocs(paymentsCollectionRef);
-                paymentsSnapshot.forEach(doc => {
-                    allPayments.push({ ...(doc.data() as InflowTransaction), id: doc.id, saleId: sale.id });
-                });
-            }
-            setPayments(allPayments);
-        };
-        fetchPayments();
-    }
+    // Add the new payment to the local state to avoid a full refetch
+    setPayments(prev => [{...transaction, saleId: selectedSale.id}, ...prev]);
   };
 
   const handleFormFinished = () => {
     setFormOpen(false);
     setEditTransaction(undefined);
   };
+  
+    const selectedSale = useMemo(() => {
+        if (!editTransaction) return null;
+        return sales?.find(s => s.id === editTransaction.saleId);
+    },[editTransaction, sales]);
 
   const handleDelete = () => {
     if (!firestore || !deleteTransaction?._originalPath) return;
@@ -490,8 +499,7 @@ export default function PaymentsPage() {
   
    const getFullTransaction = (payment: PaymentRecord): PaymentRecord | undefined => {
     if (!payment) return undefined;
-    const path = `tenants/${payment.tenantId}/flatSales/${payment.saleId}/payments/${payment.id}`;
-    return { ...payment, _originalPath: path };
+    return payment;
   };
 
   return (
@@ -585,7 +593,7 @@ export default function PaymentsPage() {
                         <TableCell className="font-medium">{customersMap.get(payment.customerId) || 'N/A'}</TableCell>
                         <TableCell>{projectsMap.get(payment.projectId) || 'N/A'}</TableCell>
                         <TableCell>{payment.flatId}</TableCell>
-                        <TableCell>{format(new Date(payment.date), 'dd MMM, yyyy')}</TableCell>
+                        <TableCell>{payment.date ? format(new Date(payment.date), 'dd MMM, yyyy') : 'Invalid Date'}</TableCell>
                         <TableCell>{payment.paymentType}</TableCell>
                         <TableCell className="text-right">{payment.amount.toLocaleString('en-IN')}</TableCell>
                         <TableCell className="text-right">
