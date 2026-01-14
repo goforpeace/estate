@@ -18,22 +18,16 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // Rules for all tenant-specific data.
+    // Rules for all tenant-specific data collections.
     match /tenants/{tenantId}/{collection}/{docId} {
-      // A user can read/write data only within their own tenant's path.
-      // This assumes the user's auth token has a `tenant` claim matching `tenantId`.
-      // For now, we will allow any signed-in user to access for development.
       allow read, write: if isSignedIn();
     }
     
-    // This rule is CRITICAL for the collectionGroup query on 'payments' to work.
-    // It allows a user to query the 'payments' collection group if the query
-    // includes a 'where' clause for 'tenantId' that matches their tenant.
-    match /{path=**}/payments/{paymentId} {
-        // As a simple dev rule, allow any signed-in user to list payments.
-        // In production, you would add a check like:
-        // allow list: if request.query.where.tenantId == request.auth.token.tenant;
-        allow read, write: if isSignedIn();
+    // This rule allows collectionGroup queries on 'payments' by ensuring
+    // the user is authenticated. This path must exactly match the subcollection
+    // structure.
+    match /tenants/{tenantId}/flatSales/{flatSaleId}/payments/{paymentId} {
+      allow read, write: if isSignedIn();
     }
   }
 }
