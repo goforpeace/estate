@@ -1,4 +1,25 @@
-// This file is intentionally left empty.
-// The application will now fetch data from Firestore instead of using this mock data.
-// Type definitions that were here have been removed as they will be defined
-// closer to where they are used, likely with data fetched from Firestore.
+import {
+  Firestore,
+  doc,
+  runTransaction,
+  serverTimestamp,
+} from 'firebase/firestore';
+
+export const getNextReceiptId = (firestore: Firestore) => {
+  if (!firestore) {
+    throw new Error('Firestore is not initialized');
+  }
+  const counterRef = doc(firestore, 'counters', 'receipt');
+  return runTransaction(firestore, async (transaction) => {
+    const counterDoc = await transaction.get(counterRef);
+    if (!counterDoc.exists()) {
+      transaction.set(counterRef, { lastId: 1 });
+      return '1';
+    }
+    const newId = counterDoc.data().lastId + 1;
+    transaction.update(counterRef, { lastId: newId });
+    return newId.toString();
+  });
+};
+
+    

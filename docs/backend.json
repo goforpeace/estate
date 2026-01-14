@@ -352,6 +352,79 @@
         "phone",
         "email"
       ]
+    },
+    "InflowTransaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "InflowTransaction",
+      "type": "object",
+      "description": "Represents an inflow transaction, such as a payment.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the transaction."
+        },
+        "receiptId": {
+          "type": "string",
+          "description": "The sequential and unique receipt ID."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to the Customer."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to the Project."
+        },
+        "flatId": {
+          "type": "string",
+          "description": "The identifier of the flat."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date of the transaction."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the transaction."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "The payment method used."
+        },
+        "paymentType": {
+          "type": "string",
+          "description": "The type of payment (e.g., booking, installment)."
+        },
+        "bankName": {
+          "type": "string",
+          "description": "The name of the bank, if applicable."
+        },
+        "chequeNo": {
+          "type": "string",
+          "description": "The cheque number, if applicable."
+        },
+        "chequeDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date of the cheque, if applicable."
+        },
+        "note": {
+          "type": "string",
+          "description": "Additional notes for the transaction."
+        }
+      },
+      "required": [
+        "id",
+        "receiptId",
+        "customerId",
+        "projectId",
+        "flatId",
+        "date",
+        "amount",
+        "paymentMethod",
+        "paymentType"
+      ]
     }
   },
   "auth": {
@@ -379,6 +452,21 @@
         }
       },
       {
+        "path": "/counters/receipt",
+        "definition": {
+          "entityName": "Counter",
+          "description": "A special document to keep track of sequential receipt IDs.",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "lastId": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      {
         "path": "/tenants/{tenantId}/projects/{projectId}",
         "definition": {
           "entityName": "Project",
@@ -394,6 +482,30 @@
             {
               "name": "projectId",
               "description": "Unique identifier for the project."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/projects/{projectId}/inflowTransactions/{transactionId}",
+        "definition": {
+          "entityName": "InflowTransaction",
+          "schema": {
+            "$ref": "#/backend/entities/InflowTransaction"
+          },
+          "description": "Stores payment information as a subcollection of the project.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "projectId",
+              "description": "Unique identifier for the project."
+            },
+            {
+              "name": "transactionId",
+              "description": "Unique identifier for the transaction."
             }
           ]
         }
@@ -486,3 +598,5 @@
     "reasoning": "The Firestore structure is designed to support a multi-tenant real estate management SaaS application, focusing on authorization independence, scalability, and clear security rules.  Tenants are isolated from each other using a top-level `tenants` collection. Each tenant owns projects, customers, flat sales, payments and organization data. This design enables efficient querying and avoids complex rule logic. Each tenant has its own set of users managed via Firebase Authentication.\n\nAuthorization Independence: Achieved by storing the `tenantId` within each document that belongs to a tenant (Projects, Customers, FlatSales, Payments, Organization). This eliminates the need for `get()` calls in security rules to verify tenant ownership, thus improving performance and simplifying rule complexity. FlatSales also store `projectId` and `customerId` to simplify queries and avoid expensive collection group queries where possible.\n\nQAPs Support:\n*   Secure List Operations: Path-based ownership (/tenants/{tenantId}/projects/{projectId}) and root collections with tenantId fields enable secure listing of resources within a tenant's scope.\n*   Tenant Isolation: The structure inherently isolates data between tenants, preventing unauthorized access.\n*   Role-Based Access Control (Future Enhancement): While the current design uses path-based ownership, a membership map (`members: {uid: role}`) could be added to Project or other collections for collaborative access within a tenant, if required in the future."
   }
 }
+
+    

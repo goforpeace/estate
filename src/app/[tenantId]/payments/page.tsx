@@ -1,237 +1,418 @@
 'use client';
-
-import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, collectionGroup, doc, query, where } from "firebase/firestore";
-import { useParams } from "next/navigation";
-import Link from 'next/link';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState, useMemo, useEffect } from 'react';
+import { PageHeader } from '@/components/page-header';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { PlusCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useForm, Controller } from 'react-hook-form';
+import {
+  collection,
+  doc,
+  addDoc,
+} from 'firebase/firestore';
+import {
+  useFirestore,
+  useCollection,
+  useMemoFirebase,
+} from '@/firebase';
+import { useParams } from 'next/navigation';
+import { getNextReceiptId } from '@/lib/data';
+import { PrintReceiptDialog } from '@/components/dashboard/payments/PrintReceiptDialog';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-// --- Type Definitions ---
-type Project = { id: string; name: string; };
-type Customer = { id: string; name: string; };
-type FlatSale = { id: string; projectId: string; customerId: string; flatName: string; };
-type Payment = { id: string; flatSaleId: string; tenantId: string; amount: number; type: string; paymentFor: string; paymentDate: string; };
+type Project = { id: string; name: string; flats: { name: string }[] };
+type Customer = { id: string; name: string, address: string };
+type FlatSale = { id: string; customerId: string; projectId: string, flatName: string };
 
-const paymentSchema = z.object({
-  flatSaleId: z.string().min(1, "A flat sale must be selected."),
-  amount: z.coerce.number().min(1, "Payment amount is required."),
-  type: z.enum(["Cash", "Cheque", "Bank Transfer"]),
-  paymentFor: z.enum(["Booking Money", "Installment"]),
-  reference: z.string().optional(),
-  paymentDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "A valid payment date is required.",
-  }),
-});
+export type InflowTransaction = {
+  id: string;
+  receiptId: string;
+  customerId: string;
+  projectId: string;
+  flatId: string;
+  date: string;
+  amount: number;
+  paymentMethod: string;
+  paymentType: string;
+  bankName: string;
+  chequeNo: string;
+  chequeDate: string;
+  note: string;
+};
 
-type PaymentFormData = z.infer<typeof paymentSchema>;
+const AddPaymentForm = ({
+  onFinished,
+  tenantId,
+  projects,
+  customers,
+  sales,
+  onPaymentAdded,
+}: {
+  onFinished: () => void;
+  tenantId: string;
+  projects: Project[];
+  customers: Customer[];
+  sales: FlatSale[];
+  onPaymentAdded: (
+    transaction: InflowTransaction,
+    customer: Customer,
+    project: Project
+  ) => void;
+}) => {
+  const { toast } = useToast();
+  const firestore = useFirestore();
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    formState: { errors },
+  } = useForm<Omit<InflowTransaction, 'id' | 'receiptId'>>();
 
-// --- Payment Form Component ---
-function PaymentForm({ tenantId, onFinished, flatSales, projectsMap, customersMap, payment }: { tenantId: string; onFinished: () => void; flatSales: FlatSale[], projectsMap: Map<string, string>, customersMap: Map<string, string>, payment?: Payment }) {
-    const firestore = useFirestore();
-    const { toast } = useToast();
+  const selectedCustomerId = watch('customerId');
+  const selectedProjectId = watch('projectId');
 
-    const form = useForm<PaymentFormData>({
-        resolver: zodResolver(paymentSchema),
-        defaultValues: payment ? {
-            ...payment,
-            paymentDate: format(new Date(payment.paymentDate), 'yyyy-MM-dd')
-        } : {
-            flatSaleId: '',
-            amount: 0,
-            type: 'Cash',
-            paymentFor: 'Installment',
-            reference: '',
-            paymentDate: format(new Date(), 'yyyy-MM-dd'),
-        },
-    });
-    
-    const onSubmit = (data: PaymentFormData) => {
-        if (!firestore || !tenantId) return;
-
-        const paymentData = { 
-            ...data, 
-            tenantId,
-            paymentDate: new Date(data.paymentDate).toISOString(),
-        };
-
-        if (payment) {
-            const paymentDocRef = doc(firestore, `tenants/${tenantId}/flatSales/${payment.flatSaleId}/payments`, payment.id);
-            updateDocumentNonBlocking(paymentDocRef, paymentData);
-            toast({ title: "Payment Updated", description: "The payment details have been successfully updated." });
-        } else {
-            const paymentCollectionRef = collection(firestore, `tenants/${tenantId}/flatSales/${data.flatSaleId}/payments`);
-            addDocumentNonBlocking(paymentCollectionRef, paymentData);
-            toast({ title: "Payment Recorded", description: "The new payment has been successfully recorded." });
-        }
-        
-        onFinished();
-        form.reset();
-    };
-
-    return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-                <ScrollArea className="h-[70vh] p-1 pr-4">
-                    <div className="space-y-4 p-4 pt-0">
-                        <FormField
-                            control={form.control}
-                            name="flatSaleId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Flat Sale</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={flatSales.length === 0}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Select a sale to apply payment to" /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {flatSales.map(sale => (
-                                                <SelectItem key={sale.id} value={sale.id}>
-                                                    {customersMap.get(sale.customerId)} - {projectsMap.get(sale.projectId)} ({sale.flatName})
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Amount (TK)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                             <FormField control={form.control} name="paymentDate" render={({ field }) => (<FormItem><FormLabel>Payment Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                           <FormField control={form.control} name="type" render={({ field }) => (
-                               <FormItem><FormLabel>Payment Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Cash">Cash</SelectItem><SelectItem value="Cheque">Cheque</SelectItem><SelectItem value="Bank Transfer">Bank Transfer</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                           )} />
-                           <FormField control={form.control} name="paymentFor" render={({ field }) => (
-                               <FormItem><FormLabel>Payment For</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="Booking Money">Booking Money</SelectItem><SelectItem value="Installment">Installment</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                           )} />
-                        </div>
-                         <FormField control={form.control} name="reference" render={({ field }) => (<FormItem><FormLabel>Reference</FormLabel><FormControl><Input placeholder="Cheque No. / Transaction ID" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    </div>
-                </ScrollArea>
-                <div className="p-4 pt-0 border-t">
-                    <Button type="submit" className="w-full mt-4">{payment ? 'Update Payment' : 'Record Payment'}</Button>
-                </div>
-            </form>
-        </Form>
+  const filteredProjects = useMemo(() => {
+    if (!selectedCustomerId) return [];
+    const customerSales = sales.filter(
+      (sale) => sale.customerId === selectedCustomerId
     );
-}
+    const projectIds = [...new Set(customerSales.map((sale) => sale.projectId))];
+    return projects.filter((p) => projectIds.includes(p.id));
+  }, [selectedCustomerId, sales, projects]);
 
-// --- Main Page Component ---
+  const filteredFlats = useMemo(() => {
+    if (!selectedCustomerId || !selectedProjectId) return [];
+    return sales
+      .filter(
+        (sale) =>
+          sale.customerId === selectedCustomerId &&
+          sale.projectId === selectedProjectId
+      )
+      .map((s) => s.flatName);
+  }, [selectedCustomerId, selectedProjectId, sales]);
+
+  const onSubmit = async (data: Omit<InflowTransaction, 'id' | 'receiptId'>) => {
+    if (!firestore) return;
+    try {
+      const receiptId = await getNextReceiptId(firestore);
+      const transactionData = {
+        ...data,
+        receiptId,
+        date: new Date(data.date).toISOString(),
+        amount: Number(data.amount),
+      };
+
+      const docRef = await addDoc(
+        collection(
+          firestore,
+          `tenants/${tenantId}/projects/${data.projectId}/inflowTransactions`
+        ),
+        transactionData
+      );
+
+      const fullTransaction: InflowTransaction = { ...transactionData, id: docRef.id };
+      const customer = customers.find(c => c.id === data.customerId);
+      const project = projects.find(p => p.id === data.projectId);
+
+      toast({
+        title: 'Payment Added',
+        description: 'The payment has been recorded successfully.',
+      });
+      onFinished();
+      if(customer && project) {
+          onPaymentAdded(fullTransaction, customer, project);
+      }
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to record payment.',
+      });
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="customerId">Customer</Label>
+          <Controller
+            name="customerId"
+            control={control}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {errors.customerId && <p className="text-red-500 text-xs">Customer is required</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="projectId">Project</Label>
+          <Controller
+            name="projectId"
+            control={control}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Select
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+                disabled={!selectedCustomerId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredProjects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {errors.projectId && <p className="text-red-500 text-xs">Project is required</p>}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="flatId">Flat</Label>
+        <Controller
+          name="flatId"
+          control={control}
+          rules={{ required: true }}
+          render={({ field }) => (
+            <Select
+              onValueChange={field.onChange}
+              defaultValue={field.value}
+              disabled={!selectedProjectId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select Flat" />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredFlats.map((flat) => (
+                  <SelectItem key={flat} value={flat}>
+                    {flat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+        {errors.flatId && <p className="text-red-500 text-xs">Flat is required</p>}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="amount">Amount</Label>
+          <Input id="amount" type="number" {...register('amount', { required: true })} />
+          {errors.amount && <p className="text-red-500 text-xs">Amount is required</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="date">Date</Label>
+          <Input id="date" type="date" {...register('date', { required: true })} defaultValue={format(new Date(), 'yyyy-MM-dd')}/>
+           {errors.date && <p className="text-red-500 text-xs">Date is required</p>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="paymentType">Payment Type</Label>
+          <Controller
+            name="paymentType"
+            control={control}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Booking Money">Booking Money</SelectItem>
+                  <SelectItem value="Installment">Installment</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="paymentMethod">Payment Method</Label>
+          <Controller
+            name="paymentMethod"
+            control={control}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Cash">Cash</SelectItem>
+                  <SelectItem value="Cheque">Cheque</SelectItem>
+                  <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="bankName">Bank Name</Label>
+        <Input id="bankName" {...register('bankName')} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="chequeNo">Cheque No</Label>
+          <Input id="chequeNo" {...register('chequeNo')} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="chequeDate">Cheque Date</Label>
+          <Input id="chequeDate" type="date" {...register('chequeDate')} />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="note">Note</Label>
+        <Textarea id="note" {...register('note')} />
+      </div>
+
+      <Button type="submit">Record Payment</Button>
+    </form>
+  );
+};
+
 export default function PaymentsPage() {
-    const params = useParams();
-    const tenantId = params.tenantId as string;
-    const firestore = useFirestore();
-    const { toast } = useToast();
+  const params = useParams();
+  const tenantId = params.tenantId as string;
+  const firestore = useFirestore();
 
-    const [isAddFormOpen, setAddFormOpen] = useState(false);
-    const [editPayment, setEditPayment] = useState<Payment | undefined>(undefined);
-    const [deletePayment, setDeletePayment] = useState<Payment | undefined>(undefined);
+  const [isAddFormOpen, setAddFormOpen] = useState(false);
+  const [isReceiptOpen, setReceiptOpen] = useState(false);
+  const [lastTransaction, setLastTransaction] = useState<InflowTransaction | null>(null);
+  const [lastTransactionCustomer, setLastTransactionCustomer] = useState<any>(null);
+  const [lastTransactionProject, setLastTransactionProject] = useState<any>(null);
 
-    // --- Data Fetching for the form and display ---
-    const projectsQuery = useMemoFirebase(() => !firestore || !tenantId ? null : collection(firestore, `tenants/${tenantId}/projects`), [firestore, tenantId]);
-    const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-    const customersQuery = useMemoFirebase(() => !firestore || !tenantId ? null : collection(firestore, `tenants/${tenantId}/customers`), [firestore, tenantId]);
-    const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
+  const projectsQuery = useMemoFirebase(
+    () =>
+      firestore && tenantId
+        ? collection(firestore, `tenants/${tenantId}/projects`)
+        : null,
+    [firestore, tenantId]
+  );
+  const { data: projects, isLoading: projectsLoading } =
+    useCollection<Project>(projectsQuery);
 
-    const flatSalesQuery = useMemoFirebase(() => !firestore || !tenantId ? null : collection(firestore, `tenants/${tenantId}/flatSales`), [firestore, tenantId]);
-    const { data: flatSales, isLoading: salesLoading } = useCollection<FlatSale>(flatSalesQuery);
-    
-    const paymentsQuery = useMemoFirebase(() => {
-        if (!firestore || !tenantId) return null;
-        return query(collectionGroup(firestore, 'payments'), where('tenantId', '==', tenantId));
-    }, [firestore, tenantId]);
-    const { data: payments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsQuery);
-    
-    // --- Data Mapping for Display ---
-    const projectsMap = useMemo(() => new Map(projects?.map(p => [p.id, p.name])), [projects]);
-    const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c.name])), [customers]);
-    const salesMap = useMemo(() => new Map(flatSales?.map(s => [s.id, s])), [flatSales]);
+  const customersQuery = useMemoFirebase(
+    () =>
+      firestore && tenantId
+        ? collection(firestore, `tenants/${tenantId}/customers`)
+        : null,
+    [firestore, tenantId]
+  );
+  const { data: customers, isLoading: customersLoading } =
+    useCollection<Customer>(customersQuery);
 
-    const isLoading = paymentsLoading || projectsLoading || customersLoading || salesLoading;
+  const salesQuery = useMemoFirebase(
+    () =>
+      firestore && tenantId
+        ? collection(firestore, `tenants/${tenantId}/flatSales`)
+        : null,
+    [firestore, tenantId]
+  );
+  const { data: sales, isLoading: salesLoading } =
+    useCollection<FlatSale>(salesQuery);
+  
+  const allDataAvailable = projects && customers && sales;
 
-    const handleDelete = () => {
-        if (!firestore || !deletePayment) return;
-        const paymentDoc = doc(firestore, `tenants/${deletePayment.tenantId}/flatSales/${deletePayment.flatSaleId}/payments`, deletePayment.id);
-        deleteDocumentNonBlocking(paymentDoc);
-        toast({
-            variant: "destructive",
-            title: "Payment Deleted",
-            description: `The payment record has been deleted.`,
-        });
-        setDeletePayment(undefined);
-    };
-    
-    const handleFormFinished = () => {
-        setAddFormOpen(false);
-        setEditPayment(undefined);
-    };
-
-    const allDataAvailable = projects && customers && flatSales;
+  const handlePaymentAdded = (transaction: InflowTransaction, customer: Customer, project: Project) => {
+    setLastTransaction(transaction);
+    setLastTransactionCustomer(customer);
+    setLastTransactionProject(project);
+    setReceiptOpen(true);
+  }
 
   return (
     <>
-      <PageHeader title="Payments" description="Record and track customer payments.">
+      <PageHeader
+        title="Payments"
+        description="Record and track customer payments."
+      >
         <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
           <DialogTrigger asChild>
-             <Button size="sm" className="gap-1" onClick={() => { setEditPayment(undefined); setAddFormOpen(true); }}>
-                <PlusCircle className="h-4 w-4" />
-                Add Payment
+            <Button size="sm" className="gap-1">
+              <PlusCircle className="h-4 w-4" />
+              Add Payment
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl p-0">
-            <DialogHeader className="p-6 pb-4">
-                <DialogTitle>Record a New Payment</DialogTitle>
-                <DialogDescription>Fill in the details to record a new payment.</DialogDescription>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Record a New Payment</DialogTitle>
+              <DialogDescription>
+                Fill in the details to record a new payment.
+              </DialogDescription>
             </DialogHeader>
-            {isAddFormOpen && allDataAvailable && <PaymentForm tenantId={tenantId} onFinished={handleFormFinished} flatSales={flatSales} projectsMap={projectsMap} customersMap={customersMap} />}
+            {allDataAvailable ? (
+              <AddPaymentForm
+                onFinished={() => setAddFormOpen(false)}
+                tenantId={tenantId}
+                projects={projects}
+                customers={customers}
+                sales={sales}
+                onPaymentAdded={handlePaymentAdded}
+              />
+            ) : (
+              <p>Loading form data...</p>
+            )}
           </DialogContent>
         </Dialog>
       </PageHeader>
+      
+       {lastTransaction && lastTransactionCustomer && lastTransactionProject && (
+        <PrintReceiptDialog
+          isOpen={isReceiptOpen}
+          setIsOpen={setReceiptOpen}
+          transaction={lastTransaction}
+          customer={lastTransactionCustomer}
+          project={lastTransactionProject}
+        />
+      )}
 
-      <Dialog open={!!editPayment} onOpenChange={(isOpen) => !isOpen && setEditPayment(undefined)}>
-            <DialogContent className="max-w-2xl p-0">
-                <DialogHeader className="p-6 pb-4">
-                    <DialogTitle>Edit Payment</DialogTitle>
-                    <DialogDescription>Update this payment record.</DialogDescription>
-                </DialogHeader>
-                {editPayment && allDataAvailable && <PaymentForm tenantId={tenantId} onFinished={handleFormFinished} flatSales={flatSales} projectsMap={projectsMap} customersMap={customersMap} payment={editPayment} />}
-            </DialogContent>
-        </Dialog>
-
-      <AlertDialog open={!!deletePayment} onOpenChange={(isOpen) => !isOpen && setDeletePayment(undefined)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone. This will permanently delete this payment record.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Card>
+       <Card>
         <CardHeader>
             <CardTitle className="font-headline">Payment Logs</CardTitle>
             <CardDescription>A history of all recorded payments.</CardDescription>
@@ -250,50 +431,9 @@ export default function PaymentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-               {isLoading ? (
-                    <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">Loading payments...</TableCell>
-                    </TableRow>
-                ) : payments && payments.length > 0 ? (
-                    payments.map(payment => {
-                        const sale = salesMap.get(payment.flatSaleId);
-                        if (!sale) return null;
-                        const customer = customersMap.get(sale.customerId);
-                        const project = projectsMap.get(sale.projectId);
-
-                        return (
-                            <TableRow key={payment.id}>
-                                <TableCell className="font-medium">{customer?.name || 'N/A'}</TableCell>
-                                <TableCell>{project?.name || 'N/A'}</TableCell>
-                                <TableCell>{payment.paymentFor}</TableCell>
-                                <TableCell>{format(new Date(payment.paymentDate), 'dd/MM/yyyy')}</TableCell>
-                                <TableCell>{payment.type}</TableCell>
-                                <TableCell className="text-right">{payment.amount.toLocaleString('en-IN')}</TableCell>
-                                <TableCell>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button aria-haspopup="true" size="icon" variant="ghost">
-                                                <MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span>
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem asChild>
-                                                <Link href={`/${tenantId}/sales/${payment.flatSaleId}/payments/${payment.id}/receipt`}>View Receipt</Link>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setEditPayment(payment)}>Edit</DropdownMenuItem>
-                                            <DropdownMenuItem className="text-destructive" onClick={() => setDeletePayment(payment)}>Delete</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                        )
-                    })
-                ) : (
-                     <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">No payments recorded yet.</TableCell>
-                    </TableRow>
-                )}
+                <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center">No payments recorded yet.</TableCell>
+                </TableRow>
             </TableBody>
           </Table>
         </CardContent>
@@ -301,3 +441,5 @@ export default function PaymentsPage() {
     </>
   );
 }
+
+    
