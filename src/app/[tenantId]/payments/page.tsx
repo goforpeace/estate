@@ -35,6 +35,7 @@ import {
   deleteDocumentNonBlocking,
   useMemoFirebase,
   useCollection,
+  addDocumentNonBlocking,
 } from '@/firebase';
 import { useParams } from 'next/navigation';
 import { getNextReceiptId } from '@/lib/data';
@@ -388,9 +389,7 @@ export default function PaymentsPage() {
 
   const [isFormOpen, setFormOpen] = useState(false);
   const [isReceiptOpen, setReceiptOpen] = useState(false);
-  const [lastTransaction, setLastTransaction] = useState<InflowTransaction | null>(null);
-  const [lastTransactionCustomer, setLastTransactionCustomer] = useState<any>(null);
-  const [lastTransactionProject, setLastTransactionProject] = useState<any>(null);
+  const [receiptData, setReceiptData] = useState<{transaction: InflowTransaction, customer: Customer, project: Project} | null>(null);
   const [editTransaction, setEditTransaction] = useState<PaymentRecord | undefined>(undefined);
   const [deleteTransaction, setDeleteTransaction] = useState<PaymentRecord | undefined>(undefined);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -468,17 +467,30 @@ export default function PaymentsPage() {
 
   const isLoading = projectsLoading || customersLoading || salesLoading || paymentsLoading;
   
-  const projectsMap = useMemo(() => new Map(projects?.map(p => [p.id, p.name])), [projects]);
-  const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c.name])), [customers]);
+  const projectsMap = useMemo(() => new Map(projects?.map(p => [p.id, p])), [projects]);
+  const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c])), [customers]);
   
   const allDataAvailable = projects && customers && sales;
 
   const handlePaymentAdded = (transaction: InflowTransaction, customer: Customer, project: Project, sale: FlatSale) => {
-    setLastTransaction(transaction);
-    setLastTransactionCustomer(customer);
-    setLastTransactionProject(project);
+    setReceiptData({ transaction, customer, project });
     setReceiptOpen(true);
     setPayments(prev => [{...transaction, saleId: sale.id}, ...prev]);
+  };
+
+  const handleViewReceipt = (payment: PaymentRecord) => {
+    const customer = customersMap.get(payment.customerId);
+    const project = projectsMap.get(payment.projectId);
+    if(customer && project) {
+      setReceiptData({ transaction: payment, customer, project });
+      setReceiptOpen(true);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Could not generate receipt",
+        description: "Missing customer or project information.",
+      });
+    }
   };
 
   const handleFormFinished = () => {
@@ -541,13 +553,13 @@ export default function PaymentsPage() {
         </Dialog>
       </PageHeader>
       
-       {lastTransaction && lastTransactionCustomer && lastTransactionProject && (
+       {receiptData && (
         <PrintReceiptDialog
           isOpen={isReceiptOpen}
           setIsOpen={setReceiptOpen}
-          transaction={lastTransaction}
-          customer={lastTransactionCustomer}
-          project={lastTransactionProject}
+          transaction={receiptData.transaction}
+          customer={receiptData.customer}
+          project={receiptData.project}
         />
       )}
 
@@ -592,8 +604,8 @@ export default function PaymentsPage() {
               ) : payments && payments.length > 0 ? (
                 payments.map((payment) => (
                     <TableRow key={payment.id}>
-                        <TableCell className="font-medium">{customersMap.get(payment.customerId) || 'N/A'}</TableCell>
-                        <TableCell>{projectsMap.get(payment.projectId) || 'N/A'}</TableCell>
+                        <TableCell className="font-medium">{customersMap.get(payment.customerId)?.name || 'N/A'}</TableCell>
+                        <TableCell>{projectsMap.get(payment.projectId)?.name || 'N/A'}</TableCell>
                         <TableCell>{payment.flatName}</TableCell>
                         <TableCell>{payment.date ? format(new Date(payment.date), 'dd MMM, yyyy') : 'Invalid Date'}</TableCell>
                         <TableCell>{payment.paymentType}</TableCell>
@@ -607,9 +619,7 @@ export default function PaymentsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/${tenantId}/sales/${payment.saleId}/payments/${payment.id}/receipt`}>View Receipt</Link>
-                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleViewReceipt(payment)}>View Receipt</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => {
                                 const fullTransaction = getFullTransaction(payment);
                                 if (fullTransaction) {
@@ -638,5 +648,3 @@ export default function PaymentsPage() {
     </>
   );
 }
-
-    
