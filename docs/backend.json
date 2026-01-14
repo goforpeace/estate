@@ -375,7 +375,7 @@
           "type": "string",
           "description": "Reference to the Project."
         },
-        "flatId": {
+        "flatName": {
           "type": "string",
           "description": "The identifier of the flat."
         },
@@ -419,7 +419,7 @@
         "receiptId",
         "customerId",
         "projectId",
-        "flatId",
+        "flatName",
         "date",
         "amount",
         "paymentMethod",

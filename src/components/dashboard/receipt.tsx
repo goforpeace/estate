@@ -72,7 +72,7 @@ export const Receipt = forwardRef<
               {transaction.paymentType}
             </strong>{' '}
             against Apartment No.{' '}
-            <strong>{transaction.flatId}</strong> of{' '}
+            <strong>{transaction.flatName}</strong> of{' '}
             Project{' '}
             <strong>{project?.name || 'N/A'}</strong>
           </p>
@@ -120,3 +120,5 @@ export const Receipt = forwardRef<
 });
 
 Receipt.displayName = 'Receipt';
+
+    
