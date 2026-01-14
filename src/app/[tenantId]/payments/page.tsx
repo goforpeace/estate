@@ -39,6 +39,7 @@ import { PrintReceiptDialog } from '@/components/dashboard/payments/PrintReceipt
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type Project = { id: string; name: string; flats: { name: string }[] };
 type Customer = { id: string; name: string, address: string };
@@ -154,163 +155,169 @@ const AddPaymentForm = ({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="customerId">Customer</Label>
-          <Controller
-            name="customerId"
-            control={control}
-            rules={{ required: true }}
-            render={({ field }) => (
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          {errors.customerId && <p className="text-red-500 text-xs">Customer is required</p>}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="projectId">Project</Label>
-          <Controller
-            name="projectId"
-            control={control}
-            rules={{ required: true }}
-            render={({ field }) => (
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-                disabled={!selectedCustomerId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredProjects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          {errors.projectId && <p className="text-red-500 text-xs">Project is required</p>}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="flatId">Flat</Label>
-        <Controller
-          name="flatId"
-          control={control}
-          rules={{ required: true }}
-          render={({ field }) => (
-            <Select
-              onValueChange={field.onChange}
-              defaultValue={field.value}
-              disabled={!selectedProjectId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select Flat" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredFlats.map((flat) => (
-                  <SelectItem key={flat} value={flat}>
-                    {flat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-        {errors.flatId && <p className="text-red-500 text-xs">Flat is required</p>}
-      </div>
+    <form onSubmit={handleSubmit(onSubmit)}>
+        <ScrollArea className="h-[70vh] p-1 pr-4">
+            <div className="space-y-4 p-4">
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2 col-span-2">
+                <Label htmlFor="customerId">Customer</Label>
+                <Controller
+                    name="customerId"
+                    control={control}
+                    rules={{ required: true }}
+                    render={({ field }) => (
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <SelectTrigger>
+                        <SelectValue placeholder="Select Customer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        {customers.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    )}
+                />
+                {errors.customerId && <p className="text-red-500 text-xs">Customer is required</p>}
+                </div>
+                <div className="space-y-2">
+                <Label htmlFor="projectId">Project</Label>
+                <Controller
+                    name="projectId"
+                    control={control}
+                    rules={{ required: true }}
+                    render={({ field }) => (
+                    <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        disabled={!selectedCustomerId}
+                    >
+                        <SelectTrigger>
+                        <SelectValue placeholder="Select Project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        {filteredProjects.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    )}
+                />
+                {errors.projectId && <p className="text-red-500 text-xs">Project is required</p>}
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="flatId">Flat</Label>
+                    <Controller
+                    name="flatId"
+                    control={control}
+                    rules={{ required: true }}
+                    render={({ field }) => (
+                        <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        disabled={!selectedProjectId}
+                        >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select Flat" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {filteredFlats.map((flat) => (
+                            <SelectItem key={flat} value={flat}>
+                                {flat}
+                            </SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    )}
+                    />
+                    {errors.flatId && <p className="text-red-500 text-xs">Flat is required</p>}
+                </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                <Label htmlFor="amount">Amount</Label>
+                <Input id="amount" type="number" {...register('amount', { required: true, valueAsNumber: true })} />
+                {errors.amount && <p className="text-red-500 text-xs">Amount is required</p>}
+                </div>
+                <div className="space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Input id="date" type="date" {...register('date', { required: true })} defaultValue={format(new Date(), 'yyyy-MM-dd')}/>
+                {errors.date && <p className="text-red-500 text-xs">Date is required</p>}
+                </div>
+            </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="amount">Amount</Label>
-          <Input id="amount" type="number" {...register('amount', { required: true })} />
-          {errors.amount && <p className="text-red-500 text-xs">Amount is required</p>}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="date">Date</Label>
-          <Input id="date" type="date" {...register('date', { required: true })} defaultValue={format(new Date(), 'yyyy-MM-dd')}/>
-           {errors.date && <p className="text-red-500 text-xs">Date is required</p>}
-        </div>
-      </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                <Label htmlFor="paymentType">Payment Type</Label>
+                <Controller
+                    name="paymentType"
+                    control={control}
+                    rules={{ required: true }}
+                    render={({ field }) => (
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <SelectTrigger>
+                        <SelectValue placeholder="Select Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="Booking Money">Booking Money</SelectItem>
+                        <SelectItem value="Installment">Installment</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    )}
+                />
+                </div>
+                <div className="space-y-2">
+                <Label htmlFor="paymentMethod">Payment Method</Label>
+                <Controller
+                    name="paymentMethod"
+                    control={control}
+                    rules={{ required: true }}
+                    render={({ field }) => (
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <SelectTrigger>
+                        <SelectValue placeholder="Select Method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Cheque">Cheque</SelectItem>
+                        <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    )}
+                />
+                </div>
+            </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="paymentType">Payment Type</Label>
-          <Controller
-            name="paymentType"
-            control={control}
-            rules={{ required: true }}
-            render={({ field }) => (
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Booking Money">Booking Money</SelectItem>
-                  <SelectItem value="Installment">Installment</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="paymentMethod">Payment Method</Label>
-          <Controller
-            name="paymentMethod"
-            control={control}
-            rules={{ required: true }}
-            render={({ field }) => (
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Cash">Cash</SelectItem>
-                  <SelectItem value="Cheque">Cheque</SelectItem>
-                  <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </div>
-      </div>
+            <div className="space-y-2">
+                <Label htmlFor="bankName">Bank Name (if applicable)</Label>
+                <Input id="bankName" {...register('bankName')} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                <Label htmlFor="chequeNo">Cheque No (if applicable)</Label>
+                <Input id="chequeNo" {...register('chequeNo')} />
+                </div>
+                <div className="space-y-2">
+                <Label htmlFor="chequeDate">Cheque Date (if applicable)</Label>
+                <Input id="chequeDate" type="date" {...register('chequeDate')} />
+                </div>
+            </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="bankName">Bank Name</Label>
-        <Input id="bankName" {...register('bankName')} />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="chequeNo">Cheque No</Label>
-          <Input id="chequeNo" {...register('chequeNo')} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="chequeDate">Cheque Date</Label>
-          <Input id="chequeDate" type="date" {...register('chequeDate')} />
-        </div>
-      </div>
+            <div className="space-y-2">
+                <Label htmlFor="note">Note</Label>
+                <Textarea id="note" {...register('note')} />
+            </div>
+            </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="note">Note</Label>
-        <Textarea id="note" {...register('note')} />
-      </div>
-
-      <Button type="submit">Record Payment</Button>
+        </ScrollArea>
+        <div className="p-4 pt-0 border-t">
+          <Button type="submit" className="w-full mt-4">Record Payment</Button>
+        </div>
     </form>
   );
 };
@@ -379,8 +386,8 @@ export default function PaymentsPage() {
               Add Payment
             </Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
+          <DialogContent className="max-w-4xl p-0">
+            <DialogHeader className="p-6 pb-4">
               <DialogTitle>Record a New Payment</DialogTitle>
               <DialogDescription>
                 Fill in the details to record a new payment.
@@ -396,7 +403,7 @@ export default function PaymentsPage() {
                 onPaymentAdded={handlePaymentAdded}
               />
             ) : (
-              <p>Loading form data...</p>
+              <p className="p-6">Loading form data...</p>
             )}
           </DialogContent>
         </Dialog>
@@ -441,5 +448,3 @@ export default function PaymentsPage() {
     </>
   );
 }
-
-    
