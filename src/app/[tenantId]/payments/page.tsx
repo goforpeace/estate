@@ -32,9 +32,8 @@ import {
 } from 'firebase/firestore';
 import {
   useFirestore,
-  useCollection,
-  useMemoFirebase,
   deleteDocumentNonBlocking,
+  useMemoFirebase,
 } from '@/firebase';
 import { useParams } from 'next/navigation';
 import { getNextReceiptId } from '@/lib/data';
@@ -56,7 +55,7 @@ export type InflowTransaction = {
   receiptId: string;
   customerId: string;
   projectId: string;
-  flatId: string;
+  flatName: string;
   date: string;
   amount: number;
   paymentMethod: string;
@@ -118,6 +117,7 @@ const AddPaymentForm = ({
 
   const selectedCustomerId = watch('customerId');
   const selectedProjectId = watch('projectId');
+  const selectedFlatName = watch('flatName');
 
   const filteredProjects = useMemo(() => {
     if (!selectedCustomerId) return [];
@@ -140,13 +140,20 @@ const AddPaymentForm = ({
   }, [selectedCustomerId, selectedProjectId, sales]);
   
   const selectedSale = useMemo(() => {
-    if (!selectedCustomerId || !selectedProjectId || !watch('flatId')) return null;
-    return sales.find(s => s.customerId === selectedCustomerId && s.projectId === selectedProjectId && s.flatName === watch('flatId'));
-  }, [selectedCustomerId, selectedProjectId, sales, watch]);
+    if (!selectedCustomerId || !selectedProjectId || !selectedFlatName) return null;
+    return sales.find(s => s.customerId === selectedCustomerId && s.projectId === selectedProjectId && s.flatName === selectedFlatName);
+  }, [selectedCustomerId, selectedProjectId, selectedFlatName, sales]);
 
 
   const onSubmit = async (data: Omit<InflowTransaction, 'id' | 'receiptId' | 'tenantId'>) => {
-    if (!firestore || !selectedSale) return;
+    if (!firestore || !selectedSale) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Could not determine the sale to associate this payment with. Please check your selections.',
+        });
+        return;
+    }
     try {
         if(transactionToEdit) {
             const transactionRef = doc(firestore, transactionToEdit._originalPath!);
@@ -259,9 +266,9 @@ const AddPaymentForm = ({
                 {errors.projectId && <p className="text-red-500 text-xs">Project is required</p>}
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="flatId">Flat</Label>
+                    <Label htmlFor="flatName">Flat</Label>
                     <Controller
-                    name="flatId"
+                    name="flatName"
                     control={control}
                     rules={{ required: true }}
                     render={({ field }) => (
@@ -283,7 +290,7 @@ const AddPaymentForm = ({
                         </Select>
                     )}
                     />
-                    {errors.flatId && <p className="text-red-500 text-xs">Flat is required</p>}
+                    {errors.flatName && <p className="text-red-500 text-xs">Flat is required</p>}
                 </div>
             </div>
             
@@ -387,46 +394,47 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
 
-  const projectsQuery = useMemoFirebase(
-    () =>
-      firestore && tenantId
-        ? collection(firestore, `tenants/${tenantId}/projects`)
-        : null,
-    [firestore, tenantId]
-  );
+  // --- Data Fetching ---
+  const projectsQuery = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return collection(firestore, `tenants/${tenantId}/projects`);
+  }, [firestore, tenantId]);
   const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const customersQuery = useMemoFirebase(
-    () =>
-      firestore && tenantId
-        ? collection(firestore, `tenants/${tenantId}/customers`)
-        : null,
-    [firestore, tenantId]
-  );
+  const customersQuery = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return collection(firestore, `tenants/${tenantId}/customers`);
+  }, [firestore, tenantId]);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
 
-  const salesQuery = useMemoFirebase(
-    () =>
-      firestore && tenantId
-        ? collection(firestore, `tenants/${tenantId}/flatSales`)
-        : null,
-    [firestore, tenantId]
-  );
+  const salesQuery = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return collection(firestore, `tenants/${tenantId}/flatSales`);
+  }, [firestore, tenantId]);
   const { data: sales, isLoading: salesLoading } = useCollection<FlatSale>(salesQuery);
   
 
   useEffect(() => {
-    if (!firestore || !tenantId || !sales) {
-        setPaymentsLoading(sales === undefined); // Still loading if sales are undefined
-        if(sales === null) setPayments([]); // If sales are loaded but null (no sales), set payments to empty and stop loading.
+    if (!firestore || !tenantId || sales === undefined) {
+        setPaymentsLoading(sales === undefined);
+        if(sales === null) {
+            setPayments([]);
+            setPaymentsLoading(false);
+        }
         return;
     }
+    
+    // If sales have loaded but are null or empty, no need to fetch payments.
+    if (sales === null || sales.length === 0) {
+        setPayments([]);
+        setPaymentsLoading(false);
+        return;
+    }
+
 
     const fetchPayments = async () => {
         setPaymentsLoading(true);
         try {
-            const allPayments: PaymentRecord[] = [];
-            // Create a list of promises for all the payment fetches
             const paymentPromises = sales.map(async (sale) => {
                 const paymentsCollectionRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
                 const paymentsSnapshot = await getDocs(paymentsCollectionRef);
@@ -437,10 +445,7 @@ export default function PaymentsPage() {
                 });
             });
 
-            // Wait for all promises to resolve
             const paymentsBySale = await Promise.all(paymentPromises);
-            
-            // Flatten the array of arrays into a single array of payments
             const flattenedPayments = paymentsBySale.flat();
 
             setPayments(flattenedPayments);
@@ -464,14 +469,13 @@ export default function PaymentsPage() {
   const projectsMap = useMemo(() => new Map(projects?.map(p => [p.id, p.name])), [projects]);
   const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c.name])), [customers]);
   
-  const allDataAvailable = !!(projects && customers && sales);
+  const allDataAvailable = projects !== undefined && customers !== undefined && sales !== undefined;
 
   const handlePaymentAdded = (transaction: InflowTransaction, customer: Customer, project: Project, sale: FlatSale) => {
     setLastTransaction(transaction);
     setLastTransactionCustomer(customer);
     setLastTransactionProject(project);
     setReceiptOpen(true);
-    // Add the new payment to the local state to avoid a full refetch
     setPayments(prev => [{...transaction, saleId: sale.id}, ...prev]);
   };
 
@@ -480,11 +484,6 @@ export default function PaymentsPage() {
     setEditTransaction(undefined);
   };
   
-    const selectedSale = useMemo(() => {
-        if (!editTransaction) return null;
-        return sales?.find(s => s.id === editTransaction.saleId);
-    },[editTransaction, sales]);
-
   const handleDelete = () => {
     if (!firestore || !deleteTransaction?._originalPath) return;
     const transactionDoc = doc(firestore, deleteTransaction._originalPath);
@@ -593,7 +592,7 @@ export default function PaymentsPage() {
                     <TableRow key={payment.id}>
                         <TableCell className="font-medium">{customersMap.get(payment.customerId) || 'N/A'}</TableCell>
                         <TableCell>{projectsMap.get(payment.projectId) || 'N/A'}</TableCell>
-                        <TableCell>{payment.flatId}</TableCell>
+                        <TableCell>{payment.flatName}</TableCell>
                         <TableCell>{payment.date ? format(new Date(payment.date), 'dd MMM, yyyy') : 'Invalid Date'}</TableCell>
                         <TableCell>{payment.paymentType}</TableCell>
                         <TableCell className="text-right">{payment.amount.toLocaleString('en-IN')}</TableCell>
