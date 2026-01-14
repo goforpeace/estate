@@ -1,8 +1,8 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
+import { collection, doc, query, where } from 'firebase/firestore';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { ArrowLeft, Building, Calendar, DollarSign, MapPin, Tag } from 'lucide-r
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useMemo } from 'react';
 
 // Matches the Project entity in backend.json
 type Project = {
@@ -23,6 +24,10 @@ type Project = {
   flats: { name: string; sizeSft: number }[];
 };
 
+type FlatSale = {
+    flatName: string;
+};
+
 export default function ProjectDetailsPage() {
   const params = useParams();
   const tenantId = params.tenantId as string;
@@ -34,7 +39,21 @@ export default function ProjectDetailsPage() {
     return doc(firestore, `tenants/${tenantId}/projects`, projectId);
   }, [firestore, tenantId, projectId]);
 
-  const { data: project, isLoading, error } = useDoc<Project>(projectRef);
+  const { data: project, isLoading: projectLoading, error } = useDoc<Project>(projectRef);
+  
+  const salesQuery = useMemoFirebase(() => {
+    if (!firestore || !tenantId || !projectId) return null;
+    return query(collection(firestore, `tenants/${tenantId}/flatSales`), where('projectId', '==', projectId));
+  }, [firestore, tenantId, projectId]);
+
+  const { data: sales, isLoading: salesLoading } = useCollection<FlatSale>(salesQuery);
+
+  const soldFlatNames = useMemo(() => {
+    if (!sales) return new Set();
+    return new Set(sales.map(s => s.flatName));
+  }, [sales]);
+
+  const isLoading = projectLoading || salesLoading;
 
   const statusVariant = {
     Ongoing: "default",
@@ -121,20 +140,29 @@ export default function ProjectDetailsPage() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Flat Name/Number</TableHead>
-                            <TableHead className="text-right">Size (sft)</TableHead>
+                            <TableHead>Size (sft)</TableHead>
+                            <TableHead className="text-right">Status</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {project.flats && project.flats.length > 0 ? (
-                            project.flats.map((flat, index) => (
-                                <TableRow key={index}>
-                                    <TableCell className="font-medium">{flat.name}</TableCell>
-                                    <TableCell className="text-right">{flat.sizeSft.toLocaleString('en-IN')}</TableCell>
-                                </TableRow>
-                            ))
+                            project.flats.map((flat, index) => {
+                                const isSold = soldFlatNames.has(flat.name);
+                                return (
+                                    <TableRow key={index}>
+                                        <TableCell className="font-medium">{flat.name}</TableCell>
+                                        <TableCell>{flat.sizeSft.toLocaleString('en-IN')}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Badge variant={isSold ? 'destructive' : 'secondary'}>
+                                                {isSold ? 'Sold' : 'Available'}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={2} className="h-24 text-center">
+                                <TableCell colSpan={3} className="h-24 text-center">
                                     No flats have been added to this project yet.
                                 </TableCell>
                             </TableRow>
