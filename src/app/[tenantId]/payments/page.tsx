@@ -236,6 +236,7 @@ export default function PaymentsPage() {
   
   const [allPayments, setAllPayments] = useState<Payment[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
+  const [dataVersion, setDataVersion] = useState(0); // State to trigger re-fetch
 
   // --- Data Fetching ---
   const salesQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/flatSales`), [firestore, tenantId]);
@@ -277,7 +278,7 @@ export default function PaymentsPage() {
 
     fetchAllPayments();
 
-  }, [sales, firestore, tenantId, salesLoading]);
+  }, [sales, firestore, tenantId, salesLoading, dataVersion]);
 
 
   const isLoading = salesLoading || projectsLoading || customersLoading || paymentsLoading;
@@ -313,17 +314,15 @@ export default function PaymentsPage() {
     if (!firestore || !deletePayment) return;
     const paymentDoc = doc(firestore, `tenants/${tenantId}/flatSales/${deletePayment.sale.id}/payments`, deletePayment.payment.id);
     deleteDocumentNonBlocking(paymentDoc);
-    setAllPayments(prev => prev.filter(p => p.id !== deletePayment.payment.id));
     toast({ variant: "destructive", title: "Payment Deleted", description: "The payment record has been deleted." });
     setDeletePayment(undefined);
+    setDataVersion(v => v + 1); // Trigger re-fetch
   };
   
   const handleFormFinished = () => {
     setFormOpen(false);
     setEditPayment(undefined);
-    // This is a temporary way to force a refresh. A more elegant solution would involve
-    // state management or another useEffect trigger.
-    window.location.reload();
+    setDataVersion(v => v + 1); // Trigger re-fetch
   };
 
   return (
@@ -418,5 +417,3 @@ export default function PaymentsPage() {
     </>
   );
 }
-
-    
