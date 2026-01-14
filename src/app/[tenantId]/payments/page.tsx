@@ -90,7 +90,8 @@ const AddPaymentForm = ({
   onPaymentAdded: (
     transaction: InflowTransaction,
     customer: Customer,
-    project: Project
+    project: Project,
+    sale: FlatSale,
   ) => void;
   transactionToEdit?: PaymentRecord;
 }) => {
@@ -141,7 +142,7 @@ const AddPaymentForm = ({
   const selectedSale = useMemo(() => {
     if (!selectedCustomerId || !selectedProjectId || !watch('flatId')) return null;
     return sales.find(s => s.customerId === selectedCustomerId && s.projectId === selectedProjectId && s.flatName === watch('flatId'));
-  }, [selectedCustomerId, selectedProjectId, sales, watch('flatId')])
+  }, [selectedCustomerId, selectedProjectId, sales, watch]);
 
 
   const onSubmit = async (data: Omit<InflowTransaction, 'id' | 'receiptId' | 'tenantId'>) => {
@@ -189,7 +190,7 @@ const AddPaymentForm = ({
             });
             onFinished();
             if(customer && project) {
-                onPaymentAdded(fullTransaction, customer, project);
+                onPaymentAdded(fullTransaction, customer, project, selectedSale);
             }
         }
     } catch (error) {
@@ -463,15 +464,15 @@ export default function PaymentsPage() {
   const projectsMap = useMemo(() => new Map(projects?.map(p => [p.id, p.name])), [projects]);
   const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c.name])), [customers]);
   
-  const allDataAvailable = projects && customers && sales;
+  const allDataAvailable = !!(projects && customers && sales);
 
-  const handlePaymentAdded = (transaction: InflowTransaction, customer: Customer, project: Project) => {
+  const handlePaymentAdded = (transaction: InflowTransaction, customer: Customer, project: Project, sale: FlatSale) => {
     setLastTransaction(transaction);
     setLastTransactionCustomer(customer);
     setLastTransactionProject(project);
     setReceiptOpen(true);
     // Add the new payment to the local state to avoid a full refetch
-    setPayments(prev => [{...transaction, saleId: selectedSale.id}, ...prev]);
+    setPayments(prev => [{...transaction, saleId: sale.id}, ...prev]);
   };
 
   const handleFormFinished = () => {
@@ -526,9 +527,9 @@ export default function PaymentsPage() {
               <AddPaymentForm
                 onFinished={handleFormFinished}
                 tenantId={tenantId}
-                projects={projects}
-                customers={customers}
-                sales={sales}
+                projects={projects || []}
+                customers={customers || []}
+                sales={sales || []}
                 onPaymentAdded={handlePaymentAdded}
                 transactionToEdit={editTransaction}
               />
