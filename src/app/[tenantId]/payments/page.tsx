@@ -34,6 +34,7 @@ import {
   useFirestore,
   deleteDocumentNonBlocking,
   useMemoFirebase,
+  useCollection,
 } from '@/firebase';
 import { useParams } from 'next/navigation';
 import { getNextReceiptId } from '@/lib/data';
@@ -101,7 +102,7 @@ const AddPaymentForm = ({
     if (!transactionToEdit) return { date: format(new Date(), 'yyyy-MM-dd') };
     return {
         ...transactionToEdit,
-        date: format(new Date(transactionToEdit.date), 'yyyy-MM-dd'),
+        date: transactionToEdit.date ? format(new Date(transactionToEdit.date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
         chequeDate: transactionToEdit.chequeDate ? format(new Date(transactionToEdit.chequeDate), 'yyyy-MM-dd') : '',
     }
   }, [transactionToEdit]);
@@ -177,6 +178,7 @@ const AddPaymentForm = ({
                 receiptId,
                 date: new Date(data.date).toISOString(),
                 amount: Number(data.amount),
+                flatId: data.flatName // Make sure flatId is set.
             };
 
             const docRef = await addDoc(
