@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Printer } from "lucide-react";
+import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
@@ -231,8 +231,8 @@ export default function PaymentsPage() {
   const { toast } = useToast();
 
   const [isFormOpen, setFormOpen] = useState(false);
-  const [editPayment, setEditPayment] = useState<{payment: Payment, sale: FlatSale} | undefined>(undefined);
-  const [deletePayment, setDeletePayment] = useState<{payment: Payment, sale: FlatSale} | undefined>(undefined);
+  const [editPayment, setEditPayment] = useState<Payment | undefined>(undefined);
+  const [deletePayment, setDeletePayment] = useState<Payment | undefined>(undefined);
   
   const [allPayments, setAllPayments] = useState<Payment[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
@@ -263,10 +263,9 @@ export default function PaymentsPage() {
         const paymentPromises = sales.map(async (sale) => {
             const paymentsColRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
             const paymentsSnapshot = await getDocs(paymentsColRef);
-            // THIS IS THE FIX: Correctly map doc.id to the payment's id field.
             return paymentsSnapshot.docs.map(doc => ({
                 ...(doc.data() as Omit<Payment, 'id' | 'flatSaleId'>),
-                id: doc.id, // The unique ID of the payment document itself
+                id: doc.id,
                 flatSaleId: sale.id, 
             } as Payment));
         });
@@ -313,7 +312,7 @@ export default function PaymentsPage() {
   // --- Handlers ---
   const handleDelete = () => {
     if (!firestore || !deletePayment) return;
-    const paymentDoc = doc(firestore, `tenants/${tenantId}/flatSales/${deletePayment.sale.id}/payments`, deletePayment.payment.id);
+    const paymentDoc = doc(firestore, `tenants/${tenantId}/flatSales/${deletePayment.flatSaleId}/payments`, deletePayment.id);
     deleteDocumentNonBlocking(paymentDoc);
     toast({ variant: "destructive", title: "Payment Deleted", description: "The payment record has been deleted." });
     setDeletePayment(undefined);
@@ -346,7 +345,7 @@ export default function PaymentsPage() {
       <Dialog open={!!editPayment} onOpenChange={(isOpen) => !isOpen && setEditPayment(undefined)}>
         <DialogContent className="max-w-xl p-0">
             <DialogHeader className="p-6 pb-4"><DialogTitle>Edit Payment</DialogTitle><DialogDescription>Update the details for this payment record.</DialogDescription></DialogHeader>
-            {editPayment && <PaymentForm tenantId={tenantId} payment={editPayment.payment} onFinished={handleFormFinished} sales={sales || []} projects={projects || []} customers={customers || []} paymentsBySale={paymentsBySale} />}
+            {editPayment && <PaymentForm tenantId={tenantId} payment={editPayment} onFinished={handleFormFinished} sales={sales || []} projects={projects || []} customers={customers || []} paymentsBySale={paymentsBySale} />}
         </DialogContent>
       </Dialog>
       
@@ -379,9 +378,7 @@ export default function PaymentsPage() {
               {isLoading ? (
                 <TableRow><TableCell colSpan={7} className="h-24 text-center">Loading payments...</TableCell></TableRow>
               ) : paymentsWithDetails.length > 0 ? (
-                paymentsWithDetails.map((payment) => {
-                  const sale = sales?.find(s => s.id === payment.flatSaleId);
-                  return (
+                paymentsWithDetails.map((payment) => (
                   <TableRow key={payment.id}>
                     <TableCell className="font-medium">{payment.customerName}</TableCell>
                     <TableCell>{payment.projectName}</TableCell>
@@ -389,25 +386,21 @@ export default function PaymentsPage() {
                     <TableCell>{format(new Date(payment.paymentDate), 'dd/MM/yyyy')}</TableCell>
                     <TableCell>{payment.type}</TableCell>
                     <TableCell className="text-right font-mono">{payment.amount.toLocaleString('en-IN')}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-2">
-                          <Button asChild variant="outline" size="sm" className="gap-1">
-                              <Link href={`/${tenantId}/sales/${payment.flatSaleId}/payments/${payment.id}/receipt`}>
-                                  <Printer className="h-3.5 w-3.5" /><span className="sr-only sm:not-sr-only">Print</span>
-                              </Link>
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => sale && setEditPayment({payment, sale})}>Edit</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive" onClick={() => sale && setDeletePayment({payment, sale})}>Delete</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                      </div>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/${tenantId}/sales/${payment.flatSaleId}/payments/${payment.id}/receipt`}>View Receipt</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditPayment(payment)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => setDeletePayment(payment)}>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                )})
+                ))
               ) : (
                 <TableRow><TableCell colSpan={7} className="h-24 text-center">No payments recorded yet.</TableCell></TableRow>
               )}
