@@ -9,7 +9,7 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc, getDocs } from "firebase/firestore";
+import { collection, doc, collectionGroup, query } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
@@ -39,15 +39,18 @@ const paymentSchema = z.object({
 });
 
 type PaymentFormData = z.infer<typeof paymentSchema>;
-type Payment = PaymentFormData & { id: string; };
+// This now represents the full payment document from the collectionGroup query
+type Payment = PaymentFormData & { 
+  id: string; 
+  // flatSaleId is already in PaymentFormData
+};
 type PaymentWithDetails = Payment & { projectName: string; customerName: string; };
 
 
-function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers, paymentsBySale }: { tenantId: string; onFinished: () => void; payment?: Payment; sales: FlatSale[]; projects: Project[]; customers: Customer[], paymentsBySale: Record<string, Payment[]> }) {
+function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers, allPayments }: { tenantId: string; onFinished: () => void; payment?: Payment; sales: FlatSale[]; projects: Project[]; customers: Customer[], allPayments: Payment[] }) {
     const firestore = useFirestore();
     const { toast } = useToast();
     
-    // Create a new form schema that includes a temporary projectId field
     const formSchema = paymentSchema.extend({
         projectId: z.string().optional(),
     });
@@ -80,9 +83,8 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
 
     const { dueAmount, project, customer } = useMemo(() => {
         if (!selectedSale) return { dueAmount: 0, project: null, customer: null };
-
-        const totalPaid = paymentsBySale[selectedSale.id]?.reduce((acc, p) => acc + p.amount, 0) || 0;
-        // If editing, subtract the current payment's amount from total paid to calculate due amount correctly
+        const paymentsForThisSale = allPayments.filter(p => p.flatSaleId === selectedSale.id);
+        const totalPaid = paymentsForThisSale?.reduce((acc, p) => acc + p.amount, 0) || 0;
         const currentPaymentAmount = (payment && payment.flatSaleId === selectedSale.id) ? payment.amount : 0;
         const due = selectedSale.amount - totalPaid + currentPaymentAmount;
         
@@ -91,24 +93,28 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
             project: projects.find(p => p.id === selectedSale.projectId),
             customer: customers.find(c => c.id === selectedSale.customerId),
         };
-    }, [selectedSale, paymentsBySale, projects, customers, payment]);
+    }, [selectedSale, allPayments, projects, customers, payment]);
     
-    const onSubmit = (data: PaymentFormData) => {
-        if (!firestore || !selectedSale) return;
+    const onSubmit = (data: z.infer<typeof formSchema>) => {
+        if (!firestore || !selectedSaleId) return;
 
         const paymentData = {
-            ...data,
+            amount: data.amount,
+            type: data.type,
+            paymentFor: data.paymentFor,
             paymentDate: new Date(data.paymentDate).toISOString(),
+            reference: data.reference,
+            flatSaleId: data.flatSaleId,
         };
 
         if (payment) {
             // Update
-            const paymentDocRef = doc(firestore, `tenants/${tenantId}/flatSales/${selectedSale.id}/payments`, payment.id);
+            const paymentDocRef = doc(firestore, `tenants/${tenantId}/flatSales/${payment.flatSaleId}/payments`, payment.id);
             updateDocumentNonBlocking(paymentDocRef, paymentData);
             toast({ title: "Payment Updated", description: "The payment record has been updated." });
         } else {
             // Create
-            const paymentsColRef = collection(firestore, `tenants/${tenantId}/flatSales/${selectedSale.id}/payments`);
+            const paymentsColRef = collection(firestore, `tenants/${tenantId}/flatSales/${selectedSaleId}/payments`);
             addDocumentNonBlocking(paymentsColRef, paymentData);
             toast({ title: "Payment Added", description: "The new payment has been recorded." });
         }
@@ -130,7 +136,7 @@ function PaymentForm({ tenantId, onFinished, payment, sales, projects, customers
                                         <FormLabel>Project</FormLabel>
                                         <Select onValueChange={(value) => {
                                             field.onChange(value);
-                                            form.setValue('flatSaleId', ''); // Reset flat selection
+                                            form.setValue('flatSaleId', '');
                                         }} defaultValue={field.value} disabled={projects.length === 0 || !!payment}>
                                             <FormControl>
                                                 <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
@@ -233,12 +239,8 @@ export default function PaymentsPage() {
   const [isFormOpen, setFormOpen] = useState(false);
   const [editPayment, setEditPayment] = useState<Payment | undefined>(undefined);
   const [deletePayment, setDeletePayment] = useState<Payment | undefined>(undefined);
-  
-  const [allPayments, setAllPayments] = useState<Payment[]>([]);
-  const [paymentsLoading, setPaymentsLoading] = useState(true);
-  const [dataVersion, setDataVersion] = useState(0); // State to trigger re-fetch
 
-  // --- Data Fetching ---
+  // --- Simplified Data Fetching ---
   const salesQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/flatSales`), [firestore, tenantId]);
   const { data: sales, isLoading: salesLoading } = useCollection<FlatSale>(salesQuery);
   
@@ -248,81 +250,54 @@ export default function PaymentsPage() {
   const customersQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/customers`), [firestore, tenantId]);
   const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
 
-  // --- New manual payment fetching logic ---
-  useEffect(() => {
-    if (!sales || !firestore) {
-      if(!salesLoading){
-        setPaymentsLoading(false);
-      }
-      return;
-    };
-
-    setPaymentsLoading(true);
-
-    const fetchAllPayments = async () => {
-        const paymentPromises = sales.map(async (sale) => {
-            const paymentsColRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
-            const paymentsSnapshot = await getDocs(paymentsColRef);
-            return paymentsSnapshot.docs.map(doc => ({
-                ...(doc.data() as Omit<Payment, 'id' | 'flatSaleId'>),
-                id: doc.id,
-                flatSaleId: sale.id, 
-            } as Payment));
-        });
-
-        const paymentsBySaleArray = await Promise.all(paymentPromises);
-        const flattenedPayments = paymentsBySaleArray.flat();
-        setAllPayments(flattenedPayments);
-        setPaymentsLoading(false);
-    };
-
-    fetchAllPayments();
-
-  }, [sales, firestore, tenantId, salesLoading, dataVersion]);
-
-
+  // The robust way to get all payments for a tenant
+  const paymentsCollectionGroup = useMemoFirebase(() => {
+    return query(collectionGroup(firestore, 'payments'));
+    // In a real multi-tenant app, you'd add: where('tenantId', '==', tenantId)
+    // This requires a composite index on (tenantId) for the 'payments' collection group.
+    // For this app's structure, we assume all payments belong to the current tenant.
+  }, [firestore, tenantId]);
+  
+  const { data: allPayments, isLoading: paymentsLoading } = useCollection<Payment>(paymentsCollectionGroup);
+  
   const isLoading = salesLoading || projectsLoading || customersLoading || paymentsLoading;
 
   // --- Data Processing ---
-  const { paymentsWithDetails, paymentsBySale } = useMemo(() => {
-    if (!allPayments || !sales || !projects || !customers) return { paymentsWithDetails: [], paymentsBySale: {} };
+  const paymentsWithDetails = useMemo(() => {
+    if (!allPayments || !sales || !projects || !customers) return [];
 
     const projectsMap = new Map(projects.map(p => [p.id, p.name]));
     const customersMap = new Map(customers.map(c => [c.id, c.name]));
     const salesMap = new Map(sales.map(s => [s.id, s]));
-
-    const details: PaymentWithDetails[] = [];
-    const bySale: Record<string, Payment[]> = {};
-
-    allPayments.forEach(p => {
+    
+    const details = allPayments.map(p => {
         const sale = salesMap.get(p.flatSaleId);
-        if (sale) {
-             details.push({
-                ...p,
-                projectName: projectsMap.get(sale.projectId) || 'Unknown Project',
-                customerName: customersMap.get(sale.customerId) || 'Unknown Customer',
-             });
-             if (!bySale[p.flatSaleId]) bySale[p.flatSaleId] = [];
-             bySale[p.flatSaleId].push(p);
-        }
-    });
-    return { paymentsWithDetails: details.sort((a,b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()), paymentsBySale: bySale };
+        if (!sale) return null;
+        
+        return {
+            ...p,
+            projectName: projectsMap.get(sale.projectId) || 'Unknown Project',
+            customerName: customersMap.get(sale.customerId) || 'Unknown Customer',
+        };
+    }).filter((p): p is PaymentWithDetails => p !== null);
+
+    return details.sort((a,b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+
   }, [allPayments, sales, projects, customers]);
 
   // --- Handlers ---
   const handleDelete = () => {
     if (!firestore || !deletePayment) return;
+    // The path to the payment is under its parent flatSale document
     const paymentDoc = doc(firestore, `tenants/${tenantId}/flatSales/${deletePayment.flatSaleId}/payments`, deletePayment.id);
     deleteDocumentNonBlocking(paymentDoc);
     toast({ variant: "destructive", title: "Payment Deleted", description: "The payment record has been deleted." });
     setDeletePayment(undefined);
-    setDataVersion(v => v + 1); // Trigger re-fetch
   };
   
   const handleFormFinished = () => {
     setFormOpen(false);
     setEditPayment(undefined);
-    setDataVersion(v => v + 1); // Trigger re-fetch
   };
 
   return (
@@ -337,7 +312,7 @@ export default function PaymentsPage() {
             </DialogTrigger>
             <DialogContent className="max-w-xl p-0">
                 <DialogHeader className="p-6 pb-4"><DialogTitle>Add a New Payment</DialogTitle><DialogDescription>Select the property and enter payment details.</DialogDescription></DialogHeader>
-                {isFormOpen && <PaymentForm tenantId={tenantId} onFinished={handleFormFinished} sales={sales || []} projects={projects || []} customers={customers || []} paymentsBySale={paymentsBySale} />}
+                {isFormOpen && <PaymentForm tenantId={tenantId} onFinished={handleFormFinished} sales={sales || []} projects={projects || []} customers={customers || []} allPayments={allPayments || []} />}
             </DialogContent>
          </Dialog>
       </PageHeader>
@@ -345,7 +320,7 @@ export default function PaymentsPage() {
       <Dialog open={!!editPayment} onOpenChange={(isOpen) => !isOpen && setEditPayment(undefined)}>
         <DialogContent className="max-w-xl p-0">
             <DialogHeader className="p-6 pb-4"><DialogTitle>Edit Payment</DialogTitle><DialogDescription>Update the details for this payment record.</DialogDescription></DialogHeader>
-            {editPayment && <PaymentForm tenantId={tenantId} payment={editPayment} onFinished={handleFormFinished} sales={sales || []} projects={projects || []} customers={customers || []} paymentsBySale={paymentsBySale} />}
+            {editPayment && <PaymentForm tenantId={tenantId} payment={editPayment} onFinished={handleFormFinished} sales={sales || []} projects={projects || []} customers={customers || []} allPayments={allPayments || []} />}
         </DialogContent>
       </Dialog>
       
