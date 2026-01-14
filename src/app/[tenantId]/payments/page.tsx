@@ -45,6 +45,7 @@ import { format } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import Link from 'next/link';
 
 
 type Project = { id: string; name: string; flats: { name: string }[] };
@@ -114,7 +115,7 @@ const AddPaymentForm = ({
     control,
     watch,
     formState: { errors },
-  } = useForm<Omit<InflowTransaction, 'id' | 'receiptId'>>({ defaultValues });
+  } = useForm<Omit<InflowTransaction, 'id' | 'receiptId' | 'tenantId'>>({ defaultValues });
 
   const selectedCustomerId = watch('customerId');
   const selectedProjectId = watch('projectId');
@@ -178,7 +179,6 @@ const AddPaymentForm = ({
                 receiptId,
                 date: new Date(data.date).toISOString(),
                 amount: Number(data.amount),
-                flatId: data.flatName // Make sure flatId is set.
             };
 
             const docRef = await addDoc(
@@ -189,7 +189,7 @@ const AddPaymentForm = ({
                 transactionData
             );
 
-            const fullTransaction: InflowTransaction = { ...transactionData, id: docRef.id };
+            const fullTransaction: InflowTransaction = { ...transactionData, id: docRef.id, flatName: data.flatName };
             const customer = customers.find(c => c.id === data.customerId);
             const project = projects.find(p => p.id === data.projectId);
 
@@ -471,7 +471,7 @@ export default function PaymentsPage() {
   const projectsMap = useMemo(() => new Map(projects?.map(p => [p.id, p.name])), [projects]);
   const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c.name])), [customers]);
   
-  const allDataAvailable = projects !== undefined && customers !== undefined && sales !== undefined;
+  const allDataAvailable = projects && customers && sales;
 
   const handlePaymentAdded = (transaction: InflowTransaction, customer: Customer, project: Project, sale: FlatSale) => {
     setLastTransaction(transaction);
@@ -607,7 +607,9 @@ export default function PaymentsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem>View Receipt</DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/${tenantId}/sales/${payment.saleId}/payments/${payment.id}/receipt`}>View Receipt</Link>
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => {
                                 const fullTransaction = getFullTransaction(payment);
                                 if (fullTransaction) {
