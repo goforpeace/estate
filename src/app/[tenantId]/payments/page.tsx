@@ -37,7 +37,6 @@ import {
   useFirestore,
   useCollection,
   useMemoFirebase,
-  updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase';
 import { useParams } from 'next/navigation';
@@ -48,7 +47,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 
@@ -70,8 +68,7 @@ export type InflowTransaction = {
   chequeNo: string;
   chequeDate: string;
   note: string;
-  tenantId: string; // Added for collectionGroup query
-  // For editing, we need the original path
+  tenantId: string;
   _originalPath?: string; 
 };
 
@@ -144,7 +141,6 @@ const AddPaymentForm = ({
     if (!firestore) return;
     try {
         if(transactionToEdit) {
-            // Logic for updating
             const transactionRef = doc(firestore, transactionToEdit._originalPath!);
             const updatedData = {
                 ...data,
@@ -159,7 +155,6 @@ const AddPaymentForm = ({
             onFinished();
 
         } else {
-            // Logic for creating
             const receiptId = await getNextReceiptId(firestore);
             const transactionData = {
                 ...data,
@@ -411,8 +406,8 @@ export default function PaymentsPage() {
   
   const paymentsQuery = useMemoFirebase(
     () => {
-        if (!firestore || !tenantId) return null; // THIS IS THE FIX
-        return query(collectionGroup(firestore, 'inflowTransactions'), where('tenantId', '==', tenantId))
+        if (!firestore || !tenantId) return null;
+        return query(collectionGroup(firestore, 'inflowTransactions'), where('tenantId', '==', tenantId));
     },
     [firestore, tenantId]
   );
@@ -588,3 +583,5 @@ export default function PaymentsPage() {
     </>
   );
 }
+
+    
