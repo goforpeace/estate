@@ -263,10 +263,11 @@ export default function PaymentsPage() {
         const paymentPromises = sales.map(async (sale) => {
             const paymentsColRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
             const paymentsSnapshot = await getDocs(paymentsColRef);
+            // THIS IS THE FIX: Correctly map doc.id to the payment's id field.
             return paymentsSnapshot.docs.map(doc => ({
-                id: doc.id, // This is the actual payment document ID
+                id: doc.id, // The unique ID of the payment document itself
                 flatSaleId: sale.id, 
-                ...doc.data()
+                ...(doc.data() as Omit<Payment, 'id' | 'flatSaleId'>)
             } as Payment));
         });
 
