@@ -9,13 +9,14 @@ import Image from "next/image";
 import { useParams, notFound } from "next/navigation";
 import { useMemo } from "react";
 import { format } from "date-fns";
+import { InflowTransaction } from '@/app/[tenantId]/payments/page';
 
 // --- Type Definitions ---
 type Organization = { name: string; logoUrl?: string; address: string; phone: string; email: string; website?: string; };
 type Project = { name: string; flats: { name: string; sizeSft: number }[] };
 type Customer = { name: string; address: string; phoneNumber: string; };
 type FlatSale = { projectId: string; customerId: string; flatName: string; };
-type Payment = { id: string; amount: number; type: string; reference?: string; paymentDate: string; paymentFor: string; };
+
 
 export default function ReceiptPage() {
     const params = useParams();
@@ -42,7 +43,7 @@ export default function ReceiptPage() {
         if (!firestore || !tenantId || !saleId || !paymentId) return null;
         return doc(firestore, `tenants/${tenantId}/flatSales/${saleId}/payments`, paymentId);
     }, [firestore, tenantId, saleId, paymentId]);
-    const { data: payment, isLoading: paymentLoading } = useDoc<Payment>(paymentRef);
+    const { data: payment, isLoading: paymentLoading } = useDoc<InflowTransaction>(paymentRef);
 
     const projectRef = useMemoFirebase(() => {
         if (!firestore || !tenantId || !sale) return null;
@@ -93,8 +94,8 @@ export default function ReceiptPage() {
                     </div>
                     <div className="text-right">
                         <h1 className="text-3xl font-bold text-primary font-headline">MONEY RECEIPT</h1>
-                        <p className="text-sm">Receipt No: <span className="font-mono">{payment.id.slice(0, 8).toUpperCase()}</span></p>
-                        <p className="text-sm">Date: <span className="font-mono">{format(new Date(payment.paymentDate), 'dd/MM/yyyy')}</span></p>
+                        <p className="text-sm">Receipt No: <span className="font-mono">{payment.receiptId}</span></p>
+                        <p className="text-sm">Date: <span className="font-mono">{format(new Date(payment.date), 'dd/MM/yyyy')}</span></p>
                     </div>
                 </header>
 
@@ -124,7 +125,7 @@ export default function ReceiptPage() {
                     </thead>
                     <tbody>
                         <tr className="border-b">
-                            <td className="p-3">Payment for {payment.paymentFor} via {payment.type} {payment.reference && `(Ref: ${payment.reference})`}</td>
+                            <td className="p-3">Payment for {payment.paymentType} via {payment.paymentMethod} {payment.bankName && `(Bank: ${payment.bankName})`} {payment.chequeNo && `(Cheque: ${payment.chequeNo})`}</td>
                             <td className="p-3 text-right font-mono">{payment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         </tr>
                     </tbody>

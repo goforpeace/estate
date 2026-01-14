@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,6 +32,7 @@ import {
   where,
   deleteDoc,
   updateDoc,
+  getDocs,
 } from 'firebase/firestore';
 import {
   useFirestore,
@@ -72,6 +73,10 @@ export type InflowTransaction = {
   _originalPath?: string; 
 };
 
+// Simplified payment type for the state
+type PaymentRecord = InflowTransaction & { saleId: string; };
+
+
 const AddPaymentForm = ({
   onFinished,
   tenantId,
@@ -91,7 +96,7 @@ const AddPaymentForm = ({
     customer: Customer,
     project: Project
   ) => void;
-  transactionToEdit?: InflowTransaction;
+  transactionToEdit?: PaymentRecord;
 }) => {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -136,9 +141,15 @@ const AddPaymentForm = ({
       )
       .map((s) => s.flatName);
   }, [selectedCustomerId, selectedProjectId, sales]);
+  
+  const selectedSale = useMemo(() => {
+    if (!selectedCustomerId || !selectedProjectId || !watch('flatId')) return null;
+    return sales.find(s => s.customerId === selectedCustomerId && s.projectId === selectedProjectId && s.flatName === watch('flatId'));
+  }, [selectedCustomerId, selectedProjectId, sales, watch('flatId')])
+
 
   const onSubmit = async (data: Omit<InflowTransaction, 'id' | 'receiptId' | 'tenantId'>) => {
-    if (!firestore) return;
+    if (!firestore || !selectedSale) return;
     try {
         if(transactionToEdit) {
             const transactionRef = doc(firestore, transactionToEdit._originalPath!);
@@ -167,7 +178,7 @@ const AddPaymentForm = ({
             const docRef = await addDoc(
                 collection(
                 firestore,
-                `tenants/${tenantId}/projects/${data.projectId}/inflowTransactions`
+                `tenants/${tenantId}/flatSales/${selectedSale.id}/payments`
                 ),
                 transactionData
             );
@@ -374,8 +385,10 @@ export default function PaymentsPage() {
   const [lastTransaction, setLastTransaction] = useState<InflowTransaction | null>(null);
   const [lastTransactionCustomer, setLastTransactionCustomer] = useState<any>(null);
   const [lastTransactionProject, setLastTransactionProject] = useState<any>(null);
-  const [editTransaction, setEditTransaction] = useState<InflowTransaction | undefined>(undefined);
-  const [deleteTransaction, setDeleteTransaction] = useState<InflowTransaction | undefined>(undefined);
+  const [editTransaction, setEditTransaction] = useState<PaymentRecord | undefined>(undefined);
+  const [deleteTransaction, setDeleteTransaction] = useState<PaymentRecord | undefined>(undefined);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
 
   const projectsQuery = useMemoFirebase(
     () =>
@@ -404,15 +417,29 @@ export default function PaymentsPage() {
   );
   const { data: sales, isLoading: salesLoading } = useCollection<FlatSale>(salesQuery);
   
-  const paymentsQuery = useMemoFirebase(
-    () => {
-        if (!firestore || !tenantId) return null;
-        return query(collectionGroup(firestore, 'inflowTransactions'), where('tenantId', '==', tenantId));
-    },
-    [firestore, tenantId]
-  );
 
-  const { data: payments, isLoading: paymentsLoading } = useCollection<InflowTransaction>(paymentsQuery);
+  useEffect(() => {
+    if (!firestore || !tenantId || !sales) {
+        setPaymentsLoading(sales === undefined); // Still loading if sales are undefined
+        return;
+    }
+
+    const fetchPayments = async () => {
+        setPaymentsLoading(true);
+        const allPayments: PaymentRecord[] = [];
+        for (const sale of sales) {
+            const paymentsCollectionRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
+            const paymentsSnapshot = await getDocs(paymentsCollectionRef);
+            paymentsSnapshot.forEach(doc => {
+                allPayments.push({ ...(doc.data() as InflowTransaction), id: doc.id, saleId: sale.id });
+            });
+        }
+        setPayments(allPayments);
+        setPaymentsLoading(false);
+    };
+
+    fetchPayments();
+  }, [firestore, tenantId, sales]);
 
   const isLoading = projectsLoading || customersLoading || salesLoading || paymentsLoading;
   
@@ -426,6 +453,21 @@ export default function PaymentsPage() {
     setLastTransactionCustomer(customer);
     setLastTransactionProject(project);
     setReceiptOpen(true);
+    // Refetch payments
+    if(firestore && tenantId && sales) {
+        const fetchPayments = async () => {
+            const allPayments: PaymentRecord[] = [];
+            for (const sale of sales) {
+                const paymentsCollectionRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
+                const paymentsSnapshot = await getDocs(paymentsCollectionRef);
+                paymentsSnapshot.forEach(doc => {
+                    allPayments.push({ ...(doc.data() as InflowTransaction), id: doc.id, saleId: sale.id });
+                });
+            }
+            setPayments(allPayments);
+        };
+        fetchPayments();
+    }
   };
 
   const handleFormFinished = () => {
@@ -437,6 +479,7 @@ export default function PaymentsPage() {
     if (!firestore || !deleteTransaction?._originalPath) return;
     const transactionDoc = doc(firestore, deleteTransaction._originalPath);
     deleteDocumentNonBlocking(transactionDoc);
+    setPayments(prev => prev.filter(p => p.id !== deleteTransaction.id));
     toast({
         variant: "destructive",
         title: "Payment Deleted",
@@ -445,9 +488,9 @@ export default function PaymentsPage() {
     setDeleteTransaction(undefined);
   };
   
-   const getFullTransaction = (payment: InflowTransaction): InflowTransaction | undefined => {
+   const getFullTransaction = (payment: PaymentRecord): PaymentRecord | undefined => {
     if (!payment) return undefined;
-    const path = `tenants/${payment.tenantId}/projects/${payment.projectId}/inflowTransactions/${payment.id}`;
+    const path = `tenants/${payment.tenantId}/flatSales/${payment.saleId}/payments/${payment.id}`;
     return { ...payment, _originalPath: path };
   };
 
