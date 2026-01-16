@@ -6,12 +6,13 @@ import { collection, doc, query, where, getDocs } from 'firebase/firestore';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Phone, Home, Briefcase, DollarSign, List, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Phone, Home, Briefcase, DollarSign, List, TrendingUp, TrendingDown, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 
 type Vendor = {
@@ -60,6 +61,7 @@ export default function VendorDetailsPage() {
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [expensesPage, setExpensesPage] = useState(1);
   const [paymentsPage, setPaymentsPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const vendorRef = useMemoFirebase(() => {
     if (!firestore || !tenantId || !vendorId) return null;
@@ -124,20 +126,61 @@ export default function VendorDetailsPage() {
         totalDue: billed - paid,
     };
   }, [expenses]);
+  
+    // Reset page to 1 when search term changes
+  useEffect(() => {
+    setExpensesPage(1);
+    setPaymentsPage(1);
+  }, [searchTerm]);
+
+  const filteredExpenses = useMemo(() => {
+    if (!expenses) return [];
+    if (!searchTerm) return expenses;
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return expenses.filter(expense => {
+        const project = projectsMap.get(expense.projectId)?.toLowerCase() || '';
+        const category = expense.expenseCategoryName.toLowerCase();
+        const amount = expense.amount.toString();
+        const date = format(new Date(expense.date), 'yyyy-MM-dd');
+        return project.includes(lowercasedTerm) ||
+               category.includes(lowercasedTerm) ||
+               amount.includes(lowercasedTerm) ||
+               date.includes(lowercasedTerm);
+    });
+  }, [expenses, searchTerm, projectsMap]);
+
+  const filteredPayments = useMemo(() => {
+    if (!expensePayments) return [];
+    if (!searchTerm) return expensePayments;
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return expensePayments.filter(payment => {
+        const project = projectsMap.get(payment.projectId)?.toLowerCase() || '';
+        const category = payment.expenseCategoryName.toLowerCase();
+        const amount = payment.amount.toString();
+        const date = format(new Date(payment.date), 'yyyy-MM-dd');
+        const reference = payment.reference?.toLowerCase() || '';
+        return project.includes(lowercasedTerm) ||
+               category.includes(lowercasedTerm) ||
+               amount.includes(lowercasedTerm) ||
+               date.includes(lowercasedTerm) ||
+               reference.includes(lowercasedTerm);
+    });
+  }, [expensePayments, searchTerm, projectsMap]);
+
 
   const isLoading = vendorLoading || expensesLoading || paymentsLoading;
 
   // Pagination logic for expenses
-  const totalExpensePages = Math.ceil((expenses?.length || 0) / ITEMS_PER_PAGE);
+  const totalExpensePages = Math.ceil((filteredExpenses?.length || 0) / ITEMS_PER_PAGE);
   const paginatedExpenses = useMemo(() => {
-    return expenses?.slice((expensesPage - 1) * ITEMS_PER_PAGE, expensesPage * ITEMS_PER_PAGE);
-  }, [expenses, expensesPage]);
+    return filteredExpenses?.slice((expensesPage - 1) * ITEMS_PER_PAGE, expensesPage * ITEMS_PER_PAGE);
+  }, [filteredExpenses, expensesPage]);
 
   // Pagination logic for payments
-  const totalPaymentPages = Math.ceil(expensePayments.length / ITEMS_PER_PAGE);
+  const totalPaymentPages = Math.ceil(filteredPayments.length / ITEMS_PER_PAGE);
   const paginatedPayments = useMemo(() => {
-    return expensePayments.slice((paymentsPage - 1) * ITEMS_PER_PAGE, paymentsPage * ITEMS_PER_PAGE);
-  }, [expensePayments, paymentsPage]);
+    return filteredPayments.slice((paymentsPage - 1) * ITEMS_PER_PAGE, paymentsPage * ITEMS_PER_PAGE);
+  }, [filteredPayments, paymentsPage]);
 
   const getStatusVariant = (status: OutflowTransaction['status']) => {
     switch (status) {
@@ -171,6 +214,17 @@ export default function VendorDetailsPage() {
         </Button>
       </PageHeader>
       
+      <div className="relative mb-4">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search by project, category, amount, date, reference..."
+          className="w-full pl-8"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-1 space-y-6">
             <Card>
@@ -259,7 +313,7 @@ export default function VendorDetailsPage() {
                                     </TableRow>
                                 ))
                             ) : (
-                               !expensesLoading && <TableRow><TableCell colSpan={5} className="h-24 text-center">No expenses found for this vendor.</TableCell></TableRow>
+                               !expensesLoading && <TableRow><TableCell colSpan={5} className="h-24 text-center">No expenses found.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
@@ -267,6 +321,7 @@ export default function VendorDetailsPage() {
                 {totalExpensePages > 1 && (
                      <CardFooter className="flex justify-end gap-2 pt-4">
                         <Button variant="outline" size="sm" onClick={() => setExpensesPage(p => p - 1)} disabled={expensesPage === 1}>Previous</Button>
+                        <span className="text-sm text-muted-foreground">Page {expensesPage} of {totalExpensePages}</span>
                         <Button variant="outline" size="sm" onClick={() => setExpensesPage(p => p + 1)} disabled={expensesPage === totalExpensePages}>Next</Button>
                     </CardFooter>
                 )}
@@ -303,7 +358,7 @@ export default function VendorDetailsPage() {
                                     </TableRow>
                                 ))
                             ) : (
-                               !paymentsLoading && <TableRow><TableCell colSpan={5} className="h-24 text-center">No payments found for this vendor.</TableCell></TableRow>
+                               !paymentsLoading && <TableRow><TableCell colSpan={5} className="h-24 text-center">No payments found.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
@@ -311,6 +366,7 @@ export default function VendorDetailsPage() {
                  {totalPaymentPages > 1 && (
                      <CardFooter className="flex justify-end gap-2 pt-4">
                         <Button variant="outline" size="sm" onClick={() => setPaymentsPage(p => p - 1)} disabled={paymentsPage === 1}>Previous</Button>
+                        <span className="text-sm text-muted-foreground">Page {paymentsPage} of {totalPaymentPages}</span>
                         <Button variant="outline" size="sm" onClick={() => setPaymentsPage(p => p + 1)} disabled={paymentsPage === totalPaymentPages}>Next</Button>
                     </CardFooter>
                 )}
