@@ -10,6 +10,7 @@ import { ArrowLeft, Building, User, Tag, DollarSign, ParkingCircle, Wrench, Hand
 import Link from 'next/link';
 import { type FlatSale } from '../page';
 import { useMemo } from 'react';
+import { Separator } from '@/components/ui/separator';
 
 type Project = { id: string; name: string; location: string, flats: {name: string, sizeSft: number}[] };
 type Customer = { id: string; name: string; address: string; phoneNumber: string };
@@ -46,6 +47,13 @@ export default function SaleDetailsPage() {
     return project.flats.find(f => f.name === sale.flatName);
   }, [project, sale]);
 
+  const additionalCostsTotal = useMemo(() => {
+    if (!sale?.additionalCosts) return 0;
+    return sale.additionalCosts.reduce((acc, cost) => acc + cost.price, 0);
+  }, [sale]);
+
+  const grandTotal = (sale?.amount || 0) + additionalCostsTotal;
+
   if (isLoading) {
     return <div className="p-6">Loading sale details...</div>;
   }
@@ -74,13 +82,48 @@ export default function SaleDetailsPage() {
                     <CardTitle className="font-headline">Financial Overview</CardTitle>
                  </CardHeader>
                  <CardContent className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                    <div className="flex items-start gap-3"><DollarSign className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Total Amount:</span><br/><span className="font-medium">TK {sale.amount.toLocaleString('en-IN')}</span></p></div>
+                    <div className="flex items-start gap-3"><DollarSign className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Base Sale Amount:</span><br/><span className="font-medium">TK {sale.amount.toLocaleString('en-IN')}</span></p></div>
                     <div className="flex items-start gap-3"><Tag className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Per SFT Price:</span><br/><span className="font-medium">TK {sale.perSftPrice.toLocaleString('en-IN')}</span></p></div>
                     <div className="flex items-start gap-3"><ParkingCircle className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Parking Price:</span><br/><span className="font-medium">TK {sale.parkingPrice?.toLocaleString('en-IN') || 'N/A'}</span></p></div>
                     <div className="flex items-start gap-3"><Wrench className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Utility Cost:</span><br/><span className="font-medium">TK {sale.utilityCost?.toLocaleString('en-IN') || 'N/A'}</span></p></div>
                     <div className="flex items-start gap-3"><HandCoins className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Booking Money:</span><br/><span className="font-medium">TK {sale.bookingMoney?.toLocaleString('en-IN') || 'N/A'}</span></p></div>
                     <div className="flex items-start gap-3"><Calendar className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Installment:</span><br/><span className="font-medium">TK {sale.monthlyInstallment?.toLocaleString('en-IN') || 'N/A'}</span></p></div>
                  </CardContent>
+
+                 {sale.additionalCosts && sale.additionalCosts.length > 0 && (
+                    <>
+                        <Separator className="my-4" />
+                        <CardHeader className="pt-0">
+                            <CardTitle className="text-lg font-headline">Additional Costs</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                            {sale.additionalCosts.map((cost, index) => (
+                                <div key={index} className="flex justify-between">
+                                    <span>{cost.description}</span>
+                                    <span className="font-medium">TK {cost.price.toLocaleString('en-IN')}</span>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </>
+                 )}
+
+                <CardFooter className="flex-col items-end bg-muted/50 p-4 mt-4">
+                    <div className="flex justify-between w-full max-w-xs text-sm">
+                        <span>Sale Amount:</span>
+                        <span>TK {sale.amount.toLocaleString('en-IN')}</span>
+                    </div>
+                    {additionalCostsTotal > 0 && (
+                        <div className="flex justify-between w-full max-w-xs text-sm">
+                            <span>Additional Costs:</span>
+                            <span>TK {additionalCostsTotal.toLocaleString('en-IN')}</span>
+                        </div>
+                    )}
+                    <Separator className="my-2 max-w-xs" />
+                    <div className="flex justify-between w-full max-w-xs font-bold text-lg">
+                        <span>Grand Total:</span>
+                        <span>TK {grandTotal.toLocaleString('en-IN')}</span>
+                    </div>
+                </CardFooter>
             </Card>
 
              <Card>

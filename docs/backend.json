@@ -232,6 +232,27 @@
         "monthlyInstallment": {
           "type": "number",
           "description": "The amount of monthly installment."
+        },
+        "additionalCosts": {
+          "type": "array",
+          "description": "A list of additional costs for modifications or other charges.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string",
+                "description": "Description of the additional cost."
+              },
+              "price": {
+                "type": "number",
+                "description": "The price of the additional cost."
+              }
+            },
+            "required": [
+              "description",
+              "price"
+            ]
+          }
         }
       },
       "required": [

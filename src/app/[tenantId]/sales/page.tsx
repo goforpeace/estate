@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
 
 // Matches the Project entity
 type Project = {
@@ -36,6 +37,11 @@ type Customer = {
   name: string;
 };
 
+const additionalCostSchema = z.object({
+  description: z.string().min(1, "Description is required."),
+  price: z.coerce.number().min(1, "Price must be greater than 0."),
+});
+
 // Matches the FlatSale entity
 const flatSaleSchema = z.object({
   projectId: z.string().min(1, "Project is required."),
@@ -49,6 +55,7 @@ const flatSaleSchema = z.object({
   monthlyInstallment: z.coerce.number().optional().default(0),
   deedLink: z.string().url().or(z.literal("")).optional(),
   note: z.string().optional(),
+  additionalCosts: z.array(additionalCostSchema).optional(),
 });
 
 type FlatSaleFormData = z.infer<typeof flatSaleSchema>;
@@ -76,8 +83,32 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
             monthlyInstallment: 0,
             deedLink: '',
             note: '',
+            additionalCosts: [],
         },
     });
+
+    const { fields, append, remove } = useFieldArray({
+        control: form.control,
+        name: "additionalCosts",
+    });
+
+    const [newCostDescription, setNewCostDescription] = useState("");
+    const [newCostPrice, setNewCostPrice] = useState("");
+
+    const handleAddCost = () => {
+        const price = parseFloat(newCostPrice);
+        if (newCostDescription.trim() && !isNaN(price) && price > 0) {
+          append({ description: newCostDescription, price: price });
+          setNewCostDescription("");
+          setNewCostPrice("");
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Invalid Cost",
+                description: "Please enter a valid description and price."
+            })
+        }
+    };
 
     const selectedProjectId = form.watch('projectId');
     const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
@@ -179,6 +210,44 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
                             <FormField control={form.control} name="bookingMoney" render={({ field }) => (<FormItem><FormLabel>Booking Money (TK)</FormLabel><FormControl><Input type="number" placeholder="2000000" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="monthlyInstallment" render={({ field }) => (<FormItem><FormLabel>Monthly Installment (TK)</FormLabel><FormControl><Input type="number" placeholder="100000" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             
+                            <div className="space-y-4 rounded-lg border p-4 md:col-span-2">
+                                <h3 className="font-medium">Additional Costs</h3>
+                                <div className="space-y-2">
+                                    {fields.map((field, index) => (
+                                        <div key={field.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                                            <p className="flex-1 text-sm">
+                                                <span className="font-medium">{field.description}</span>
+                                                - TK {field.price.toLocaleString('en-IN')}
+                                            </p>
+                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => remove(index)}>
+                                                <XCircle className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    {fields.length === 0 && <p className="text-xs text-center text-muted-foreground py-2">No additional costs added yet.</p>}
+                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name="additionalCosts"
+                                    render={() => (
+                                        <FormItem>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <div className="flex items-end gap-2">
+                                    <div className="grid gap-1.5 flex-1">
+                                        <Label htmlFor="new-cost-description" className="text-xs">Description</Label>
+                                        <Input id="new-cost-description" placeholder="e.g., Extra cabinet" value={newCostDescription} onChange={(e) => setNewCostDescription(e.target.value)} />
+                                    </div>
+                                    <div className="grid gap-1.5 w-36">
+                                        <Label htmlFor="new-cost-price" className="text-xs">Price (TK)</Label>
+                                        <Input id="new-cost-price" type="number" placeholder="25000" value={newCostPrice} onChange={(e) => setNewCostPrice(e.target.value)} />
+                                    </div>
+                                    <Button type="button" variant="outline" onClick={handleAddCost}>Add Cost</Button>
+                                </div>
+                            </div>
+                             
                              <FormField
                                 control={form.control}
                                 name="deedLink"
