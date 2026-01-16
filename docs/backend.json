@@ -297,11 +297,7 @@
         },
         "paymentFor": {
           "type": "string",
-          "description": "The purpose of the payment.",
-          "enum": [
-            "Booking Money",
-            "Installment"
-          ]
+          "description": "The purpose of the payment (e.g., Booking Money, Installment, or an additional cost)."
         },
         "reference": {
           "type": "string",

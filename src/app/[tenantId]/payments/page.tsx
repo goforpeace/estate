@@ -46,11 +46,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
+import { type FlatSale } from '../sales/page';
 
 
 type Project = { id: string; name: string; flats: { name: string }[] };
 type Customer = { id: string; name: string, address: string };
-type FlatSale = { id: string; customerId: string; projectId: string, flatName: string };
 
 export type InflowTransaction = {
   id: string;
@@ -146,6 +146,15 @@ const AddPaymentForm = ({
     if (!selectedCustomerId || !selectedProjectId || !selectedFlatName) return null;
     return sales.find(s => s.customerId === selectedCustomerId && s.projectId === selectedProjectId && s.flatName === selectedFlatName);
   }, [selectedCustomerId, selectedProjectId, selectedFlatName, sales]);
+
+  const paymentTypes = useMemo(() => {
+    const baseTypes = ["Booking Money", "Installment"];
+    if (!selectedSale || !selectedSale.additionalCosts) {
+        return baseTypes;
+    }
+    const additional = selectedSale.additionalCosts.map(cost => cost.description);
+    return [...baseTypes, ...additional];
+  }, [selectedSale]);
 
 
   const onSubmit = async (data: Omit<InflowTransaction, 'id' | 'receiptId' | 'tenantId'>) => {
@@ -323,8 +332,9 @@ const AddPaymentForm = ({
                         <SelectValue placeholder="Select Type" />
                         </SelectTrigger>
                         <SelectContent>
-                        <SelectItem value="Booking Money">Booking Money</SelectItem>
-                        <SelectItem value="Installment">Installment</SelectItem>
+                          {paymentTypes.map(type => (
+                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                          ))}
                         </SelectContent>
                     </Select>
                     )}
