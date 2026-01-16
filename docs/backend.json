@@ -511,6 +511,19 @@
         "reference": {
           "type": "string",
           "description": "A reference number for the transaction (e.g., invoice number)."
+        },
+        "status": {
+          "type": "string",
+          "description": "The payment status of the expense.",
+          "enum": [
+            "Unpaid",
+            "Partially Paid",
+            "Paid"
+          ]
+        },
+        "paidAmount": {
+          "type": "number",
+          "description": "The total amount paid against this expense."
         }
       },
       "required": [
@@ -520,7 +533,9 @@
         "vendorId",
         "expenseCategoryName",
         "date",
-        "amount"
+        "amount",
+        "status",
+        "paidAmount"
       ]
     },
     "ExpenseCategory": {
@@ -546,6 +561,60 @@
         "id",
         "tenantId",
         "name"
+      ]
+    },
+    "ExpensePayment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ExpensePayment",
+      "type": "object",
+      "description": "Represents a payment made towards an outflow transaction (expense).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the payment."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Denormalized tenant ID."
+        },
+        "outflowTransactionId": {
+          "type": "string",
+          "description": "Reference to the OutflowTransaction."
+        },
+        "vendorId": {
+          "type": "string",
+          "description": "Denormalized reference to the Vendor."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Denormalized reference to the Project."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount paid in this transaction."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date of the payment."
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional notes about the payment."
+        },
+        "reference": {
+          "type": "string",
+          "description": "Optional payment reference (e.g., transaction ID, cheque number)."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "outflowTransactionId",
+        "vendorId",
+        "projectId",
+        "amount",
+        "date"
       ]
     }
   },
@@ -752,6 +821,30 @@
             {
               "name": "transactionId",
               "description": "Unique identifier for the outflow transaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/outflowTransactions/{transactionId}/expensePayments/{paymentId}",
+        "definition": {
+          "entityName": "ExpensePayment",
+          "schema": {
+            "$ref": "#/entities/ExpensePayment"
+          },
+          "description": "Stores individual payments made against a single expense.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "transactionId",
+              "description": "Unique identifier for the outflow transaction."
+            },
+            {
+              "name": "paymentId",
+              "description": "Unique identifier for the expense payment."
             }
           ]
         }

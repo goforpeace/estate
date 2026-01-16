@@ -22,6 +22,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 // --- Type Definitions ---
 type Project = { id: string; name: string; };
@@ -38,6 +39,8 @@ type OutflowTransaction = {
   date: string;
   amount: number;
   reference?: string;
+  status: 'Unpaid' | 'Partially Paid' | 'Paid';
+  paidAmount: number;
 };
 
 // --- Zod Schemas ---
@@ -123,7 +126,6 @@ function AddCategoryDialog({ tenantId, onFinished }: { tenantId: string; onFinis
 function ExpenseForm({ tenantId, onFinished, expense, projects, vendors }: { tenantId: string; onFinished: () => void; expense?: OutflowTransaction; projects: Project[]; vendors: Vendor[]; }) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [isCategoryDialogOpen, setCategoryDialogOpen] = useState(false);
     
     const categoriesQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -153,17 +155,22 @@ function ExpenseForm({ tenantId, onFinished, expense, projects, vendors }: { ten
     const onSubmit = (data: OutflowTransactionFormData) => {
         if (!firestore) return;
 
-        const expenseData = {
-          ...data,
-          tenantId,
-          date: new Date(data.date).toISOString(),
-        };
-
         if (expense) {
+            const expenseData = {
+                ...data,
+                date: new Date(data.date).toISOString(),
+            };
             const expenseDocRef = doc(firestore, `tenants/${tenantId}/outflowTransactions`, expense.id);
             updateDocumentNonBlocking(expenseDocRef, expenseData);
             toast({ title: "Expense Updated", description: "The expense record has been updated." });
         } else {
+             const expenseData = {
+                ...data,
+                tenantId,
+                date: new Date(data.date).toISOString(),
+                status: 'Unpaid' as const,
+                paidAmount: 0,
+            };
             const expensesCollection = collection(firestore, `tenants/${tenantId}/outflowTransactions`);
             addDocumentNonBlocking(expensesCollection, expenseData);
             toast({ title: "Expense Added", description: "The new expense has been recorded." });
@@ -254,6 +261,16 @@ export default function ExpensesPage() {
         setFormOpen(false);
         setEditExpense(undefined);
     };
+    
+    const getStatusVariant = (status: OutflowTransaction['status']) => {
+        switch (status) {
+            case 'Paid': return 'default';
+            case 'Partially Paid': return 'secondary';
+            case 'Unpaid': return 'destructive';
+            default: return 'outline';
+        }
+    }
+
 
     return (
         <>
@@ -300,8 +317,8 @@ export default function ExpensesPage() {
                                 <TableHead>Project</TableHead>
                                 <TableHead>Vendor</TableHead>
                                 <TableHead>Category</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead className="text-right">Amount (TK)</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Total / Due (TK)</TableHead>
                                 <TableHead><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -309,14 +326,20 @@ export default function ExpensesPage() {
                             {isLoading ? (
                                 <TableRow><TableCell colSpan={7} className="h-24 text-center">Loading expenses...</TableCell></TableRow>
                             ) : expenses && expenses.length > 0 ? (
-                                expenses.map((expense) => (
+                                expenses.map((expense) => {
+                                    const due = expense.amount - expense.paidAmount;
+                                    return (
                                     <TableRow key={expense.id}>
                                         <TableCell>{format(new Date(expense.date), 'dd MMM, yyyy')}</TableCell>
                                         <TableCell>{projectsMap.get(expense.projectId) || 'N/A'}</TableCell>
                                         <TableCell>{vendorsMap.get(expense.vendorId) || 'N/A'}</TableCell>
                                         <TableCell>{expense.expenseCategoryName}</TableCell>
-                                        <TableCell className="max-w-xs truncate">{expense.description}</TableCell>
-                                        <TableCell className="text-right">{expense.amount.toLocaleString('en-IN')}</TableCell>
+                                        <TableCell><Badge variant={getStatusVariant(expense.status)}>{expense.status}</Badge></TableCell>
+                                        <TableCell className="text-right">
+                                            {expense.amount.toLocaleString('en-IN')}
+                                            <br/>
+                                            <span className="text-xs text-muted-foreground">{due.toLocaleString('en-IN')} Due</span>
+                                        </TableCell>
                                         <TableCell className="text-right">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -330,7 +353,7 @@ export default function ExpensesPage() {
                                             </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
-                                ))
+                                )})
                             ) : (
                                 <TableRow><TableCell colSpan={7} className="h-24 text-center">No expenses recorded yet.</TableCell></TableRow>
                             )}
