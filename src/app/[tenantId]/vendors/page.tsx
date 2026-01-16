@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -138,6 +138,8 @@ function VendorForm({ tenantId, onFinished, vendor }: { tenantId: string; onFini
   );
 }
 
+const ITEMS_PER_PAGE = 20;
+
 export default function VendorsPage() {
   const params = useParams();
   const tenantId = params.tenantId as string;
@@ -147,6 +149,8 @@ export default function VendorsPage() {
   const [isFormOpen, setFormOpen] = useState(false);
   const [editVendor, setEditVendor] = useState<Vendor | undefined>(undefined);
   const [deleteVendor, setDeleteVendor] = useState<Vendor | undefined>(undefined);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const vendorsQuery = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
@@ -155,7 +159,23 @@ export default function VendorsPage() {
 
   const { data: vendors, isLoading } = useCollection<Vendor>(vendorsQuery);
 
-  const hasVendors = useMemo(() => vendors && vendors.length > 0, [vendors]);
+  const filteredVendors = useMemo(() => {
+    if (!vendors) return [];
+    if (!searchTerm) return vendors;
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return vendors.filter(vendor =>
+      vendor.name.toLowerCase().includes(lowercasedTerm) ||
+      vendor.enterpriseName.toLowerCase().includes(lowercasedTerm) ||
+      vendor.phoneNumber.toLowerCase().includes(lowercasedTerm)
+    );
+  }, [vendors, searchTerm]);
+
+  const paginatedVendors = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredVendors.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredVendors, currentPage]);
+
+  const totalPages = Math.ceil(filteredVendors.length / ITEMS_PER_PAGE);
 
   const handleDelete = () => {
     if (!firestore || !deleteVendor || !tenantId) return;
@@ -224,6 +244,20 @@ export default function VendorsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <div className="relative mb-4">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search by name, enterprise, or phone..."
+          className="w-full pl-8"
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(1); // Reset to first page on search
+          }}
+        />
+      </div>
+
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -244,8 +278,8 @@ export default function VendorsPage() {
                     Loading vendors...
                   </TableCell>
                 </TableRow>
-              ) : hasVendors ? (
-                vendors?.map((vendor) => (
+              ) : paginatedVendors.length > 0 ? (
+                paginatedVendors.map((vendor) => (
                   <TableRow key={vendor.id}>
                     <TableCell className="font-medium">{vendor.name}</TableCell>
                     <TableCell>{vendor.enterpriseName}</TableCell>
@@ -275,7 +309,7 @@ export default function VendorsPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={4} className="h-24 text-center">
-                    No vendors found. Start by adding a new vendor.
+                    No vendors found.
                   </TableCell>
                 </TableRow>
               )}
@@ -283,6 +317,30 @@ export default function VendorsPage() {
           </Table>
         </CardContent>
       </Card>
+      
+      {totalPages > 1 && (
+        <div className="flex justify-end items-center gap-2 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </>
   );
 }

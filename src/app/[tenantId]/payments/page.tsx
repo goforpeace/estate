@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useForm, Controller } from 'react-hook-form';
 import {
@@ -35,7 +35,6 @@ import {
   deleteDocumentNonBlocking,
   useMemoFirebase,
   useCollection,
-  addDocumentNonBlocking,
 } from '@/firebase';
 import { useParams } from 'next/navigation';
 import { getNextReceiptId } from '@/lib/data';
@@ -74,6 +73,7 @@ export type InflowTransaction = {
 // Simplified payment type for the state
 type PaymentRecord = InflowTransaction & { saleId: string; };
 
+const ITEMS_PER_PAGE = 20;
 
 const AddPaymentForm = ({
   onFinished,
@@ -394,6 +394,8 @@ export default function PaymentsPage() {
   const [deleteTransaction, setDeleteTransaction] = useState<PaymentRecord | undefined>(undefined);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   // --- Data Fetching ---
   const projectsQuery = useMemoFirebase(() => {
@@ -425,7 +427,6 @@ export default function PaymentsPage() {
         return;
     }
     
-    // If sales have loaded but are null or empty, no need to fetch payments.
     if (sales === null || sales.length === 0) {
         setPayments([]);
         setPaymentsLoading(false);
@@ -471,6 +472,31 @@ export default function PaymentsPage() {
   const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c])), [customers]);
   
   const allDataAvailable = projects && customers && sales;
+
+  const filteredPayments = useMemo(() => {
+    if (!payments) return [];
+    if (!searchTerm) return payments;
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return payments.filter(payment => {
+      const customerName = customersMap.get(payment.customerId)?.name.toLowerCase() || '';
+      const projectName = projectsMap.get(payment.projectId)?.name.toLowerCase() || '';
+      return (
+        customerName.includes(lowercasedTerm) ||
+        projectName.includes(lowercasedTerm) ||
+        payment.flatName.toLowerCase().includes(lowercasedTerm) ||
+        payment.receiptId.includes(lowercasedTerm) ||
+        payment.amount.toString().includes(lowercasedTerm) ||
+        (payment.date && format(new Date(payment.date), 'dd-MM-yyyy').includes(lowercasedTerm))
+      );
+    });
+  }, [payments, searchTerm, customersMap, projectsMap]);
+
+  const paginatedPayments = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredPayments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredPayments, currentPage]);
+
+  const totalPages = Math.ceil(filteredPayments.length / ITEMS_PER_PAGE);
 
   const handlePaymentAdded = (transaction: InflowTransaction, customer: Customer, project: Project, sale: FlatSale) => {
     setReceiptData({ transaction, customer, project });
@@ -578,6 +604,20 @@ export default function PaymentsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <div className="relative mb-4">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search by customer, project, amount..."
+          className="w-full pl-8"
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(1);
+          }}
+        />
+      </div>
+
        <Card>
         <CardHeader>
             <CardTitle className="font-headline">Payment Logs</CardTitle>
@@ -601,8 +641,8 @@ export default function PaymentsPage() {
                 <TableRow>
                     <TableCell colSpan={7} className="h-24 text-center">Loading payments...</TableCell>
                 </TableRow>
-              ) : payments && payments.length > 0 ? (
-                payments.map((payment) => (
+              ) : paginatedPayments && paginatedPayments.length > 0 ? (
+                paginatedPayments.map((payment) => (
                     <TableRow key={payment.id}>
                         <TableCell className="font-medium">{customersMap.get(payment.customerId)?.name || 'N/A'}</TableCell>
                         <TableCell>{projectsMap.get(payment.projectId)?.name || 'N/A'}</TableCell>
@@ -638,13 +678,36 @@ export default function PaymentsPage() {
                 ))
               ) : (
                 <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">No payments recorded yet.</TableCell>
+                    <TableCell colSpan={7} className="h-24 text-center">No payments found.</TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+      {totalPages > 1 && (
+        <div className="flex justify-end items-center gap-2 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </>
   );
 }

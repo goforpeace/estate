@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, XCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, XCircle, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import {
@@ -288,6 +288,7 @@ function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFi
   );
 }
 
+const ITEMS_PER_PAGE = 20;
 
 export default function ProjectsPage() {
   const params = useParams();
@@ -299,6 +300,8 @@ export default function ProjectsPage() {
   const [isAddDialogOpen, setAddDialogOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | undefined>(undefined);
   const [deleteProject, setDeleteProject] = useState<Project | undefined>(undefined);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
 
   const projectsQuery = useMemoFirebase(() => {
@@ -307,6 +310,24 @@ export default function ProjectsPage() {
   }, [firestore, tenantId]);
 
   const { data: projects, isLoading } = useCollection<Project>(projectsQuery);
+
+  const filteredProjects = useMemo(() => {
+    if (!projects) return [];
+    if (!searchTerm) return projects;
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return projects.filter(project =>
+      project.name.toLowerCase().includes(lowercasedTerm) ||
+      project.location.toLowerCase().includes(lowercasedTerm) ||
+      project.status.toLowerCase().includes(lowercasedTerm)
+    );
+  }, [projects, searchTerm]);
+
+  const paginatedProjects = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProjects.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredProjects, currentPage]);
+
+  const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
   
   const handleDelete = () => {
     if (!firestore || !deleteProject || !tenantId) return;
@@ -325,8 +346,6 @@ export default function ProjectsPage() {
     Upcoming: "secondary",
     Completed: "outline",
   } as const;
-
-  const hasProjects = useMemo(() => projects && projects.length > 0, [projects]);
 
   return (
     <>
@@ -383,6 +402,20 @@ export default function ProjectsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <div className="relative mb-4">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search by project name, location, status..."
+          className="w-full pl-8"
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(1);
+          }}
+        />
+      </div>
+
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -406,8 +439,8 @@ export default function ProjectsPage() {
                     Loading projects...
                   </TableCell>
                 </TableRow>
-              ) : hasProjects ? (
-                projects?.map((project) => (
+              ) : paginatedProjects.length > 0 ? (
+                paginatedProjects.map((project) => (
                   <TableRow key={project.id}>
                     <TableCell className="font-medium">{project.name}</TableCell>
                     <TableCell>{project.location}</TableCell>
@@ -456,7 +489,7 @@ export default function ProjectsPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={7} className="h-24 text-center">
-                    No projects found. Get started by creating a new project.
+                    No projects found.
                   </TableCell>
                 </TableRow>
               )}
@@ -464,6 +497,30 @@ export default function ProjectsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {totalPages > 1 && (
+        <div className="flex justify-end items-center gap-2 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </>
   );
 }

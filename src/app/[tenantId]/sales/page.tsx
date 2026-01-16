@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -216,6 +216,8 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
     )
 }
 
+const ITEMS_PER_PAGE = 20;
+
 export default function SalesPage() {
     const params = useParams();
     const tenantId = params.tenantId as string;
@@ -225,6 +227,8 @@ export default function SalesPage() {
     const [isFormOpen, setFormOpen] = useState(false);
     const [editSale, setEditSale] = useState<FlatSale | undefined>(undefined);
     const [deleteSale, setDeleteSale] = useState<FlatSale | undefined>(undefined);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Fetch dependent data
     const projectsQuery = useMemoFirebase(() => {
@@ -250,6 +254,29 @@ export default function SalesPage() {
     // Create maps for quick lookups
     const projectsMap = useMemo(() => new Map(projects?.map(p => [p.id, p.name])), [projects]);
     const customersMap = useMemo(() => new Map(customers?.map(c => [c.id, c.name])), [customers]);
+
+    const filteredSales = useMemo(() => {
+        if (!sales) return [];
+        if (!searchTerm) return sales;
+        const lowercasedTerm = searchTerm.toLowerCase();
+        return sales.filter(sale => {
+            const customerName = customersMap.get(sale.customerId)?.toLowerCase() || '';
+            const projectName = projectsMap.get(sale.projectId)?.toLowerCase() || '';
+            return (
+                customerName.includes(lowercasedTerm) ||
+                projectName.includes(lowercasedTerm) ||
+                sale.flatName.toLowerCase().includes(lowercasedTerm) ||
+                sale.amount.toString().includes(lowercasedTerm)
+            );
+        });
+    }, [sales, searchTerm, customersMap, projectsMap]);
+
+    const paginatedSales = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredSales.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [filteredSales, currentPage]);
+
+    const totalPages = Math.ceil(filteredSales.length / ITEMS_PER_PAGE);
 
     const handleDelete = () => {
         if (!firestore || !deleteSale || !tenantId) return;
@@ -307,6 +334,20 @@ export default function SalesPage() {
             </AlertDialogContent>
         </AlertDialog>
 
+        <div className="relative mb-4">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+                type="search"
+                placeholder="Search by customer, project, flat..."
+                className="w-full pl-8"
+                value={searchTerm}
+                onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                }}
+            />
+        </div>
+
       <Card>
         <CardHeader>
             <CardTitle className="font-headline">Sales History</CardTitle>
@@ -326,8 +367,8 @@ export default function SalesPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={5} className="h-24 text-center">Loading sales records...</TableCell></TableRow>
-              ) : sales && sales.length > 0 ? (
-                sales.map((sale) => (
+              ) : paginatedSales && paginatedSales.length > 0 ? (
+                paginatedSales.map((sale) => (
                   <TableRow key={sale.id}>
                     <TableCell className="font-medium">{customersMap.get(sale.customerId) || 'Unknown Customer'}</TableCell>
                     <TableCell>{projectsMap.get(sale.projectId) || 'Unknown Project'}</TableCell>
@@ -351,12 +392,36 @@ export default function SalesPage() {
                   </TableRow>
                 ))
               ) : (
-                <TableRow><TableCell colSpan={5} className="h-24 text-center">No sales recorded yet. Start by adding a new sale.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="h-24 text-center">No sales found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {totalPages > 1 && (
+        <div className="flex justify-end items-center gap-2 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </>
   );
 }

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -141,6 +141,8 @@ function CustomerForm({ tenantId, onFinished, customer }: { tenantId: string; on
   );
 }
 
+const ITEMS_PER_PAGE = 20;
+
 export default function CustomersPage() {
   const params = useParams();
   const tenantId = params.tenantId as string;
@@ -150,6 +152,8 @@ export default function CustomersPage() {
   const [isFormOpen, setFormOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState<Customer | undefined>(undefined);
   const [deleteCustomer, setDeleteCustomer] = useState<Customer | undefined>(undefined);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const customersQuery = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
@@ -158,7 +162,24 @@ export default function CustomersPage() {
 
   const { data: customers, isLoading } = useCollection<Customer>(customersQuery);
 
-  const hasCustomers = useMemo(() => customers && customers.length > 0, [customers]);
+  const filteredCustomers = useMemo(() => {
+    if (!customers) return [];
+    if (!searchTerm) return customers;
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return customers.filter(customer =>
+      customer.name.toLowerCase().includes(lowercasedTerm) ||
+      customer.phoneNumber.toLowerCase().includes(lowercasedTerm) ||
+      customer.address.toLowerCase().includes(lowercasedTerm) ||
+      (customer.nid || '').toLowerCase().includes(lowercasedTerm)
+    );
+  }, [customers, searchTerm]);
+
+  const paginatedCustomers = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredCustomers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredCustomers, currentPage]);
+
+  const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE);
 
   const handleDelete = () => {
     if (!firestore || !deleteCustomer || !tenantId) return;
@@ -227,6 +248,20 @@ export default function CustomersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <div className="relative mb-4">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search by name, phone, address, NID..."
+          className="w-full pl-8"
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(1);
+          }}
+        />
+      </div>
+
       <Card>
         <CardContent>
           <Table>
@@ -248,8 +283,8 @@ export default function CustomersPage() {
                     Loading customers...
                   </TableCell>
                 </TableRow>
-              ) : hasCustomers ? (
-                customers?.map((customer) => (
+              ) : paginatedCustomers.length > 0 ? (
+                paginatedCustomers.map((customer) => (
                   <TableRow key={customer.id}>
                     <TableCell className="font-medium">{customer.name}</TableCell>
                     <TableCell>{customer.phoneNumber}</TableCell>
@@ -280,7 +315,7 @@ export default function CustomersPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center">
-                    No customers found. Start by adding a new customer.
+                    No customers found.
                   </TableCell>
                 </TableRow>
               )}
@@ -288,6 +323,30 @@ export default function CustomersPage() {
           </Table>
         </CardContent>
       </Card>
+      
+      {totalPages > 1 && (
+        <div className="flex justify-end items-center gap-2 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </>
   );
 }
