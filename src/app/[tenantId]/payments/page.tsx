@@ -99,6 +99,7 @@ const AddPaymentForm = ({
 }) => {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const defaultValues = useMemo(() => {
     if (!transactionToEdit) return { date: format(new Date(), 'yyyy-MM-dd') };
@@ -166,6 +167,7 @@ const AddPaymentForm = ({
         });
         return;
     }
+    setIsSubmitting(true);
     try {
         if(transactionToEdit) {
             const transactionRef = doc(firestore, transactionToEdit._originalPath!);
@@ -219,6 +221,8 @@ const AddPaymentForm = ({
         title: 'Error',
         description: 'Failed to save payment.',
       });
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -385,7 +389,9 @@ const AddPaymentForm = ({
 
         </ScrollArea>
         <div className="p-4 pt-0 border-t">
-          <Button type="submit" className="w-full mt-4">{transactionToEdit ? 'Update Payment' : 'Record Payment'}</Button>
+          <Button type="submit" className="w-full mt-4" disabled={isSubmitting}>
+            {isSubmitting ? 'Recording...' : (transactionToEdit ? 'Update Payment' : 'Record Payment')}
+          </Button>
         </div>
     </form>
   );
