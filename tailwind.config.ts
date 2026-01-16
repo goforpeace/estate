@@ -13,6 +13,7 @@ export default {
         body: ['"PT Sans"', 'sans-serif'],
         headline: ['"Poppins"', 'sans-serif'],
         code: ['monospace'],
+        times: ['"Times New Roman"', 'Times', 'serif'],
       },
       colors: {
         background: 'hsl(var(--background))',

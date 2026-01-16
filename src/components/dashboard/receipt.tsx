@@ -28,7 +28,7 @@ export const Receipt = forwardRef<
   return (
     <div
       ref={ref}
-      className="bg-white text-black font-sans text-sm"
+      className="bg-white text-black font-times text-sm"
       style={{ width: '210mm', minHeight: '297mm', margin: 'auto' }}
     >
       <div className="p-8 h-full flex flex-col">

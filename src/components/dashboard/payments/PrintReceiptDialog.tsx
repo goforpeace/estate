@@ -30,12 +30,12 @@ export const PrintReceiptDialog = ({
 
   const handleSaveAsPdf = () => {
     if (!receiptRef.current) return;
-    html2canvas(receiptRef.current, { scale: 2 }).then((canvas) => {
-      const imgData = canvas.toDataURL('image/png');
+    html2canvas(receiptRef.current, { scale: 1 }).then((canvas) => {
+      const imgData = canvas.toDataURL('image/jpeg', 0.7);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`receipt-${transaction.receiptId}.pdf`);
     });
   };
@@ -95,5 +95,3 @@ export const PrintReceiptDialog = ({
     </Dialog>
   );
 };
-
-    
