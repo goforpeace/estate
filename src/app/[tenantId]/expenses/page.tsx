@@ -6,9 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, PlusCircle, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc, collectionGroup, query, where } from "firebase/firestore";
+import { collection, doc, getDocs } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
@@ -252,11 +252,53 @@ export default function ExpensesPage() {
     const expensesQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/outflowTransactions`), [firestore, tenantId]);
     const { data: expenses, isLoading: expensesLoading } = useCollection<OutflowTransaction>(expensesQuery);
 
-    const expensePaymentsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collectionGroup(firestore, `expensePayments`), where('tenantId', '==', tenantId));
-    }, [firestore, tenantId]);
-    const { data: expensePayments, isLoading: expensePaymentsLoading } = useCollection<ExpensePayment>(expensePaymentsQuery);
+    const [expensePayments, setExpensePayments] = useState<ExpensePayment[]>([]);
+    const [expensePaymentsLoading, setExpensePaymentsLoading] = useState(true);
+
+    useEffect(() => {
+        if (!firestore || !tenantId || expenses === undefined) {
+            setExpensePaymentsLoading(false);
+            return;
+        }
+
+        if (expenses === null || expenses.length === 0) {
+            setExpensePayments([]);
+            setExpensePaymentsLoading(false);
+            return;
+        }
+
+        const fetchAllPayments = async () => {
+            setExpensePaymentsLoading(true);
+            const allPayments: ExpensePayment[] = [];
+            const promises = expenses.map(expense => {
+                const paymentsRef = collection(firestore, `tenants/${tenantId}/outflowTransactions/${expense.id}/expensePayments`);
+                return getDocs(paymentsRef).then(snapshot => {
+                    snapshot.forEach(doc => {
+                        allPayments.push({ id: doc.id, ...doc.data() } as ExpensePayment);
+                    });
+                });
+            });
+
+            try {
+                await Promise.all(promises);
+                allPayments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                setExpensePayments(allPayments);
+            } catch (e: any) {
+                console.error("Error fetching expense payments:", e);
+                toast({
+                    variant: "destructive",
+                    title: "Error loading payment log",
+                    description: e.message || "Could not fetch all payment records."
+                });
+            } finally {
+                setExpensePaymentsLoading(false);
+            }
+        };
+
+        fetchAllPayments();
+
+    }, [firestore, tenantId, expenses, toast]);
+
 
     const isLoading = projectsLoading || vendorsLoading || expensesLoading || expensePaymentsLoading;
 
