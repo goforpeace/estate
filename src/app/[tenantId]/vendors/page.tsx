@@ -2,10 +2,10 @@
 
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, User } from "lucide-react";
+import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
+import Link from "next/link";
 
 const vendorSchema = z.object({
   name: z.string().min(1, "Vendor name is required."),
@@ -145,7 +146,6 @@ export default function VendorsPage() {
 
   const [isFormOpen, setFormOpen] = useState(false);
   const [editVendor, setEditVendor] = useState<Vendor | undefined>(undefined);
-  const [viewVendor, setViewVendor] = useState<Vendor | undefined>(undefined);
   const [deleteVendor, setDeleteVendor] = useState<Vendor | undefined>(undefined);
 
   const vendorsQuery = useMemoFirebase(() => {
@@ -208,20 +208,6 @@ export default function VendorsPage() {
           </DialogContent>
       </Dialog>
       
-      <Dialog open={!!viewVendor} onOpenChange={(isOpen) => !isOpen && setViewVendor(undefined)}>
-        <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{viewVendor?.name}</DialogTitle>
-              <DialogDescription>{viewVendor?.enterpriseName}</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4 text-sm">
-                <p><strong className="text-muted-foreground">Phone:</strong> {viewVendor?.phoneNumber}</p>
-                <p><strong className="text-muted-foreground">Details:</strong></p>
-                <p className="whitespace-pre-wrap">{viewVendor?.details || 'No additional details provided.'}</p>
-            </div>
-        </DialogContent>
-      </Dialog>
-
       <AlertDialog open={!!deleteVendor} onOpenChange={(isOpen) => !isOpen && setDeleteVendor(undefined)}>
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -274,7 +260,9 @@ export default function VendorsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => setViewVendor(vendor)}>View Details</DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/${tenantId}/vendors/${vendor.id}`}>View Details</Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setEditVendor(vendor)}>Edit</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => setDeleteVendor(vendor)}>
                             Delete

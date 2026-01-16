@@ -6,7 +6,7 @@ import { collection, doc, query, where } from 'firebase/firestore';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Building, Calendar, DollarSign, MapPin, Tag } from 'lucide-react';
+import { ArrowLeft, Building, Calendar, MapPin, Tag, TrendingUp, TrendingDown } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,6 +26,11 @@ type Project = {
 
 type FlatSale = {
     flatName: string;
+    amount: number;
+};
+
+type OutflowTransaction = {
+    amount: number;
 };
 
 export default function ProjectDetailsPage() {
@@ -48,12 +53,27 @@ export default function ProjectDetailsPage() {
 
   const { data: sales, isLoading: salesLoading } = useCollection<FlatSale>(salesQuery);
 
+  const expensesQuery = useMemoFirebase(() => {
+    if (!firestore || !tenantId || !projectId) return null;
+    return query(collection(firestore, `tenants/${tenantId}/outflowTransactions`), where('projectId', '==', projectId));
+  }, [firestore, tenantId, projectId]);
+
+  const { data: expenses, isLoading: expensesLoading } = useCollection<OutflowTransaction>(expensesQuery);
+
+  const totalRevenue = useMemo(() => {
+    return sales?.reduce((acc, sale) => acc + sale.amount, 0) || 0;
+  }, [sales]);
+  
+  const totalExpenses = useMemo(() => {
+    return expenses?.reduce((acc, expense) => acc + expense.amount, 0) || 0;
+  }, [expenses]);
+
   const soldFlatNames = useMemo(() => {
     if (!sales) return new Set();
     return new Set(sales.map(s => s.flatName));
   }, [sales]);
 
-  const isLoading = projectLoading || salesLoading;
+  const isLoading = projectLoading || salesLoading || expensesLoading;
 
   const statusVariant = {
     Ongoing: "default",
@@ -89,7 +109,7 @@ export default function ProjectDetailsPage() {
           <CardHeader>
             <CardTitle className="font-headline">Project Overview</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm">
+          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
             <div className="flex items-start gap-3">
               <MapPin className="h-5 w-5 text-muted-foreground mt-1" />
               <div>
@@ -98,10 +118,17 @@ export default function ProjectDetailsPage() {
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <DollarSign className="h-5 w-5 text-muted-foreground mt-1" />
+              <TrendingUp className="h-5 w-5 text-muted-foreground mt-1" />
               <div>
-                <p className="text-muted-foreground">Target Sell</p>
-                <p className="font-medium">TK {project.targetSell.toLocaleString('en-IN')}</p>
+                <p className="text-muted-foreground">Actual Revenue</p>
+                <p className="font-medium">TK {totalRevenue.toLocaleString('en-IN')}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <TrendingDown className="h-5 w-5 text-muted-foreground mt-1" />
+              <div>
+                <p className="text-muted-foreground">Total Expenses</p>
+                <p className="font-medium">TK {totalExpenses.toLocaleString('en-IN')}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
