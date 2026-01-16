@@ -1,3 +1,4 @@
+
 'use client';
 
 import { forwardRef } from 'react';
@@ -40,6 +41,7 @@ export const Receipt = forwardRef<
               <p className="text-xs text-gray-500 max-w-xs">{organization?.address}</p>
               <p className="text-xs text-gray-500">Phone: {organization?.phone}</p>
               <p className="text-xs text-gray-500">Email: {organization?.email}</p>
+              {organization?.website && <p className="text-xs text-gray-500">Website: {organization.website}</p>}
             </div>
           </div>
           <div className="text-right">
