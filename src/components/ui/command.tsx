@@ -49,7 +49,6 @@ const CommandInput = React.forwardRef<
         "flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
-      onPointerDown={(e) => e.stopPropagation()}
       {...props}
     />
   </div>
