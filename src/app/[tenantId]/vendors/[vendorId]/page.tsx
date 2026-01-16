@@ -155,7 +155,7 @@ export default function VendorDetailsPage() {
     const lowercasedTerm = searchTerm.toLowerCase();
     return expensePayments.filter(payment => {
         const project = projectsMap.get(payment.projectId)?.toLowerCase() || '';
-        const category = payment.expenseCategoryName.toLowerCase();
+        const category = payment.expenseCategoryName?.toLowerCase() || '';
         const amount = payment.amount.toString();
         const date = format(new Date(payment.date), 'yyyy-MM-dd');
         const reference = payment.reference?.toLowerCase() || '';
