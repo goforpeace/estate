@@ -263,7 +263,7 @@ export default function CustomersPage() {
       </div>
 
       <Card>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -290,7 +290,7 @@ export default function CustomersPage() {
                     <TableCell>{customer.phoneNumber}</TableCell>
                     <TableCell>{customer.address}</TableCell>
                     <TableCell>{customer.nid || 'N/A'}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button aria-haspopup="true" size="icon" variant="ghost">

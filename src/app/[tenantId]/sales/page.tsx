@@ -17,12 +17,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { Combobox } from "@/components/ui/combobox";
 
 // Matches the Project entity
 type Project = {
@@ -150,19 +150,19 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
                                 control={form.control}
                                 name="projectId"
                                 render={({ field }) => (
-                                    <FormItem>
+                                    <FormItem className="flex flex-col">
                                         <FormLabel>Project</FormLabel>
-                                        <Select onValueChange={(value) => {
-                                            field.onChange(value);
-                                            form.setValue('flatName', ''); // Reset flat selection
-                                        }} defaultValue={field.value} disabled={projects.length === 0}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <Combobox
+                                          options={projects.map(p => ({ value: p.id, label: p.name }))}
+                                          value={field.value}
+                                          onChange={(value) => {
+                                              field.onChange(value);
+                                              form.setValue('flatName', ''); // Reset flat selection
+                                          }}
+                                          placeholder="Select a project"
+                                          searchPlaceholder="Search projects..."
+                                          disabled={projects.length === 0}
+                                        />
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -171,16 +171,16 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
                                 control={form.control}
                                 name="flatName"
                                 render={({ field }) => (
-                                    <FormItem>
+                                    <FormItem className="flex flex-col">
                                         <FormLabel>Available Flat</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedProject || availableFlats.length === 0}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Select an available flat" /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {availableFlats.map(f => <SelectItem key={f.name} value={f.name}>{f.name} ({f.sizeSft} sft)</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <Combobox
+                                          options={availableFlats.map(f => ({ value: f.name, label: `${f.name} (${f.sizeSft} sft)` }))}
+                                          value={field.value}
+                                          onChange={field.onChange}
+                                          placeholder="Select an available flat"
+                                          searchPlaceholder="Search flats..."
+                                          disabled={!selectedProject || availableFlats.length === 0}
+                                        />
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -189,16 +189,16 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
                                 control={form.control}
                                 name="customerId"
                                 render={({ field }) => (
-                                    <FormItem className="md:col-span-2">
+                                    <FormItem className="md:col-span-2 flex flex-col">
                                         <FormLabel>Customer</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={customers.length === 0}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Select a customer" /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <Combobox
+                                          options={customers.map(c => ({ value: c.id, label: c.name }))}
+                                          value={field.value}
+                                          onChange={field.onChange}
+                                          placeholder="Select a customer"
+                                          searchPlaceholder="Search customers..."
+                                          disabled={customers.length === 0}
+                                        />
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -422,7 +422,7 @@ export default function SalesPage() {
             <CardTitle className="font-headline">Sales History</CardTitle>
             <CardDescription>A log of all completed flat sales.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -443,7 +443,7 @@ export default function SalesPage() {
                     <TableCell>{projectsMap.get(sale.projectId) || 'Unknown Project'}</TableCell>
                     <TableCell>{sale.flatName}</TableCell>
                     <TableCell className="text-right">{sale.amount.toLocaleString('en-IN')}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button aria-haspopup="true" size="icon" variant="ghost">

@@ -37,13 +37,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from "next/link";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
+import { Combobox } from "@/components/ui/combobox";
 
 // Matches the Flat entity in backend.json but is nested here
 const flatSchema = z.object({
@@ -206,21 +206,19 @@ function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFi
                 control={form.control}
                 name="status"
                 render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select project status" />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        <SelectItem value="Upcoming">Upcoming</SelectItem>
-                        <SelectItem value="Ongoing">Ongoing</SelectItem>
-                        <SelectItem value="Completed">Completed</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Status</FormLabel>
+                      <Combobox
+                        options={[
+                          { value: "Upcoming", label: "Upcoming" },
+                          { value: "Ongoing", label: "Ongoing" },
+                          { value: "Completed", label: "Completed" },
+                        ]}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Select project status"
+                      />
+                      <FormMessage />
                     </FormItem>
                 )}
                 />
@@ -460,7 +458,7 @@ export default function ProjectsPage() {
                     <TableCell>
                       {new Date(project.expectedHandoverDate).toLocaleDateString()}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button

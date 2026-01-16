@@ -19,9 +19,9 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
+import { Combobox } from "@/components/ui/combobox";
 
 // --- Type Definitions ---
 type OperatingCost = {
@@ -152,11 +152,16 @@ function OperatingCostForm({ tenantId, onFinished, cost }: { tenantId: string; o
             render={({ field }) => (
                 <FormItem>
                     <FormLabel>Item</FormLabel>
-                    <div className="flex gap-2">
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select an item" /></SelectTrigger></FormControl>
-                            <SelectContent>{items?.map(i => <SelectItem key={i.id} value={i.name}>{i.name}</SelectItem>)}</SelectContent>
-                        </Select>
+                    <div className="flex items-start gap-2">
+                        <div className="flex-1">
+                          <Combobox
+                            options={items?.map(i => ({ value: i.name, label: i.name })) || []}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select an item"
+                            searchPlaceholder="Search items..."
+                          />
+                        </div>
                         <AddCostItemDialog tenantId={tenantId} onFinished={() => {}} />
                     </div>
                     <FormMessage />
@@ -321,7 +326,7 @@ export default function OperatingCostPage() {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span></Button>
+                          <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /><span className="sr-only">Actions</span></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>

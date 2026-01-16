@@ -12,13 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { MoreHorizontal, PlusCircle, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -47,6 +40,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { type FlatSale } from '../sales/page';
+import { Combobox } from '@/components/ui/combobox';
 
 
 type Project = { id: string; name: string; flats: { name: string }[] };
@@ -102,7 +96,7 @@ const AddPaymentForm = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const defaultValues = useMemo(() => {
-    if (!transactionToEdit) return { date: format(new Date(), 'yyyy-MM-dd') };
+    if (!transactionToEdit) return { date: format(new Date(), 'yyyy-MM-dd'), paymentMethod: '', paymentType: '' };
     return {
         ...transactionToEdit,
         date: transactionToEdit.date ? format(new Date(transactionToEdit.date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
@@ -238,18 +232,14 @@ const AddPaymentForm = ({
                     control={control}
                     rules={{ required: true }}
                     render={({ field }) => (
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!transactionToEdit}>
-                        <SelectTrigger>
-                        <SelectValue placeholder="Select Customer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                        {customers.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                            </SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
+                      <Combobox
+                        options={customers.map((c) => ({ value: c.id, label: c.name }))}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Select Customer"
+                        searchPlaceholder="Search customers..."
+                        disabled={!!transactionToEdit}
+                      />
                     )}
                 />
                 {errors.customerId && <p className="text-red-500 text-xs">Customer is required</p>}
@@ -261,22 +251,14 @@ const AddPaymentForm = ({
                     control={control}
                     rules={{ required: true }}
                     render={({ field }) => (
-                    <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
+                      <Combobox
+                        options={filteredProjects.map((p) => ({ value: p.id, label: p.name }))}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Select Project"
+                        searchPlaceholder="Search projects..."
                         disabled={!selectedCustomerId || !!transactionToEdit}
-                    >
-                        <SelectTrigger>
-                        <SelectValue placeholder="Select Project" />
-                        </SelectTrigger>
-                        <SelectContent>
-                        {filteredProjects.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                            </SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
+                      />
                     )}
                 />
                 {errors.projectId && <p className="text-red-500 text-xs">Project is required</p>}
@@ -288,22 +270,14 @@ const AddPaymentForm = ({
                     control={control}
                     rules={{ required: true }}
                     render={({ field }) => (
-                        <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
+                      <Combobox
+                        options={filteredFlats.map((flat) => ({ value: flat, label: flat }))}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Select Flat"
+                        searchPlaceholder="Search flats..."
                         disabled={!selectedProjectId || !!transactionToEdit}
-                        >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select Flat" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {filteredFlats.map((flat) => (
-                            <SelectItem key={flat} value={flat}>
-                                {flat}
-                            </SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
+                      />
                     )}
                     />
                     {errors.flatName && <p className="text-red-500 text-xs">Flat is required</p>}
@@ -331,16 +305,13 @@ const AddPaymentForm = ({
                     control={control}
                     rules={{ required: true }}
                     render={({ field }) => (
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <SelectTrigger>
-                        <SelectValue placeholder="Select Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {paymentTypes.map(type => (
-                            <SelectItem key={type} value={type}>{type}</SelectItem>
-                          ))}
-                        </SelectContent>
-                    </Select>
+                      <Combobox
+                        options={paymentTypes.map(type => ({ value: type, label: type }))}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Select Type"
+                        searchPlaceholder="Search types..."
+                      />
                     )}
                 />
                 </div>
@@ -351,16 +322,16 @@ const AddPaymentForm = ({
                     control={control}
                     rules={{ required: true }}
                     render={({ field }) => (
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <SelectTrigger>
-                        <SelectValue placeholder="Select Method" />
-                        </SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="Cash">Cash</SelectItem>
-                        <SelectItem value="Cheque">Cheque</SelectItem>
-                        <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                        </SelectContent>
-                    </Select>
+                      <Combobox
+                        options={[
+                          { value: "Cash", label: "Cash" },
+                          { value: "Cheque", label: "Cheque" },
+                          { value: "Bank Transfer", label: "Bank Transfer" },
+                        ]}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Select Method"
+                      />
                     )}
                 />
                 </div>

@@ -13,10 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { Combobox } from "@/components/ui/combobox";
 
 // --- Type Definitions ---
 type Vendor = { id: string; name: string; enterpriseName: string; };
@@ -183,15 +183,19 @@ export default function PayBillPage() {
                                     control={form.control}
                                     name="vendorId"
                                     render={({ field }) => (
-                                        <FormItem>
+                                        <FormItem className="flex flex-col">
                                             <FormLabel>Vendor</FormLabel>
-                                            <Select onValueChange={(value) => {
-                                                field.onChange(value);
-                                                form.setValue('expenseId', '');
-                                            }} defaultValue={field.value} disabled={isLoading}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="Select a vendor" /></SelectTrigger></FormControl>
-                                                <SelectContent>{vendors?.map(v => <SelectItem key={v.id} value={v.id}>{v.enterpriseName} ({v.name})</SelectItem>)}</SelectContent>
-                                            </Select>
+                                            <Combobox
+                                                options={vendors?.map(v => ({ value: v.id, label: `${v.enterpriseName} (${v.name})` })) || []}
+                                                value={field.value}
+                                                onChange={(value) => {
+                                                    field.onChange(value);
+                                                    form.setValue('expenseId', '');
+                                                }}
+                                                placeholder="Select a vendor"
+                                                searchPlaceholder="Search vendors..."
+                                                disabled={isLoading}
+                                            />
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -200,17 +204,19 @@ export default function PayBillPage() {
                                     control={form.control}
                                     name="expenseId"
                                     render={({ field }) => (
-                                        <FormItem>
+                                        <FormItem className="flex flex-col">
                                             <FormLabel>Expense</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedVendorId}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="Select an expense to pay" /></SelectTrigger></FormControl>
-                                                <SelectContent>
-                                                    {availableExpenses.map(e => {
-                                                        const expenseDue = e.amount - (e.paidAmount || 0);
-                                                        return <SelectItem key={e.id} value={e.id}>{e.expenseCategoryName} (Due: {expenseDue.toLocaleString()})</SelectItem>
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
+                                            <Combobox
+                                                options={availableExpenses.map(e => {
+                                                    const expenseDue = e.amount - (e.paidAmount || 0);
+                                                    return { value: e.id, label: `${e.expenseCategoryName} (Due: ${expenseDue.toLocaleString()})` };
+                                                })}
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                placeholder="Select an expense to pay"
+                                                searchPlaceholder="Search expenses..."
+                                                disabled={!selectedVendorId}
+                                            />
                                             <FormMessage />
                                         </FormItem>
                                     )}

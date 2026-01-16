@@ -17,13 +17,13 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Combobox } from "@/components/ui/combobox";
 
 // --- Type Definitions ---
 type Project = { id: string; name: string; };
@@ -208,20 +208,45 @@ function ExpenseForm({ tenantId, onFinished, expense, projects, vendors }: { ten
                     <div className="space-y-4 p-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField control={form.control} name="projectId" render={({ field }) => (
-                                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                                <FormItem className="flex flex-col">
+                                  <FormLabel>Project</FormLabel>
+                                  <Combobox
+                                    options={projects.map(p => ({ value: p.id, label: p.name }))}
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    placeholder="Select a project"
+                                    searchPlaceholder="Search projects..."
+                                  />
+                                  <FormMessage />
+                                </FormItem>
                             )} />
                             <FormField control={form.control} name="vendorId" render={({ field }) => (
-                                <FormItem><FormLabel>Vendor</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a vendor" /></SelectTrigger></FormControl><SelectContent>{vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.enterpriseName} ({v.name})</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                                <FormItem className="flex flex-col">
+                                  <FormLabel>Vendor</FormLabel>
+                                  <Combobox
+                                    options={vendors.map(v => ({ value: v.id, label: `${v.enterpriseName} (${v.name})` }))}
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    placeholder="Select a vendor"
+                                    searchPlaceholder="Search vendors..."
+                                  />
+                                  <FormMessage />
+                                </FormItem>
                             )} />
                         </div>
                         <FormField control={form.control} name="expenseCategoryName" render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Item / Category</FormLabel>
-                                <div className="flex gap-2">
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Select an item" /></SelectTrigger></FormControl>
-                                        <SelectContent>{categories?.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent>
-                                    </Select>
+                                <div className="flex items-start gap-2">
+                                    <div className="flex-1">
+                                      <Combobox
+                                        options={categories?.map(c => ({ value: c.name, label: c.name })) || []}
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        placeholder="Select an item"
+                                        searchPlaceholder="Search items..."
+                                      />
+                                    </div>
                                     <AddCategoryDialog tenantId={tenantId} onFinished={() => { /* `useCollection` will auto-update */ }} />
                                 </div>
                                 <FormMessage />
