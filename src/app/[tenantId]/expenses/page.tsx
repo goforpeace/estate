@@ -24,6 +24,7 @@ import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
+import { useLoading } from "@/context/loading-context";
 
 // --- Type Definitions ---
 type Project = { id: string; name: string; };
@@ -89,26 +90,30 @@ type ExpensePaymentEditFormData = z.infer<typeof expensePaymentEditSchema>;
 function AddCategoryDialog({ tenantId, onFinished }: { tenantId: string; onFinished: () => void; }) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showLoading, hideLoading, isLoading } = useLoading();
     
     const form = useForm<ExpenseCategoryFormData>({
         resolver: zodResolver(expenseCategorySchema),
         defaultValues: { name: "" },
     });
 
-    const onSubmit = (data: ExpenseCategoryFormData) => {
+    const onSubmit = async (data: ExpenseCategoryFormData) => {
         if (!firestore) return;
-        setIsSubmitting(true);
+        showLoading("Adding category...");
 
-        const categoryData = { ...data, tenantId };
-        const categoriesCollection = collection(firestore, `tenants/${tenantId}/expenseCategories`);
-        
-        addDocumentNonBlocking(categoriesCollection, categoryData);
-
-        toast({ title: "Category Added", description: `"${data.name}" has been added.` });
-        setIsSubmitting(false);
-        onFinished();
-        form.reset();
+        try {
+            const categoryData = { ...data, tenantId };
+            const categoriesCollection = collection(firestore, `tenants/${tenantId}/expenseCategories`);
+            await addDocumentNonBlocking(categoriesCollection, categoryData);
+            toast({ title: "Category Added", description: `"${data.name}" has been added.` });
+            onFinished();
+            form.reset();
+        } catch (error) {
+            console.error("Failed to add category:", error);
+            toast({ variant: "destructive", title: "Failed", description: "Could not add category." });
+        } finally {
+            hideLoading();
+        }
     };
 
     return (
@@ -134,8 +139,8 @@ function AddCategoryDialog({ tenantId, onFinished }: { tenantId: string; onFinis
                                 </FormItem>
                             )}
                         />
-                        <Button type="submit" className="w-full" disabled={isSubmitting}>
-                            {isSubmitting ? 'Adding...' : 'Add Category'}
+                        <Button type="submit" className="w-full" disabled={isLoading}>
+                            {isLoading ? 'Adding...' : 'Add Category'}
                         </Button>
                     </form>
                 </Form>
@@ -149,6 +154,7 @@ function AddCategoryDialog({ tenantId, onFinished }: { tenantId: string; onFinis
 function ExpenseForm({ tenantId, onFinished, expense, projects, vendors }: { tenantId: string; onFinished: () => void; expense?: OutflowTransaction; projects: Project[]; vendors: Vendor[]; }) {
     const firestore = useFirestore();
     const { toast } = useToast();
+    const { showLoading, hideLoading, isLoading } = useLoading();
     
     const categoriesQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -175,30 +181,38 @@ function ExpenseForm({ tenantId, onFinished, expense, projects, vendors }: { ten
         defaultValues,
     });
 
-    const onSubmit = (data: OutflowTransactionFormData) => {
+    const onSubmit = async (data: OutflowTransactionFormData) => {
         if (!firestore) return;
+        showLoading(expense ? 'Updating expense...' : 'Adding expense...');
 
-        if (expense) {
-            const expenseData = {
-                ...data,
-                date: new Date(data.date).toISOString(),
-            };
-            const expenseDocRef = doc(firestore, `tenants/${tenantId}/outflowTransactions`, expense.id);
-            updateDocumentNonBlocking(expenseDocRef, expenseData);
-            toast({ title: "Expense Updated", description: "The expense record has been updated." });
-        } else {
-             const expenseData = {
-                ...data,
-                tenantId,
-                date: new Date(data.date).toISOString(),
-                status: 'Unpaid' as const,
-                paidAmount: 0,
-            };
-            const expensesCollection = collection(firestore, `tenants/${tenantId}/outflowTransactions`);
-            addDocumentNonBlocking(expensesCollection, expenseData);
-            toast({ title: "Expense Added", description: "The new expense has been recorded." });
+        try {
+            if (expense) {
+                const expenseData = {
+                    ...data,
+                    date: new Date(data.date).toISOString(),
+                };
+                const expenseDocRef = doc(firestore, `tenants/${tenantId}/outflowTransactions`, expense.id);
+                await updateDocumentNonBlocking(expenseDocRef, expenseData);
+                toast({ title: "Expense Updated", description: "The expense record has been updated." });
+            } else {
+                 const expenseData = {
+                    ...data,
+                    tenantId,
+                    date: new Date(data.date).toISOString(),
+                    status: 'Unpaid' as const,
+                    paidAmount: 0,
+                };
+                const expensesCollection = collection(firestore, `tenants/${tenantId}/outflowTransactions`);
+                await addDocumentNonBlocking(expensesCollection, expenseData);
+                toast({ title: "Expense Added", description: "The new expense has been recorded." });
+            }
+            onFinished();
+        } catch (error) {
+            console.error("Failed to save expense:", error);
+            toast({ variant: "destructive", title: "Save Failed", description: "Could not save expense record." });
+        } finally {
+            hideLoading();
         }
-        onFinished();
     };
 
     return (
@@ -262,7 +276,7 @@ function ExpenseForm({ tenantId, onFinished, expense, projects, vendors }: { ten
                     </div>
                 </ScrollArea>
                 <div className="p-4 pt-0 border-t">
-                    <Button type="submit" className="w-full mt-4">{expense ? 'Save Changes' : 'Add Expense'}</Button>
+                    <Button type="submit" className="w-full mt-4" disabled={isLoading}>{expense ? 'Save Changes' : 'Add Expense'}</Button>
                 </div>
             </form>
         </Form>
@@ -272,7 +286,7 @@ function ExpenseForm({ tenantId, onFinished, expense, projects, vendors }: { ten
 function EditExpensePaymentForm({ tenantId, payment, onFinished }: { tenantId: string; payment: ExpensePayment; onFinished: () => void; }) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showLoading, hideLoading, isLoading } = useLoading();
     
     const form = useForm<ExpensePaymentEditFormData>({
         resolver: zodResolver(expensePaymentEditSchema),
@@ -286,7 +300,7 @@ function EditExpensePaymentForm({ tenantId, payment, onFinished }: { tenantId: s
 
     const onSubmit = async (data: ExpensePaymentEditFormData) => {
         if (!firestore || !payment._originalPath || !payment.outflowTransactionId) return;
-        setIsSubmitting(true);
+        showLoading("Updating payment...");
 
         const paymentDocRef = doc(firestore, payment._originalPath);
         const expenseDocRef = doc(firestore, `tenants/${tenantId}/outflowTransactions`, payment.outflowTransactionId);
@@ -323,7 +337,7 @@ function EditExpensePaymentForm({ tenantId, payment, onFinished }: { tenantId: s
             console.error("Payment update failed: ", error);
             toast({ variant: "destructive", title: "Update Failed", description: error.message || "Could not update payment." });
         } finally {
-            setIsSubmitting(false);
+            hideLoading();
         }
     };
     
@@ -334,7 +348,7 @@ function EditExpensePaymentForm({ tenantId, payment, onFinished }: { tenantId: s
                 <FormField control={form.control} name="date" render={({ field }) => (<FormItem><FormLabel>Payment Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="reference" render={({ field }) => (<FormItem><FormLabel>Reference</FormLabel><FormControl><Input placeholder="Cheque #, etc." {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="note" render={({ field }) => (<FormItem><FormLabel>Note</FormLabel><FormControl><Textarea placeholder="Payment note..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? 'Updating...' : 'Update Payment'}</Button>
+                <Button type="submit" className="w-full" disabled={isLoading}>{isLoading ? 'Updating...' : 'Update Payment'}</Button>
             </form>
         </Form>
     );
@@ -346,6 +360,7 @@ export default function ExpensesPage() {
     const tenantId = params.tenantId as string;
     const firestore = useFirestore();
     const { toast } = useToast();
+    const { showLoading, hideLoading } = useLoading();
 
     const [isFormOpen, setFormOpen] = useState(false);
     const [editExpense, setEditExpense] = useState<OutflowTransaction | undefined>(undefined);
@@ -419,12 +434,20 @@ export default function ExpensesPage() {
     const vendorsMap = useMemo(() => new Map(vendors?.map(v => [v.id, v.enterpriseName])), [vendors]);
 
     // --- Handlers ---
-    const handleDeleteExpense = () => {
+    const handleDeleteExpense = async () => {
         if (!firestore || !deleteExpense) return;
-        const expenseDoc = doc(firestore, `tenants/${tenantId}/outflowTransactions`, deleteExpense.id);
-        deleteDocumentNonBlocking(expenseDoc);
-        toast({ variant: "destructive", title: "Expense Deleted", description: "The expense record has been deleted." });
-        setDeleteExpense(undefined);
+        showLoading("Deleting expense...");
+        try {
+            const expenseDoc = doc(firestore, `tenants/${tenantId}/outflowTransactions`, deleteExpense.id);
+            await deleteDocumentNonBlocking(expenseDoc);
+            toast({ variant: "destructive", title: "Expense Deleted", description: "The expense record has been deleted." });
+            setDeleteExpense(undefined);
+        } catch (error) {
+            console.error("Failed to delete expense:", error);
+            toast({ variant: "destructive", title: "Delete Failed", description: "Could not delete expense record." });
+        } finally {
+            hideLoading();
+        }
     };
 
     const handleFormFinished = () => {
@@ -434,6 +457,7 @@ export default function ExpensesPage() {
 
     const handleDeletePayment = async () => {
         if (!firestore || !deletePayment || !deletePayment._originalPath || !deletePayment.outflowTransactionId) return;
+        showLoading("Deleting payment...");
         
         const paymentDocRef = doc(firestore, deletePayment._originalPath);
         const expenseDocRef = doc(firestore, `tenants/${tenantId}/outflowTransactions`, deletePayment.outflowTransactionId);
@@ -470,6 +494,7 @@ export default function ExpensesPage() {
             console.error("Error deleting payment:", error);
             toast({ variant: "destructive", title: "Error", description: error.message || "Could not delete payment record." });
         } finally {
+            hideLoading();
             setDeletePayment(undefined);
         }
     }

@@ -19,8 +19,6 @@ import { useForm, Controller } from 'react-hook-form';
 import {
   collection,
   doc,
-  addDoc,
-  updateDoc,
   getDocs,
 } from 'firebase/firestore';
 import {
@@ -28,6 +26,8 @@ import {
   deleteDocumentNonBlocking,
   useMemoFirebase,
   useCollection,
+  addDocumentNonBlocking,
+  updateDocumentNonBlocking,
 } from '@/firebase';
 import { useParams } from 'next/navigation';
 import { getNextReceiptId } from '@/lib/data';
@@ -41,6 +41,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import Link from 'next/link';
 import { type FlatSale } from '../sales/page';
 import { Combobox } from '@/components/ui/combobox';
+import { useLoading } from '@/context/loading-context';
 
 
 type Project = { id: string; name: string; flats: { name: string }[] };
@@ -93,7 +94,7 @@ const AddPaymentForm = ({
 }) => {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showLoading, hideLoading, isLoading } = useLoading();
 
   const defaultValues = useMemo(() => {
     if (!transactionToEdit) return { date: format(new Date(), 'yyyy-MM-dd'), paymentMethod: '', paymentType: '' };
@@ -161,7 +162,7 @@ const AddPaymentForm = ({
         });
         return;
     }
-    setIsSubmitting(true);
+    showLoading(transactionToEdit ? 'Updating Payment...' : 'Recording Payment...');
     try {
         if(transactionToEdit) {
             const transactionRef = doc(firestore, transactionToEdit._originalPath!);
@@ -170,7 +171,7 @@ const AddPaymentForm = ({
                 date: new Date(data.date).toISOString(),
                 amount: Number(data.amount),
             };
-            await updateDoc(transactionRef, updatedData);
+            await updateDocumentNonBlocking(transactionRef, updatedData);
             toast({
                 title: 'Payment Updated',
                 description: 'The payment has been updated successfully.',
@@ -187,13 +188,8 @@ const AddPaymentForm = ({
                 amount: Number(data.amount),
             };
 
-            const docRef = await addDoc(
-                collection(
-                firestore,
-                `tenants/${tenantId}/flatSales/${selectedSale.id}/payments`
-                ),
-                transactionData
-            );
+            const collectionRef = collection(firestore,`tenants/${tenantId}/flatSales/${selectedSale.id}/payments`);
+            const docRef = await addDocumentNonBlocking(collectionRef, transactionData);
 
             const fullTransaction: InflowTransaction = { ...transactionData, id: docRef.id, flatName: data.flatName };
             const customer = customers.find(c => c.id === data.customerId);
@@ -216,7 +212,7 @@ const AddPaymentForm = ({
         description: 'Failed to save payment.',
       });
     } finally {
-        setIsSubmitting(false);
+        hideLoading();
     }
   };
 
@@ -360,8 +356,8 @@ const AddPaymentForm = ({
 
         </ScrollArea>
         <div className="p-4 pt-0 border-t">
-          <Button type="submit" className="w-full mt-4" disabled={isSubmitting}>
-            {isSubmitting ? 'Recording...' : (transactionToEdit ? 'Update Payment' : 'Record Payment')}
+          <Button type="submit" className="w-full mt-4" disabled={isLoading}>
+            {isLoading ? 'Recording...' : (transactionToEdit ? 'Update Payment' : 'Record Payment')}
           </Button>
         </div>
     </form>
@@ -373,6 +369,7 @@ export default function PaymentsPage() {
   const tenantId = params.tenantId as string;
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { showLoading, hideLoading } = useLoading();
 
   const [isFormOpen, setFormOpen] = useState(false);
   const [isReceiptOpen, setReceiptOpen] = useState(false);
@@ -511,17 +508,25 @@ export default function PaymentsPage() {
     setEditTransaction(undefined);
   };
   
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!firestore || !deleteTransaction?._originalPath) return;
-    const transactionDoc = doc(firestore, deleteTransaction._originalPath);
-    deleteDocumentNonBlocking(transactionDoc);
-    setPayments(prev => prev.filter(p => p.id !== deleteTransaction.id));
-    toast({
-        variant: "destructive",
-        title: "Payment Deleted",
-        description: `Payment record has been deleted.`,
-    })
-    setDeleteTransaction(undefined);
+    showLoading("Deleting payment...");
+    try {
+        const transactionDoc = doc(firestore, deleteTransaction._originalPath);
+        await deleteDocumentNonBlocking(transactionDoc);
+        setPayments(prev => prev.filter(p => p.id !== deleteTransaction!.id));
+        toast({
+            variant: "destructive",
+            title: "Payment Deleted",
+            description: `Payment record has been deleted.`,
+        })
+        setDeleteTransaction(undefined);
+    } catch (error) {
+        console.error("Failed to delete payment:", error);
+        toast({ variant: "destructive", title: "Delete Failed", description: "Could not delete payment." });
+    } finally {
+        hideLoading();
+    }
   };
   
    const getFullTransaction = (payment: PaymentRecord): PaymentRecord | undefined => {

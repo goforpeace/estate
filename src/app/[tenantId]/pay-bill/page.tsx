@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { Combobox } from "@/components/ui/combobox";
+import { useLoading } from "@/context/loading-context";
 
 // --- Type Definitions ---
 type Vendor = { id: string; name: string; enterpriseName: string; };
@@ -60,7 +61,7 @@ export default function PayBillPage() {
     const tenantId = params.tenantId as string;
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showLoading, hideLoading, isLoading: isSubmitting } = useLoading();
 
     // --- Data Fetching ---
     const vendorsQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/vendors`), [firestore, tenantId]);
@@ -112,7 +113,7 @@ export default function PayBillPage() {
             return;
         }
         
-        setIsSubmitting(true);
+        showLoading("Recording payment...");
         
         const expenseRef = doc(firestore, `tenants/${tenantId}/outflowTransactions`, data.expenseId);
         const expensePaymentsRef = collection(expenseRef, 'expensePayments');
@@ -160,7 +161,7 @@ export default function PayBillPage() {
             console.error("Payment transaction failed: ", error);
             toast({ variant: "destructive", title: "Payment Failed", description: "Could not record the payment." });
         } finally {
-            setIsSubmitting(false);
+            hideLoading();
         }
     };
 

@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { FirebaseClientProvider } from '@/firebase';
+import { LoadingProvider } from '@/context/loading-context';
 
 export const metadata: Metadata = {
   title: 'EstateFlow',
@@ -23,7 +24,9 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased" suppressHydrationWarning={true}>
         <FirebaseClientProvider>
+          <LoadingProvider>
             {children}
+          </LoadingProvider>
         </FirebaseClientProvider>
         <Toaster />
       </body>

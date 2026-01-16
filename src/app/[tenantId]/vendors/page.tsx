@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
+import { useLoading } from "@/context/loading-context";
 
 const vendorSchema = z.object({
   name: z.string().min(1, "Vendor name is required."),
@@ -38,6 +39,7 @@ type Vendor = VendorFormData & {
 function VendorForm({ tenantId, onFinished, vendor }: { tenantId: string; onFinished: () => void; vendor?: Vendor }) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { showLoading, hideLoading, isLoading } = useLoading();
   
   const form = useForm<VendorFormData>({
     resolver: zodResolver(vendorSchema),
@@ -49,32 +51,37 @@ function VendorForm({ tenantId, onFinished, vendor }: { tenantId: string; onFini
     },
   });
 
-  const onSubmit = (data: VendorFormData) => {
+  const onSubmit = async (data: VendorFormData) => {
     if (!firestore || !tenantId) return;
 
-    const vendorData = {
-      ...data,
-      tenantId: tenantId,
-    };
+    showLoading(vendor ? "Updating vendor..." : "Adding vendor...");
+    try {
+        const vendorData = { ...data, tenantId };
 
-    if (vendor) {
-        const vendorDocRef = doc(firestore, `tenants/${tenantId}/vendors`, vendor.id);
-        updateDocumentNonBlocking(vendorDocRef, vendorData);
-         toast({
-          title: "Vendor Updated",
-          description: `${data.name} has been successfully updated.`,
-        });
-    } else {
-        const vendorsCollection = collection(firestore, `tenants/${tenantId}/vendors`);
-        addDocumentNonBlocking(vendorsCollection, vendorData);
-        toast({
-          title: "Vendor Added",
-          description: `${data.name} has been successfully added.`,
-        });
+        if (vendor) {
+            const vendorDocRef = doc(firestore, `tenants/${tenantId}/vendors`, vendor.id);
+            await updateDocumentNonBlocking(vendorDocRef, vendorData);
+             toast({
+              title: "Vendor Updated",
+              description: `${data.name} has been successfully updated.`,
+            });
+        } else {
+            const vendorsCollection = collection(firestore, `tenants/${tenantId}/vendors`);
+            await addDocumentNonBlocking(vendorsCollection, vendorData);
+            toast({
+              title: "Vendor Added",
+              description: `${data.name} has been successfully added.`,
+            });
+        }
+
+        onFinished();
+        form.reset();
+    } catch (error) {
+        console.error("Failed to save vendor:", error);
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not save vendor details." });
+    } finally {
+        hideLoading();
     }
-
-    onFinished();
-    form.reset();
   };
 
   return (
@@ -132,7 +139,7 @@ function VendorForm({ tenantId, onFinished, vendor }: { tenantId: string; onFini
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full">{vendor ? 'Save Changes' : 'Add Vendor'}</Button>
+        <Button type="submit" className="w-full" disabled={isLoading}>{vendor ? 'Save Changes' : 'Add Vendor'}</Button>
       </form>
     </Form>
   );
@@ -145,6 +152,7 @@ export default function VendorsPage() {
   const tenantId = params.tenantId as string;
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { showLoading, hideLoading } = useLoading();
 
   const [isFormOpen, setFormOpen] = useState(false);
   const [editVendor, setEditVendor] = useState<Vendor | undefined>(undefined);
@@ -177,16 +185,24 @@ export default function VendorsPage() {
 
   const totalPages = Math.ceil(filteredVendors.length / ITEMS_PER_PAGE);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!firestore || !deleteVendor || !tenantId) return;
-    const vendorDoc = doc(firestore, `tenants/${tenantId}/vendors`, deleteVendor.id);
-    deleteDocumentNonBlocking(vendorDoc);
-    toast({
-        variant: "destructive",
-        title: "Vendor Deleted",
-        description: `Vendor "${deleteVendor.name}" has been deleted.`,
-    })
-    setDeleteVendor(undefined);
+    showLoading("Deleting vendor...");
+    try {
+        const vendorDoc = doc(firestore, `tenants/${tenantId}/vendors`, deleteVendor.id);
+        await deleteDocumentNonBlocking(vendorDoc);
+        toast({
+            variant: "destructive",
+            title: "Vendor Deleted",
+            description: `Vendor "${deleteVendor.name}" has been deleted.`,
+        })
+        setDeleteVendor(undefined);
+    } catch (error) {
+        console.error("Failed to delete vendor:", error);
+        toast({ variant: "destructive", title: "Delete Failed", description: "Could not delete vendor." });
+    } finally {
+        hideLoading();
+    }
   }
 
   const handleFormFinished = () => {

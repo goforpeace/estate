@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
+import { useLoading } from "@/context/loading-context";
 
 // --- Type Definitions ---
 type OperatingCost = {
@@ -55,23 +56,29 @@ type CostItemFormData = z.infer<typeof costItemSchema>;
 function AddCostItemDialog({ tenantId, onFinished }: { tenantId: string; onFinished: () => void; }) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showLoading, hideLoading, isLoading } = useLoading();
     
     const form = useForm<CostItemFormData>({
         resolver: zodResolver(costItemSchema),
         defaultValues: { name: "" },
     });
 
-    const onSubmit = (data: CostItemFormData) => {
+    const onSubmit = async (data: CostItemFormData) => {
         if (!firestore) return;
-        setIsSubmitting(true);
-        const itemData = { ...data, tenantId };
-        const itemsCollection = collection(firestore, `tenants/${tenantId}/operatingCostItems`);
-        addDocumentNonBlocking(itemsCollection, itemData);
-        toast({ title: "Item Added", description: `"${data.name}" has been added.` });
-        setIsSubmitting(false);
-        onFinished();
-        form.reset();
+        showLoading("Adding item...");
+        try {
+            const itemData = { ...data, tenantId };
+            const itemsCollection = collection(firestore, `tenants/${tenantId}/operatingCostItems`);
+            await addDocumentNonBlocking(itemsCollection, itemData);
+            toast({ title: "Item Added", description: `"${data.name}" has been added.` });
+            onFinished();
+            form.reset();
+        } catch (error) {
+            console.error("Failed to add item:", error);
+            toast({ variant: "destructive", title: "Add Failed", description: "Could not add item." });
+        } finally {
+            hideLoading();
+        }
     };
 
     return (
@@ -97,8 +104,8 @@ function AddCostItemDialog({ tenantId, onFinished }: { tenantId: string; onFinis
                                 </FormItem>
                             )}
                         />
-                        <Button type="submit" className="w-full" disabled={isSubmitting}>
-                            {isSubmitting ? 'Adding...' : 'Add Item'}
+                        <Button type="submit" className="w-full" disabled={isLoading}>
+                            {isLoading ? 'Adding...' : 'Add Item'}
                         </Button>
                     </form>
                 </Form>
@@ -112,6 +119,7 @@ function AddCostItemDialog({ tenantId, onFinished }: { tenantId: string; onFinis
 function OperatingCostForm({ tenantId, onFinished, cost }: { tenantId: string; onFinished: () => void; cost?: OperatingCost }) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { showLoading, hideLoading, isLoading } = useLoading();
   
   const itemsQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/operatingCostItems`), [firestore, tenantId]);
   const { data: items } = useCollection<OperatingCostItem>(itemsQuery);
@@ -127,20 +135,28 @@ function OperatingCostForm({ tenantId, onFinished, cost }: { tenantId: string; o
     },
   });
 
-  const onSubmit = (data: OperatingCostFormData) => {
+  const onSubmit = async (data: OperatingCostFormData) => {
     if (!firestore) return;
-    const costData = { ...data, tenantId, date: new Date(data.date).toISOString() };
+    showLoading(cost ? "Updating cost..." : "Adding cost...");
+    try {
+        const costData = { ...data, tenantId, date: new Date(data.date).toISOString() };
 
-    if (cost) {
-      const costDocRef = doc(firestore, `tenants/${tenantId}/operatingCosts`, cost.id);
-      updateDocumentNonBlocking(costDocRef, costData);
-      toast({ title: "Cost Updated", description: "The operating cost has been updated." });
-    } else {
-      const costsCollection = collection(firestore, `tenants/${tenantId}/operatingCosts`);
-      addDocumentNonBlocking(costsCollection, costData);
-      toast({ title: "Cost Added", description: "The operating cost has been recorded." });
+        if (cost) {
+          const costDocRef = doc(firestore, `tenants/${tenantId}/operatingCosts`, cost.id);
+          await updateDocumentNonBlocking(costDocRef, costData);
+          toast({ title: "Cost Updated", description: "The operating cost has been updated." });
+        } else {
+          const costsCollection = collection(firestore, `tenants/${tenantId}/operatingCosts`);
+          await addDocumentNonBlocking(costsCollection, costData);
+          toast({ title: "Cost Added", description: "The operating cost has been recorded." });
+        }
+        onFinished();
+    } catch (error) {
+        console.error("Failed to save cost:", error);
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not save cost." });
+    } finally {
+        hideLoading();
     }
-    onFinished();
   };
 
   return (
@@ -174,7 +190,7 @@ function OperatingCostForm({ tenantId, onFinished, cost }: { tenantId: string; o
         </div>
         <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Describe the cost..." {...field} /></FormControl><FormMessage /></FormItem>)} />
         <FormField control={form.control} name="reference" render={({ field }) => (<FormItem><FormLabel>Reference</FormLabel><FormControl><Input placeholder="e.g. Invoice #, Receipt #" {...field} /></FormControl><FormMessage /></FormItem>)} />
-        <Button type="submit" className="w-full">{cost ? 'Save Changes' : 'Add Cost'}</Button>
+        <Button type="submit" className="w-full" disabled={isLoading}>{cost ? 'Save Changes' : 'Add Cost'}</Button>
       </form>
     </Form>
   );
@@ -187,6 +203,7 @@ export default function OperatingCostPage() {
   const tenantId = params.tenantId as string;
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { showLoading, hideLoading } = useLoading();
 
   const [isFormOpen, setFormOpen] = useState(false);
   const [editCost, setEditCost] = useState<OperatingCost | undefined>(undefined);
@@ -221,16 +238,24 @@ export default function OperatingCostPage() {
 
   const totalPages = Math.ceil(filteredCosts.length / ITEMS_PER_PAGE);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!firestore || !deleteCost) return;
-    const costDoc = doc(firestore, `tenants/${tenantId}/operatingCosts`, deleteCost.id);
-    deleteDocumentNonBlocking(costDoc);
-    toast({
-        variant: "destructive",
-        title: "Cost Deleted",
-        description: `The cost record has been deleted.`,
-    })
-    setDeleteCost(undefined);
+    showLoading("Deleting cost...");
+    try {
+        const costDoc = doc(firestore, `tenants/${tenantId}/operatingCosts`, deleteCost.id);
+        await deleteDocumentNonBlocking(costDoc);
+        toast({
+            variant: "destructive",
+            title: "Cost Deleted",
+            description: `The cost record has been deleted.`,
+        })
+        setDeleteCost(undefined);
+    } catch (error) {
+        console.error("Failed to delete cost:", error);
+        toast({ variant: "destructive", title: "Delete Failed", description: "Could not delete cost." });
+    } finally {
+        hideLoading();
+    }
   }
 
   const handleFormFinished = () => {

@@ -15,6 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { doc } from "firebase/firestore";
 import { useEffect } from "react";
+import { useLoading } from "@/context/loading-context";
 
 const organizationSchema = z.object({
   name: z.string().min(1, "Company name is required."),
@@ -40,6 +41,7 @@ export default function OrganizationPage() {
   const tenantId = params.tenantId as string;
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { showLoading, hideLoading, isLoading: isSaving } = useLoading();
 
   const orgDocRef = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
@@ -67,21 +69,29 @@ export default function OrganizationPage() {
     }
   }, [organization, form]);
 
-  const onSubmit = (data: OrganizationFormData) => {
+  const onSubmit = async (data: OrganizationFormData) => {
     if (!orgDocRef || !tenantId) return;
     
-    const orgData = {
-        ...data,
-        id: ORG_DOC_ID,
-        tenantId,
-    };
+    showLoading("Saving organization details...");
+    try {
+        const orgData = {
+            ...data,
+            id: ORG_DOC_ID,
+            tenantId,
+        };
 
-    setDocumentNonBlocking(orgDocRef, orgData, { merge: true });
-    
-    toast({
-      title: "Organization Updated",
-      description: "Your company profile has been saved.",
-    });
+        await setDocumentNonBlocking(orgDocRef, orgData, { merge: true });
+        
+        toast({
+          title: "Organization Updated",
+          description: "Your company profile has been saved.",
+        });
+    } catch (error) {
+        console.error("Failed to save organization:", error);
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not save details." });
+    } finally {
+        hideLoading();
+    }
   };
 
   const logoPreview = form.watch('logoUrl');
@@ -164,7 +174,7 @@ export default function OrganizationPage() {
               </div>
             </CardContent>
             <CardFooter className="border-t px-6 py-4">
-              <Button type="submit">Save Changes</Button>
+              <Button type="submit" disabled={isSaving}>Save Changes</Button>
             </CardFooter>
           </Card>
         </form>

@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
+import { useLoading } from "@/context/loading-context";
 
 // Matches the Project entity
 type Project = {
@@ -68,6 +69,7 @@ export type FlatSale = FlatSaleFormData & {
 function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSales }: { tenantId: string; onFinished: () => void; sale?: FlatSale, projects: Project[], customers: Customer[], existingSales: FlatSale[] }) {
     const firestore = useFirestore();
     const { toast } = useToast();
+    const { showLoading, hideLoading, isLoading } = useLoading();
 
     const form = useForm<FlatSaleFormData>({
         resolver: zodResolver(flatSaleSchema),
@@ -122,22 +124,30 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
         return selectedProject.flats.filter(f => !soldFlatNames.includes(f.name));
     }, [selectedProject, existingSales, sale]);
     
-    const onSubmit = (data: FlatSaleFormData) => {
+    const onSubmit = async (data: FlatSaleFormData) => {
         if (!firestore || !tenantId) return;
+        showLoading(sale ? "Updating sale..." : "Recording sale...");
 
-        const saleData = { ...data, tenantId };
+        try {
+            const saleData = { ...data, tenantId };
 
-        if (sale) {
-            const saleDocRef = doc(firestore, `tenants/${tenantId}/flatSales`, sale.id);
-            updateDocumentNonBlocking(saleDocRef, saleData);
-            toast({ title: "Sale Record Updated", description: "The sale details have been successfully updated." });
-        } else {
-            const salesCollection = collection(firestore, `tenants/${tenantId}/flatSales`);
-            addDocumentNonBlocking(salesCollection, saleData);
-            toast({ title: "Sale Record Added", description: "A new flat sale has been successfully recorded." });
+            if (sale) {
+                const saleDocRef = doc(firestore, `tenants/${tenantId}/flatSales`, sale.id);
+                await updateDocumentNonBlocking(saleDocRef, saleData);
+                toast({ title: "Sale Record Updated", description: "The sale details have been successfully updated." });
+            } else {
+                const salesCollection = collection(firestore, `tenants/${tenantId}/flatSales`);
+                await addDocumentNonBlocking(salesCollection, saleData);
+                toast({ title: "Sale Record Added", description: "A new flat sale has been successfully recorded." });
+            }
+            onFinished();
+            form.reset();
+        } catch (error) {
+            console.error("Failed to save sale:", error);
+            toast({ variant: "destructive", title: "Save Failed", description: "Could not save sale record." });
+        } finally {
+            hideLoading();
         }
-        onFinished();
-        form.reset();
     };
 
     return (
@@ -278,7 +288,7 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
                     </div>
                 </ScrollArea>
                  <div className="p-4 pt-0 border-t">
-                    <Button type="submit" className="w-full mt-4">{sale ? 'Save Changes' : 'Record Sale'}</Button>
+                    <Button type="submit" className="w-full mt-4" disabled={isLoading}>{sale ? 'Save Changes' : 'Record Sale'}</Button>
                 </div>
             </form>
         </Form>
@@ -292,6 +302,7 @@ export default function SalesPage() {
     const tenantId = params.tenantId as string;
     const firestore = useFirestore();
     const { toast } = useToast();
+    const { showLoading, hideLoading } = useLoading();
 
     const [isFormOpen, setFormOpen] = useState(false);
     const [editSale, setEditSale] = useState<FlatSale | undefined>(undefined);
@@ -347,12 +358,20 @@ export default function SalesPage() {
 
     const totalPages = Math.ceil(filteredSales.length / ITEMS_PER_PAGE);
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (!firestore || !deleteSale || !tenantId) return;
-        const saleDoc = doc(firestore, `tenants/${tenantId}/flatSales`, deleteSale.id);
-        deleteDocumentNonBlocking(saleDoc);
-        toast({ variant: "destructive", title: "Sale Record Deleted", description: "The flat sale record has been permanently deleted." });
-        setDeleteSale(undefined);
+        showLoading("Deleting sale record...");
+        try {
+            const saleDoc = doc(firestore, `tenants/${tenantId}/flatSales`, deleteSale.id);
+            await deleteDocumentNonBlocking(saleDoc);
+            toast({ variant: "destructive", title: "Sale Record Deleted", description: "The flat sale record has been permanently deleted." });
+            setDeleteSale(undefined);
+        } catch (error) {
+            console.error("Failed to delete sale:", error);
+            toast({ variant: "destructive", title: "Delete Failed", description: "Could not delete sale record." });
+        } finally {
+            hideLoading();
+        }
     };
 
     const handleFormFinished = () => {

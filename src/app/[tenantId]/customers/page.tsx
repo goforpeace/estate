@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import Link from "next/link";
+import { useLoading } from "@/context/loading-context";
 
 const customerSchema = z.object({
   name: z.string().min(1, "Customer name is required."),
@@ -41,6 +42,7 @@ type Customer = {
 function CustomerForm({ tenantId, onFinished, customer }: { tenantId: string; onFinished: () => void; customer?: Customer }) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { showLoading, hideLoading, isLoading } = useLoading();
   
   const form = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema),
@@ -52,32 +54,44 @@ function CustomerForm({ tenantId, onFinished, customer }: { tenantId: string; on
     },
   });
 
-  const onSubmit = (data: CustomerFormData) => {
+  const onSubmit = async (data: CustomerFormData) => {
     if (!firestore || !tenantId) return;
 
     const customerData = {
       ...data,
       tenantId: tenantId,
     };
+    
+    showLoading(customer ? "Updating customer..." : "Adding customer...");
+    try {
+      if (customer) {
+          const customerDocRef = doc(firestore, `tenants/${tenantId}/customers`, customer.id);
+          await updateDocumentNonBlocking(customerDocRef, customerData);
+           toast({
+            title: "Customer Updated",
+            description: `${data.name} has been successfully updated.`,
+          });
+      } else {
+          const customersCollection = collection(firestore, `tenants/${tenantId}/customers`);
+          await addDocumentNonBlocking(customersCollection, customerData);
+          toast({
+            title: "Customer Added",
+            description: `${data.name} has been successfully added.`,
+          });
+      }
 
-    if (customer) {
-        const customerDocRef = doc(firestore, `tenants/${tenantId}/customers`, customer.id);
-        updateDocumentNonBlocking(customerDocRef, customerData);
-         toast({
-          title: "Customer Updated",
-          description: `${data.name} has been successfully updated.`,
-        });
-    } else {
-        const customersCollection = collection(firestore, `tenants/${tenantId}/customers`);
-        addDocumentNonBlocking(customersCollection, customerData);
+      onFinished();
+      form.reset();
+    } catch (error) {
+        console.error("Failed to save customer:", error);
         toast({
-          title: "Customer Added",
-          description: `${data.name} has been successfully added.`,
+            variant: "destructive",
+            title: "Save failed",
+            description: "Could not save customer details.",
         });
+    } finally {
+        hideLoading();
     }
-
-    onFinished();
-    form.reset();
   };
 
   return (
@@ -135,7 +149,7 @@ function CustomerForm({ tenantId, onFinished, customer }: { tenantId: string; on
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full">{customer ? 'Save Changes' : 'Add Customer'}</Button>
+        <Button type="submit" className="w-full" disabled={isLoading}>{customer ? 'Save Changes' : 'Add Customer'}</Button>
       </form>
     </Form>
   );
@@ -148,6 +162,7 @@ export default function CustomersPage() {
   const tenantId = params.tenantId as string;
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { showLoading, hideLoading } = useLoading();
 
   const [isFormOpen, setFormOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState<Customer | undefined>(undefined);
@@ -181,16 +196,29 @@ export default function CustomersPage() {
 
   const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!firestore || !deleteCustomer || !tenantId) return;
-    const customerDoc = doc(firestore, `tenants/${tenantId}/customers`, deleteCustomer.id);
-    deleteDocumentNonBlocking(customerDoc);
-    toast({
-        variant: "destructive",
-        title: "Customer Deleted",
-        description: `Customer "${deleteCustomer.name}" has been deleted.`,
-    })
-    setDeleteCustomer(undefined);
+    
+    showLoading('Deleting customer...');
+    try {
+      const customerDoc = doc(firestore, `tenants/${tenantId}/customers`, deleteCustomer.id);
+      await deleteDocumentNonBlocking(customerDoc);
+      toast({
+          variant: "destructive",
+          title: "Customer Deleted",
+          description: `Customer "${deleteCustomer.name}" has been deleted.`,
+      })
+      setDeleteCustomer(undefined);
+    } catch(error) {
+        console.error("Failed to delete customer:", error);
+        toast({
+            variant: "destructive",
+            title: "Delete failed",
+            description: "Could not delete customer.",
+        });
+    } finally {
+        hideLoading();
+    }
   }
 
   const handleFormFinished = () => {

@@ -44,6 +44,7 @@ import Link from "next/link";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { Combobox } from "@/components/ui/combobox";
+import { useLoading } from "@/context/loading-context";
 
 // Matches the Flat entity in backend.json but is nested here
 const flatSchema = z.object({
@@ -82,6 +83,7 @@ type Project = {
 function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFinished: () => void; project?: Project }) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { showLoading, hideLoading, isLoading } = useLoading();
   
   const defaultValues = project ? {
       ...project,
@@ -125,36 +127,44 @@ function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFi
   };
 
 
-  const onSubmit = (data: ProjectFormData) => {
+  const onSubmit = async (data: ProjectFormData) => {
     if (!firestore || !tenantId) return;
+    
+    showLoading(project ? "Updating project..." : "Adding project...");
+    try {
+        const projectData = {
+          ...data,
+          tenantId: tenantId,
+          // Convert the string date from the input into an ISO string for consistent storage
+          expectedHandoverDate: new Date(data.expectedHandoverDate).toISOString(),
+        };
 
-    const projectData = {
-      ...data,
-      tenantId: tenantId,
-      // Convert the string date from the input into an ISO string for consistent storage
-      expectedHandoverDate: new Date(data.expectedHandoverDate).toISOString(),
-    };
+        if (project) {
+            // Update existing project
+            const projectDocRef = doc(firestore, `tenants/${tenantId}/projects`, project.id);
+            await updateDocumentNonBlocking(projectDocRef, projectData);
+             toast({
+              title: "Project Updated",
+              description: `${data.name} has been successfully updated.`,
+            });
+        } else {
+            // Add new project
+            const projectsCollection = collection(firestore, `tenants/${tenantId}/projects`);
+            await addDocumentNonBlocking(projectsCollection, projectData);
+            toast({
+              title: "Project Added",
+              description: `${data.name} has been successfully added.`,
+            });
+        }
 
-    if (project) {
-        // Update existing project
-        const projectDocRef = doc(firestore, `tenants/${tenantId}/projects`, project.id);
-        updateDocumentNonBlocking(projectDocRef, projectData);
-         toast({
-          title: "Project Updated",
-          description: `${data.name} has been successfully updated.`,
-        });
-    } else {
-        // Add new project
-        const projectsCollection = collection(firestore, `tenants/${tenantId}/projects`);
-        addDocumentNonBlocking(projectsCollection, projectData);
-        toast({
-          title: "Project Added",
-          description: `${data.name} has been successfully added.`,
-        });
+        onFinished();
+        form.reset();
+    } catch (error) {
+        console.error("Failed to save project:", error);
+        toast({ variant: "destructive", title: "Save Failed", description: "Could not save project." });
+    } finally {
+        hideLoading();
     }
-
-    onFinished();
-    form.reset();
   };
 
   return (
@@ -279,7 +289,7 @@ function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFi
           </div>
         </ScrollArea>
         <div className="p-4 pt-0 border-t">
-          <Button type="submit" className="w-full mt-4">{project ? 'Save Changes' : 'Add Project'}</Button>
+          <Button type="submit" className="w-full mt-4" disabled={isLoading}>{project ? 'Save Changes' : 'Add Project'}</Button>
         </div>
       </form>
     </Form>
@@ -294,6 +304,7 @@ export default function ProjectsPage() {
   const tenantId = params.tenantId as string;
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { showLoading, hideLoading } = useLoading();
 
   const [isAddDialogOpen, setAddDialogOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | undefined>(undefined);
@@ -327,16 +338,24 @@ export default function ProjectsPage() {
 
   const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
   
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!firestore || !deleteProject || !tenantId) return;
-    const projectDoc = doc(firestore, `tenants/${tenantId}/projects`, deleteProject.id);
-    deleteDocumentNonBlocking(projectDoc);
-    toast({
-        variant: "destructive",
-        title: "Project Deleted",
-        description: `Project "${deleteProject.name}" has been deleted.`,
-    })
-    setDeleteProject(undefined);
+    showLoading("Deleting project...");
+    try {
+        const projectDoc = doc(firestore, `tenants/${tenantId}/projects`, deleteProject.id);
+        await deleteDocumentNonBlocking(projectDoc);
+        toast({
+            variant: "destructive",
+            title: "Project Deleted",
+            description: `Project "${deleteProject.name}" has been deleted.`,
+        })
+        setDeleteProject(undefined);
+    } catch (error) {
+        console.error("Failed to delete project:", error);
+        toast({ variant: "destructive", title: "Delete Failed", description: "Could not delete project." });
+    } finally {
+        hideLoading();
+    }
   }
 
   const statusVariant = {

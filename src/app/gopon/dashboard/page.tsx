@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useLoading } from "@/context/loading-context";
 
 // Matches the Tenant entity in backend.json, but 'id' will be the document ID.
 export type Tenant = {
@@ -31,6 +32,7 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
     const [domain, setDomain] = useState('');
     const firestore = useFirestore();
     const { toast } = useToast();
+    const { showLoading, hideLoading, isLoading } = useLoading();
 
     const handleAddTenant = async () => {
         if (!name || !domain) {
@@ -43,24 +45,33 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
         }
         
         if (!firestore) return;
-        const tenantsCol = collection(firestore, 'tenants');
-        const newTenant = {
-            name,
-            domain,
-            enabled: true,
-        };
 
-        addDocumentNonBlocking(tenantsCol, newTenant);
-        
-        toast({
-            title: "Tenant Added",
-            description: `${name} has been added successfully.`,
-        });
+        showLoading("Adding tenant...");
+        try {
+            const tenantsCol = collection(firestore, 'tenants');
+            const newTenant = {
+                name,
+                domain,
+                enabled: true,
+            };
 
-        setName('');
-        setDomain('');
-        setOpen(false);
-        onTenantAdded();
+            await addDocumentNonBlocking(tenantsCol, newTenant);
+            
+            toast({
+                title: "Tenant Added",
+                description: `${name} has been added successfully.`,
+            });
+
+            setName('');
+            setDomain('');
+            setOpen(false);
+            onTenantAdded();
+        } catch (error) {
+            console.error("Failed to add tenant:", error);
+            toast({ variant: "destructive", title: "Add Failed", description: "Could not add tenant." });
+        } finally {
+            hideLoading();
+        }
     };
 
     return (
@@ -91,7 +102,7 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button onClick={handleAddTenant}>Add Tenant</Button>
+                    <Button onClick={handleAddTenant} disabled={isLoading}>Add Tenant</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

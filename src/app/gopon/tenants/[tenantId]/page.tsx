@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { useLoading } from '@/context/loading-context';
 
 type Tenant = {
   id: string;
@@ -41,6 +42,7 @@ export default function ManageTenantPage() {
   const auth = useAuth();
   const { toast } = useToast();
   const tenantId = params.tenantId as string;
+  const { showLoading, hideLoading, isLoading: isActionInProgress } = useLoading();
 
   // Form state for adding a user
   const [userName, setUserName] = useState('');
@@ -80,6 +82,7 @@ export default function ManageTenantPage() {
       return;
     }
 
+    showLoading("Creating user...");
     try {
       // 1. Create user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, userEmail, userPassword);
@@ -112,18 +115,28 @@ export default function ManageTenantPage() {
         title: 'Failed to create user',
         description: error.message || 'An unexpected error occurred.',
       });
+    } finally {
+        hideLoading();
     }
   };
 
-  const handleDeleteTenant = () => {
+  const handleDeleteTenant = async () => {
     if (!tenantRef) return;
-    deleteDocumentNonBlocking(tenantRef);
-    toast({
-      variant: 'destructive',
-      title: 'Tenant Deleted',
-      description: `The tenant "${tenant?.name}" has been permanently deleted.`,
-    });
-    router.push('/gopon/dashboard');
+    showLoading("Deleting tenant...");
+    try {
+        await deleteDocumentNonBlocking(tenantRef);
+        toast({
+          variant: 'destructive',
+          title: 'Tenant Deleted',
+          description: `The tenant "${tenant?.name}" has been permanently deleted.`,
+        });
+        router.push('/gopon/dashboard');
+    } catch (error) {
+        console.error("Failed to delete tenant:", error);
+        toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete tenant.' });
+    } finally {
+        hideLoading();
+    }
   };
   
   const handleSendNotification = (e: React.FormEvent) => {
@@ -143,13 +156,17 @@ export default function ManageTenantPage() {
     }
 
     // Placeholder for actual push notification logic
-    console.log('Sending notification:', { tenantId, title, message });
+    showLoading("Sending notification...");
+    setTimeout(() => {
+        console.log('Sending notification:', { tenantId, title, message });
 
-    toast({
-        title: 'Notification Sent',
-        description: `Push notification sent to ${tenant?.name}.`,
-    });
-    form.reset();
+        toast({
+            title: 'Notification Sent',
+            description: `Push notification sent to ${tenant?.name}.`,
+        });
+        form.reset();
+        hideLoading();
+    }, 1000);
   }
 
   if (isLoading) {
@@ -242,7 +259,7 @@ export default function ManageTenantPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit">
+              <Button type="submit" disabled={isActionInProgress}>
                 <UserPlus className="mr-2 h-4 w-4" />
                 Add User
               </Button>
@@ -267,7 +284,7 @@ export default function ManageTenantPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit">
+              <Button type="submit" disabled={isActionInProgress}>
                 <Send className="mr-2 h-4 w-4" />
                 Send Notification
               </Button>
@@ -283,7 +300,7 @@ export default function ManageTenantPage() {
             <CardContent>
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button variant="destructive">
+                        <Button variant="destructive" disabled={isActionInProgress}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete Tenant
                         </Button>
