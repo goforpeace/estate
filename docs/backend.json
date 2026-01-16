@@ -638,6 +638,75 @@
         "amount",
         "date"
       ]
+    },
+    "OperatingCost": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OperatingCost",
+      "type": "object",
+      "description": "Represents a general operating cost for the business, not tied to a specific project.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the OperatingCost entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Denormalized tenant ID."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date the cost was incurred."
+        },
+        "itemName": {
+          "type": "string",
+          "description": "The name of the item or category of the cost."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the cost."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the cost."
+        },
+        "reference": {
+          "type": "string",
+          "description": "A reference number for the transaction (e.g., invoice number)."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "date",
+        "itemName",
+        "amount"
+      ]
+    },
+    "OperatingCostItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OperatingCostItem",
+      "type": "object",
+      "description": "Represents a category/item for operating costs.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the item."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the operating cost item/category."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name"
+      ]
     }
   },
   "auth": {
@@ -887,6 +956,46 @@
             {
               "name": "categoryId",
               "description": "Unique identifier for the expense category."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/operatingCosts/{costId}",
+        "definition": {
+          "entityName": "OperatingCost",
+          "schema": {
+            "$ref": "#/backend/entities/OperatingCost"
+          },
+          "description": "Stores general operating costs for a tenant.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "costId",
+              "description": "Unique identifier for the operating cost."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/operatingCostItems/{itemId}",
+        "definition": {
+          "entityName": "OperatingCostItem",
+          "schema": {
+            "$ref": "#/backend/entities/OperatingCostItem"
+          },
+          "description": "Stores item categories for operating costs.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "itemId",
+              "description": "Unique identifier for the operating cost item."
             }
           ]
         }
