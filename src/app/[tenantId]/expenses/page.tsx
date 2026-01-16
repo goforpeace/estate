@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { MoreHorizontal, PlusCircle, Plus } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc, getDocs } from "firebase/firestore";
+import { collection, doc, getDocs, runTransaction } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
@@ -16,6 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -44,13 +45,17 @@ type OutflowTransaction = {
 };
 type ExpensePayment = {
   id: string;
-  date: string;
-  projectId: string;
+  tenantId: string;
+  outflowTransactionId: string;
   vendorId: string;
+  projectId: string;
   expenseCategoryName: string;
   amount: number;
+  date: string;
+  note?: string;
   reference?: string;
-}
+  _originalPath?: string; // For easy doc reference
+};
 
 
 // --- Zod Schemas ---
@@ -70,6 +75,14 @@ const outflowTransactionSchema = z.object({
     reference: z.string().optional(),
 });
 type OutflowTransactionFormData = z.infer<typeof outflowTransactionSchema>;
+
+const expensePaymentEditSchema = z.object({
+    amount: z.coerce.number().min(0.01, "Amount must be greater than 0."),
+    date: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "A valid date is required." }),
+    reference: z.string().optional(),
+    note: z.string().optional(),
+});
+type ExpensePaymentEditFormData = z.infer<typeof expensePaymentEditSchema>;
 
 
 // --- Add Category Dialog ---
@@ -231,6 +244,77 @@ function ExpenseForm({ tenantId, onFinished, expense, projects, vendors }: { ten
     );
 }
 
+function EditExpensePaymentForm({ tenantId, payment, onFinished }: { tenantId: string; payment: ExpensePayment; onFinished: () => void; }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const form = useForm<ExpensePaymentEditFormData>({
+        resolver: zodResolver(expensePaymentEditSchema),
+        defaultValues: {
+            amount: payment.amount,
+            date: format(new Date(payment.date), 'yyyy-MM-dd'),
+            reference: payment.reference || '',
+            note: payment.note || '',
+        },
+    });
+
+    const onSubmit = async (data: ExpensePaymentEditFormData) => {
+        if (!firestore || !payment._originalPath || !payment.outflowTransactionId) return;
+        setIsSubmitting(true);
+
+        const paymentDocRef = doc(firestore, payment._originalPath);
+        const expenseDocRef = doc(firestore, `tenants/${tenantId}/outflowTransactions`, payment.outflowTransactionId);
+        const amountDifference = data.amount - payment.amount;
+
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const expenseDoc = await transaction.get(expenseDocRef);
+                if (!expenseDoc.exists()) {
+                    throw new Error("Parent expense document does not exist!");
+                }
+                const expenseData = expenseDoc.data() as OutflowTransaction;
+                
+                const currentPaid = expenseData.paidAmount || 0;
+                const newPaidAmount = currentPaid + amountDifference;
+                
+                if (newPaidAmount > expenseData.amount) {
+                    throw new Error(`Payment would exceed the total expense amount of TK ${expenseData.amount}.`);
+                }
+
+                let newStatus: OutflowTransaction['status'] = 'Partially Paid';
+                if (newPaidAmount <= 0) {
+                    newStatus = 'Unpaid';
+                } else if (newPaidAmount >= expenseData.amount) {
+                    newStatus = 'Paid';
+                }
+                
+                transaction.update(expenseDocRef, { paidAmount: newPaidAmount, status: newStatus });
+                transaction.update(paymentDocRef, { ...data, date: new Date(data.date).toISOString() });
+            });
+            toast({ title: "Payment Updated", description: "The payment has been updated successfully." });
+            onFinished();
+        } catch (error: any) {
+            console.error("Payment update failed: ", error);
+            toast({ variant: "destructive", title: "Update Failed", description: error.message || "Could not update payment." });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+    
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Amount (TK)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="date" render={({ field }) => (<FormItem><FormLabel>Payment Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="reference" render={({ field }) => (<FormItem><FormLabel>Reference</FormLabel><FormControl><Input placeholder="Cheque #, etc." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="note" render={({ field }) => (<FormItem><FormLabel>Note</FormLabel><FormControl><Textarea placeholder="Payment note..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? 'Updating...' : 'Update Payment'}</Button>
+            </form>
+        </Form>
+    );
+}
+
 // --- Main Page ---
 export default function ExpensesPage() {
     const params = useParams();
@@ -241,6 +325,9 @@ export default function ExpensesPage() {
     const [isFormOpen, setFormOpen] = useState(false);
     const [editExpense, setEditExpense] = useState<OutflowTransaction | undefined>(undefined);
     const [deleteExpense, setDeleteExpense] = useState<OutflowTransaction | undefined>(undefined);
+    const [viewPayment, setViewPayment] = useState<ExpensePayment | undefined>(undefined);
+    const [editPayment, setEditPayment] = useState<ExpensePayment | undefined>(undefined);
+    const [deletePayment, setDeletePayment] = useState<ExpensePayment | undefined>(undefined);
 
     // --- Data Fetching ---
     const projectsQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/projects`), [firestore, tenantId]);
@@ -274,7 +361,7 @@ export default function ExpensesPage() {
                 const paymentsRef = collection(firestore, `tenants/${tenantId}/outflowTransactions/${expense.id}/expensePayments`);
                 return getDocs(paymentsRef).then(snapshot => {
                     snapshot.forEach(doc => {
-                        allPayments.push({ id: doc.id, ...doc.data() } as ExpensePayment);
+                        allPayments.push({ id: doc.id, ...doc.data(), _originalPath: doc.ref.path } as ExpensePayment);
                     });
                 });
             });
@@ -307,7 +394,7 @@ export default function ExpensesPage() {
     const vendorsMap = useMemo(() => new Map(vendors?.map(v => [v.id, v.enterpriseName])), [vendors]);
 
     // --- Handlers ---
-    const handleDelete = () => {
+    const handleDeleteExpense = () => {
         if (!firestore || !deleteExpense) return;
         const expenseDoc = doc(firestore, `tenants/${tenantId}/outflowTransactions`, deleteExpense.id);
         deleteDocumentNonBlocking(expenseDoc);
@@ -319,6 +406,48 @@ export default function ExpensesPage() {
         setFormOpen(false);
         setEditExpense(undefined);
     };
+
+    const handleDeletePayment = async () => {
+        if (!firestore || !deletePayment || !deletePayment._originalPath || !deletePayment.outflowTransactionId) return;
+        
+        const paymentDocRef = doc(firestore, deletePayment._originalPath);
+        const expenseDocRef = doc(firestore, `tenants/${tenantId}/outflowTransactions`, deletePayment.outflowTransactionId);
+    
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const expenseDoc = await transaction.get(expenseDocRef);
+                if (!expenseDoc.exists()) {
+                    throw new Error("Parent expense document does not exist!");
+                }
+                const expenseData = expenseDoc.data() as OutflowTransaction;
+                const newPaidAmount = expenseData.paidAmount - deletePayment.amount;
+    
+                let newStatus: OutflowTransaction['status'] = 'Partially Paid';
+                if (newPaidAmount <= 0) {
+                    newStatus = 'Unpaid';
+                } else if (newPaidAmount >= expenseData.amount) {
+                    newStatus = 'Paid';
+                }
+    
+                transaction.update(expenseDocRef, { paidAmount: newPaidAmount, status: newStatus });
+                transaction.delete(paymentDocRef);
+            });
+    
+            setExpensePayments(prev => prev.filter(p => p.id !== deletePayment.id));
+            
+            toast({
+                variant: "destructive",
+                title: "Payment Deleted",
+                description: `Payment record has been deleted and expense status updated.`,
+            });
+    
+        } catch (error: any) {
+            console.error("Error deleting payment:", error);
+            toast({ variant: "destructive", title: "Error", description: error.message || "Could not delete payment record." });
+        } finally {
+            setDeletePayment(undefined);
+        }
+    }
     
     const getStatusVariant = (status: OutflowTransaction['status']) => {
         switch (status) {
@@ -357,10 +486,52 @@ export default function ExpensesPage() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                        <AlertDialogAction onClick={handleDeleteExpense}>Delete</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+             <Dialog open={!!editPayment} onOpenChange={(isOpen) => !isOpen && setEditPayment(undefined)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Payment Record</DialogTitle>
+                        <DialogDescription>Update the details for this payment.</DialogDescription>
+                    </DialogHeader>
+                    {editPayment && <EditExpensePaymentForm tenantId={tenantId} payment={editPayment} onFinished={() => setEditPayment(undefined)} />}
+                </DialogContent>
+            </Dialog>
+
+            <AlertDialog open={!!deletePayment} onOpenChange={(isOpen) => !isOpen && setDeletePayment(undefined)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>This action cannot be undone. This will permanently delete this payment record and update the expense's due amount.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeletePayment}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <Dialog open={!!viewPayment} onOpenChange={(isOpen) => !isOpen && setViewPayment(undefined)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Payment Details</DialogTitle>
+                        <DialogDescription>Reference: {viewPayment?.reference || 'N/A'}</DialogDescription>
+                    </DialogHeader>
+                    {viewPayment && (
+                        <div className="grid gap-4 py-4 text-sm">
+                            <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Amount</Label><div>TK {viewPayment.amount.toLocaleString('en-IN')}</div></div>
+                            <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Date</Label><div>{format(new Date(viewPayment.date), 'dd MMM, yyyy')}</div></div>
+                            <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Project</Label><div>{projectsMap.get(viewPayment.projectId) || 'N/A'}</div></div>
+                            <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Vendor</Label><div>{vendorsMap.get(viewPayment.vendorId) || 'N/A'}</div></div>
+                            <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Category</Label><div>{viewPayment.expenseCategoryName}</div></div>
+                            <div className="grid grid-cols-[100px_1fr] items-start gap-4"><Label className="text-right text-muted-foreground pt-1">Note</Label><p className="whitespace-pre-wrap">{viewPayment.note || 'No note provided.'}</p></div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
 
             <Card>
                 <CardHeader>
@@ -435,11 +606,12 @@ export default function ExpensesPage() {
                                 <TableHead>Category</TableHead>
                                 <TableHead>Reference</TableHead>
                                 <TableHead className="text-right">Amount (TK)</TableHead>
+                                <TableHead><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
-                                <TableRow><TableCell colSpan={6} className="h-24 text-center">Loading payment log...</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={7} className="h-24 text-center">Loading payment log...</TableCell></TableRow>
                             ) : expensePayments && expensePayments.length > 0 ? (
                                 expensePayments.map((payment) => (
                                     <TableRow key={payment.id}>
@@ -449,10 +621,23 @@ export default function ExpensesPage() {
                                         <TableCell>{payment.expenseCategoryName}</TableCell>
                                         <TableCell>{payment.reference || 'N/A'}</TableCell>
                                         <TableCell className="text-right">{payment.amount.toLocaleString('en-IN')}</TableCell>
+                                        <TableCell className="text-right">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span></Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                    <DropdownMenuItem onClick={() => setViewPayment(payment)}>View Details</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setEditPayment(payment)}>Edit</DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-destructive" onClick={() => setDeletePayment(payment)}>Delete</DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow><TableCell colSpan={6} className="h-24 text-center">No expense payments recorded yet.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={7} className="h-24 text-center">No expense payments recorded yet.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
