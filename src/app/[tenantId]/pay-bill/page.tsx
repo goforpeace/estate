@@ -85,7 +85,7 @@ export default function PayBillPage() {
 
     const dueAmount = useMemo(() => {
         if (!selectedExpense) return 0;
-        return selectedExpense.amount - selectedExpense.paidAmount;
+        return selectedExpense.amount - (selectedExpense.paidAmount || 0);
     }, [selectedExpense]);
     
     // --- Form Submission ---
@@ -192,7 +192,7 @@ export default function PayBillPage() {
                                                 <FormControl><SelectTrigger><SelectValue placeholder="Select an expense to pay" /></SelectTrigger></FormControl>
                                                 <SelectContent>
                                                     {availableExpenses.map(e => {
-                                                        const expenseDue = e.amount - e.paidAmount;
+                                                        const expenseDue = e.amount - (e.paidAmount || 0);
                                                         return <SelectItem key={e.id} value={e.id}>{e.expenseCategoryName} (Due: {expenseDue.toLocaleString()})</SelectItem>
                                                     })}
                                                 </SelectContent>
@@ -206,7 +206,7 @@ export default function PayBillPage() {
                              {selectedExpense && (
                                 <div className="p-4 bg-secondary rounded-lg text-secondary-foreground">
                                     <h4 className="font-bold text-lg">Amount Due: TK {dueAmount.toLocaleString()}</h4>
-                                    <p className="text-xs">Total: {selectedExpense.amount.toLocaleString()} / Paid: {selectedExpense.paidAmount.toLocaleString()}</p>
+                                    <p className="text-xs">Total: {selectedExpense.amount.toLocaleString()} / Paid: {(selectedExpense.paidAmount || 0).toLocaleString()}</p>
                                 </div>
                             )}
 
