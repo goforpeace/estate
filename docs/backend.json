@@ -589,6 +589,10 @@
           "type": "string",
           "description": "Denormalized reference to the Project."
         },
+        "expenseCategoryName": {
+          "type": "string",
+          "description": "Denormalized name of the expense category."
+        },
         "amount": {
           "type": "number",
           "description": "The amount paid in this transaction."
@@ -613,6 +617,7 @@
         "outflowTransactionId",
         "vendorId",
         "projectId",
+        "expenseCategoryName",
         "amount",
         "date"
       ]

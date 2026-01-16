@@ -29,6 +29,19 @@ type OutflowTransaction = {
   status: 'Unpaid' | 'Partially Paid' | 'Paid';
   paidAmount: number;
 };
+type ExpensePayment = {
+    id: string;
+    tenantId: string;
+    outflowTransactionId: string;
+    vendorId: string;
+    projectId: string;
+    expenseCategoryName: string;
+    amount: number;
+    date: string;
+    note?: string;
+    reference?: string;
+}
+
 
 // --- Zod Schema ---
 const payBillSchema = z.object({
@@ -132,6 +145,7 @@ export default function PayBillPage() {
                     outflowTransactionId: data.expenseId,
                     vendorId: data.vendorId,
                     projectId: expenseData.projectId,
+                    expenseCategoryName: expenseData.expenseCategoryName,
                     amount: data.amountPaid,
                     date: new Date(data.date).toISOString(),
                     note: data.note || '',

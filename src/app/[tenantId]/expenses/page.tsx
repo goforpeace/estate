@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { MoreHorizontal, PlusCircle, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, collectionGroup, query, where } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
@@ -42,6 +42,16 @@ type OutflowTransaction = {
   status: 'Unpaid' | 'Partially Paid' | 'Paid';
   paidAmount: number;
 };
+type ExpensePayment = {
+  id: string;
+  date: string;
+  projectId: string;
+  vendorId: string;
+  expenseCategoryName: string;
+  amount: number;
+  reference?: string;
+}
+
 
 // --- Zod Schemas ---
 const expenseCategorySchema = z.object({
@@ -242,7 +252,13 @@ export default function ExpensesPage() {
     const expensesQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/outflowTransactions`), [firestore, tenantId]);
     const { data: expenses, isLoading: expensesLoading } = useCollection<OutflowTransaction>(expensesQuery);
 
-    const isLoading = projectsLoading || vendorsLoading || expensesLoading;
+    const expensePaymentsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collectionGroup(firestore, `expensePayments`), where('tenantId', '==', tenantId));
+    }, [firestore, tenantId]);
+    const { data: expensePayments, isLoading: expensePaymentsLoading } = useCollection<ExpensePayment>(expensePaymentsQuery);
+
+    const isLoading = projectsLoading || vendorsLoading || expensesLoading || expensePaymentsLoading;
 
     // --- Data Maps ---
     const projectsMap = useMemo(() => new Map(projects?.map(p => [p.id, p.name])), [projects]);
@@ -356,6 +372,45 @@ export default function ExpensesPage() {
                                 )})
                             ) : (
                                 <TableRow><TableCell colSpan={7} className="h-24 text-center">No expenses recorded yet.</TableCell></TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+                <CardHeader>
+                    <CardTitle className="font-headline">Expense Payment Log</CardTitle>
+                    <CardDescription>A log of all payments made towards expenses.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Project</TableHead>
+                                <TableHead>Vendor</TableHead>
+                                <TableHead>Category</TableHead>
+                                <TableHead>Reference</TableHead>
+                                <TableHead className="text-right">Amount (TK)</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                <TableRow><TableCell colSpan={6} className="h-24 text-center">Loading payment log...</TableCell></TableRow>
+                            ) : expensePayments && expensePayments.length > 0 ? (
+                                expensePayments.map((payment) => (
+                                    <TableRow key={payment.id}>
+                                        <TableCell>{format(new Date(payment.date), 'dd MMM, yyyy')}</TableCell>
+                                        <TableCell>{projectsMap.get(payment.projectId) || 'N/A'}</TableCell>
+                                        <TableCell>{vendorsMap.get(payment.vendorId) || 'N/A'}</TableCell>
+                                        <TableCell>{payment.expenseCategoryName}</TableCell>
+                                        <TableCell>{payment.reference || 'N/A'}</TableCell>
+                                        <TableCell className="text-right">{payment.amount.toLocaleString('en-IN')}</TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow><TableCell colSpan={6} className="h-24 text-center">No expense payments recorded yet.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
