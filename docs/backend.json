@@ -464,6 +464,89 @@
         "phoneNumber",
         "enterpriseName"
       ]
+    },
+    "OutflowTransaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OutflowTransaction",
+      "type": "object",
+      "description": "Represents an outflow transaction, such as an expense.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the transaction."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Denormalized tenant ID."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to the Project."
+        },
+        "vendorId": {
+          "type": "string",
+          "description": "Reference to the Vendor."
+        },
+        "expenseCategoryName": {
+          "type": "string",
+          "description": "The name of the expense category."
+        },
+        "qty": {
+          "type": "number",
+          "description": "The quantity of the item/service."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the expense."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date of the transaction."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The total amount of the expense."
+        },
+        "reference": {
+          "type": "string",
+          "description": "A reference number for the transaction (e.g., invoice number)."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "projectId",
+        "vendorId",
+        "expenseCategoryName",
+        "date",
+        "amount"
+      ]
+    },
+    "ExpenseCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ExpenseCategory",
+      "type": "object",
+      "description": "Represents a category for expenses.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the category."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the expense category."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name"
+      ]
     }
   },
   "auth": {
@@ -649,6 +732,46 @@
             {
               "name": "organizationId",
               "description": "A fixed unique identifier for the organization document, e.g., 'details'."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/outflowTransactions/{transactionId}",
+        "definition": {
+          "entityName": "OutflowTransaction",
+          "schema": {
+            "$ref": "#/backend/entities/OutflowTransaction"
+          },
+          "description": "Stores expense transaction information for a tenant.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "transactionId",
+              "description": "Unique identifier for the outflow transaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/expenseCategories/{categoryId}",
+        "definition": {
+          "entityName": "ExpenseCategory",
+          "schema": {
+            "$ref": "#/backend/entities/ExpenseCategory"
+          },
+          "description": "Stores expense categories for a tenant.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "categoryId",
+              "description": "Unique identifier for the expense category."
             }
           ]
         }
