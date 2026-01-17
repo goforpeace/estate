@@ -6,14 +6,12 @@ import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, getDocs, where } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { DollarSign, TrendingUp, TrendingDown, Landmark, ArrowLeftRight, Database, MapPin, Tag, Calendar, Building, Target, Wallet, CircleDollarSign, User, Phone, Home, MessageSquare } from "lucide-react";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
-import Autoplay from "embla-carousel-autoplay";
 
 // --- Type Definitions ---
 type FlatSale = {
@@ -115,10 +113,6 @@ export default function DashboardPage() {
 
     const [totalInflow, setTotalInflow] = useState(0);
     const [inflowLoading, setInflowLoading] = useState(true);
-
-    const autoplayPlugin = useRef(
-        Autoplay({ delay: 5000, stopOnInteraction: true })
-    );
 
     useEffect(() => {
         if (!firestore || !sales) {
@@ -387,28 +381,31 @@ export default function DashboardPage() {
       Completed: "outline",
     } as const;
 
+    const noticeContent = useMemo(() => {
+        if (!notices || notices.length === 0) return null;
+        return notices.map(notice => (
+            <span key={notice.id} className="mx-8">{notice.message}</span>
+        ));
+    }, [notices]);
+
 
   return (
     <>
       {!noticesLoading && notices && notices.length > 0 && (
-        <Card className="mb-6 bg-accent border-none text-accent-foreground">
-            <Carousel
-                plugins={[autoplayPlugin.current]}
-                className="w-full"
-                onMouseEnter={autoplayPlugin.current.stop}
-                onMouseLeave={autoplayPlugin.current.reset}
-            >
-            <CarouselContent>
-                {notices.map(notice => (
-                <CarouselItem key={notice.id}>
-                    <div className="p-3 flex items-center justify-center gap-4">
-                    <MessageSquare className="h-5 w-5" />
-                    <p className="text-sm font-medium">{notice.message}</p>
+        <Card className="mb-6 bg-accent border-none text-accent-foreground overflow-hidden">
+            <div className="p-3 flex items-center gap-4">
+                <MessageSquare className="h-5 w-5 flex-shrink-0" />
+                <div className="flex-1 w-full overflow-hidden">
+                    <div className="flex">
+                        <div className="flex-shrink-0 animate-ticker-scroll">
+                            {noticeContent}
+                        </div>
+                        <div className="flex-shrink-0 animate-ticker-scroll" aria-hidden="true">
+                            {noticeContent}
+                        </div>
                     </div>
-                </CarouselItem>
-                ))}
-            </CarouselContent>
-            </Carousel>
+                </div>
+            </div>
         </Card>
       )}
 
@@ -531,5 +528,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
