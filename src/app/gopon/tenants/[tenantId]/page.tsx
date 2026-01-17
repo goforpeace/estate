@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, UserPlus, Save, Trash2, UserX } from 'lucide-react';
 import Link from 'next/link';
@@ -37,6 +37,124 @@ type UserProfile = {
     phone?: string;
 }
 
+function TenantDetailsCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial<Tenant>) => Promise<boolean> }) {
+    const [name, setName] = useState(tenant.name);
+    const [domain, setDomain] = useState(tenant.domain);
+    const { isLoading: isActionInProgress } = useLoading();
+
+    useEffect(() => {
+        setName(tenant.name);
+        setDomain(tenant.domain);
+    }, [tenant]);
+
+    const handleSave = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave({ name, domain });
+    };
+
+    return (
+        <Card>
+            <form onSubmit={handleSave}>
+                <CardHeader>
+                    <CardTitle className="font-headline">Tenant Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="tenant-name">Tenant Name</Label>
+                        <Input id="tenant-name" value={name} onChange={(e) => setName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="tenant-domain">Domain</Label>
+                        <Input id="tenant-domain" value={domain} onChange={(e) => setDomain(e.target.value)} />
+                    </div>
+                </CardContent>
+                <CardFooter>
+                    <Button type="submit" disabled={isActionInProgress}><Save className="mr-2 h-4 w-4" /> Save Details</Button>
+                </CardFooter>
+            </form>
+        </Card>
+    );
+}
+
+function ContactPersonCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial<Tenant>) => Promise<boolean> }) {
+    const [contactName, setContactName] = useState(tenant.contactName || '');
+    const [contactEmail, setContactEmail] = useState(tenant.contactEmail || '');
+    const [contactPhone, setContactPhone] = useState(tenant.contactPhone || '');
+    const { isLoading: isActionInProgress } = useLoading();
+    
+    useEffect(() => {
+        setContactName(tenant.contactName || '');
+        setContactEmail(tenant.contactEmail || '');
+        setContactPhone(tenant.contactPhone || '');
+    }, [tenant]);
+
+    const handleSave = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave({ contactName, contactEmail, contactPhone });
+    };
+
+    return (
+         <Card>
+            <form onSubmit={handleSave}>
+                <CardHeader>
+                    <CardTitle className="font-headline">Contact Person</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                     <div className="space-y-2">
+                        <Label htmlFor="contact-name">Contact Name</Label>
+                        <Input id="contact-name" placeholder="John Doe" value={contactName} onChange={(e) => setContactName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="contact-email">Contact Email</Label>
+                        <Input id="contact-email" type="email" placeholder="john@example.com" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="contact-phone">Contact Phone</Label>
+                        <Input id="contact-phone" placeholder="+123456789" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+                    </div>
+                </CardContent>
+                <CardFooter>
+                    <Button type="submit" disabled={isActionInProgress}><Save className="mr-2 h-4 w-4" /> Save Contact</Button>
+                </CardFooter>
+            </form>
+        </Card>
+    );
+}
+
+function BrandingCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial<Tenant>) => Promise<boolean> }) {
+    const [loginImageUrl, setLoginImageUrl] = useState(tenant.loginImageUrl || '');
+    const { isLoading: isActionInProgress } = useLoading();
+
+    useEffect(() => {
+        setLoginImageUrl(tenant.loginImageUrl || '');
+    }, [tenant]);
+    
+    const handleSave = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave({ loginImageUrl });
+    };
+
+    return (
+        <Card>
+            <form onSubmit={handleSave}>
+                <CardHeader>
+                    <CardTitle className="font-headline">Branding</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="login-image-url">Login Page Image URL</Label>
+                        <Input id="login-image-url" placeholder="https://example.com/image.jpg" value={loginImageUrl} onChange={(e) => setLoginImageUrl(e.target.value)} />
+                    </div>
+                </CardContent>
+                 <CardFooter>
+                    <Button type="submit" disabled={isActionInProgress}><Save className="mr-2 h-4 w-4" /> Save Image URL</Button>
+                </CardFooter>
+            </form>
+        </Card>
+    );
+}
+
+
 export default function ManageTenantPage() {
   const params = useParams();
   const router = useRouter();
@@ -51,31 +169,12 @@ export default function ManageTenantPage() {
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   
-  // Form state for editing tenant
-  const [tenantName, setTenantName] = useState('');
-  const [tenantDomain, setTenantDomain] = useState('');
-  const [contactName, setContactName] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [loginImageUrl, setLoginImageUrl] = useState('');
-
   const tenantRef = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
     return doc(firestore, 'tenants', tenantId);
   }, [firestore, tenantId]);
 
   const { data: tenant, isLoading, error } = useDoc<Tenant>(tenantRef);
-
-  useEffect(() => {
-    if (tenant) {
-        setTenantName(tenant.name);
-        setTenantDomain(tenant.domain);
-        setContactName(tenant.contactName || '');
-        setContactEmail(tenant.contactEmail || '');
-        setContactPhone(tenant.contactPhone || '');
-        setLoginImageUrl(tenant.loginImageUrl || '');
-    }
-  }, [tenant]);
 
   const usersQuery = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
@@ -141,31 +240,24 @@ export default function ManageTenantPage() {
     }
   };
   
-  const handleUpdateTenant = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tenantRef) return;
-
-    showLoading("Saving tenant details...");
+  const handleUpdateTenant = async (updateData: Partial<Tenant>) => {
+    if (!tenantRef) return false;
+    showLoading("Saving changes...");
     try {
-        await updateDocumentNonBlocking(tenantRef, {
-            name: tenantName,
-            domain: tenantDomain,
-            contactName: contactName,
-            contactEmail: contactEmail,
-            contactPhone: contactPhone,
-            loginImageUrl: loginImageUrl,
-        });
+        await updateDocumentNonBlocking(tenantRef, updateData);
         toast({
-            title: "Tenant Details Saved",
+            title: "Details Saved",
             description: "The tenant information has been updated.",
         });
+        return true;
     } catch (error: any) {
         console.error("Error updating tenant:", error);
         toast({
             variant: 'destructive',
             title: 'Update failed',
-            description: error.message || 'Could not save tenant details.',
+            description: error.message || 'Could not save details.',
         });
+        return false;
     } finally {
         hideLoading();
     }
@@ -288,46 +380,11 @@ export default function ManageTenantPage() {
           </form>
         </Card>
 
-        <Card className="lg:col-span-3">
-          <form onSubmit={handleUpdateTenant}>
-            <CardHeader>
-                <CardTitle className="font-headline">Tenant Details</CardTitle>
-                <CardDescription>Edit the tenant's information and contact person.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                    <Label htmlFor="tenant-name">Tenant Name</Label>
-                    <Input id="tenant-name" value={tenantName} onChange={(e) => setTenantName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="tenant-domain">Domain</Label>
-                    <Input id="tenant-domain" value={tenantDomain} onChange={(e) => setTenantDomain(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="contact-name">Contact Person Name</Label>
-                    <Input id="contact-name" placeholder="John Doe" value={contactName} onChange={(e) => setContactName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="contact-email">Contact Person Email</Label>
-                    <Input id="contact-email" type="email" placeholder="john@example.com" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="contact-phone">Contact Person Phone</Label>
-                    <Input id="contact-phone" placeholder="+123456789" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
-                </div>
-                <div className="space-y-2 lg:col-span-3">
-                    <Label htmlFor="login-image-url">Login Page Image URL</Label>
-                    <Input id="login-image-url" placeholder="https://example.com/image.jpg" value={loginImageUrl} onChange={(e) => setLoginImageUrl(e.target.value)} />
-                </div>
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" disabled={isActionInProgress}>
-                <Save className="mr-2 h-4 w-4" />
-                Save Tenant Details
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+        <TenantDetailsCard tenant={tenant} onSave={handleUpdateTenant} />
+        
+        <ContactPersonCard tenant={tenant} onSave={handleUpdateTenant} />
+
+        <BrandingCard tenant={tenant} onSave={handleUpdateTenant} />
 
         <Card className="lg:col-span-3 border-destructive">
             <CardHeader>
@@ -364,5 +421,3 @@ export default function ManageTenantPage() {
     </>
   );
 }
-
-    

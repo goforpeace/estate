@@ -36,6 +36,7 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
     const [contactName, setContactName] = useState('');
     const [contactEmail, setContactEmail] = useState('');
     const [contactPhone, setContactPhone] = useState('');
+    const [loginImageUrl, setLoginImageUrl] = useState('');
     const firestore = useFirestore();
     const { toast } = useToast();
     const { showLoading, hideLoading, isLoading } = useLoading();
@@ -62,6 +63,7 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
                 contactName,
                 contactEmail,
                 contactPhone,
+                loginImageUrl,
             };
 
             await addDocumentNonBlocking(tenantsCol, newTenant);
@@ -76,6 +78,7 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
             setContactName('');
             setContactEmail('');
             setContactPhone('');
+            setLoginImageUrl('');
             setOpen(false);
             onTenantAdded();
         } catch (error) {
@@ -110,7 +113,7 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="domain" className="text-right">Domain</Label>
-                        <Input id="domain" value={domain} onChange={(e) => setDomain(e.target.value)} className="col-span-3" placeholder="acme.com" />
+                        <Input id="domain" value={domain} onChange={(e) => setDomain(e.target.value)} className="col-span-3" placeholder="acme" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="contactName" className="text-right">Contact Name</Label>
@@ -123,6 +126,10 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="contactPhone" className="text-right">Contact Phone</Label>
                         <Input id="contactPhone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="col-span-3" placeholder="+123456789" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="loginImageUrl" className="text-right">Image URL</Label>
+                        <Input id="loginImageUrl" value={loginImageUrl} onChange={(e) => setLoginImageUrl(e.target.value)} className="col-span-3" placeholder="https://example.com/image.jpg" />
                     </div>
                 </div>
                 <DialogFooter>
