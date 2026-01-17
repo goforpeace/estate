@@ -20,8 +20,8 @@ export default function TenantIdPage() {
   };
 
   return (
-    <div className="min-h-screen w-full lg:grid lg:grid-cols-2">
-      <div className="hidden bg-muted lg:block relative">
+    <div className="min-h-screen w-full lg:grid lg:grid-cols-5">
+      <div className="hidden bg-muted lg:block relative lg:col-span-4">
         <Image
             src="https://picsum.photos/seed/login/1200/1800"
             alt="Login background"
@@ -61,5 +61,3 @@ export default function TenantIdPage() {
     </div>
   );
 }
-
-    

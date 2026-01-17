@@ -51,8 +51,8 @@ export default function LoginPage({ params }: { params: { tenantId: string } }) 
   const imageUrl = tenant?.loginImageUrl || "https://picsum.photos/seed/login/1200/1800";
 
   return (
-    <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
-      <div className="hidden bg-muted lg:block relative">
+    <div className="w-full min-h-screen lg:grid lg:grid-cols-5">
+      <div className="hidden bg-muted lg:block relative lg:col-span-4">
         {tenantLoading ? (
             <Skeleton className="h-full w-full" />
         ) : (
@@ -102,5 +102,3 @@ export default function LoginPage({ params }: { params: { tenantId: string } }) 
     </div>
   );
 }
-
-    
