@@ -39,6 +39,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { type FlatSale } from '../sales/page';
 import { Combobox } from '@/components/ui/combobox';
 import { useLoading } from '@/context/loading-context';
+import { Separator } from '@/components/ui/separator';
 
 
 type Project = { id: string; name: string; flats: { name: string }[] };
@@ -74,13 +75,15 @@ const AddPaymentForm = ({
   customers,
   sales,
   onPaymentAdded,
-  transactionToEdit
+  transactionToEdit,
+  payments
 }: {
   onFinished: () => void;
   tenantId: string;
   projects: Project[];
   customers: Customer[];
   sales: FlatSale[];
+  payments: PaymentRecord[];
   onPaymentAdded: (
     transaction: InflowTransaction,
     customer: Customer,
@@ -149,6 +152,20 @@ const AddPaymentForm = ({
     return [...baseTypes, ...additional];
   }, [selectedSale]);
 
+  const saleInfo = useMemo(() => {
+    if (!selectedSale) return null;
+
+    const additionalCostsTotal = selectedSale.additionalCosts?.reduce((acc, cost) => acc + cost.price, 0) || 0;
+    const totalAmount = selectedSale.amount + additionalCostsTotal;
+
+    const paymentsForSale = payments.filter(p => p.saleId === selectedSale.id);
+    const totalPaid = paymentsForSale.reduce((acc, p) => acc + p.amount, 0);
+
+    const dueAmount = totalAmount - totalPaid;
+
+    return { totalAmount, totalPaid, dueAmount };
+  }, [selectedSale, payments]);
+
 
   const onSubmit = async (data: Omit<InflowTransaction, 'id' | 'receiptId' | 'tenantId'>) => {
     if (!firestore || !selectedSale) {
@@ -159,6 +176,23 @@ const AddPaymentForm = ({
         });
         return;
     }
+
+    if (saleInfo) {
+        let maxAllowedPayment = saleInfo.dueAmount;
+        if (transactionToEdit) {
+            // When editing, the max allowed is the current due + the original amount of the payment being edited.
+            maxAllowedPayment += transactionToEdit.amount;
+        }
+        if (Number(data.amount) > maxAllowedPayment) {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid Amount',
+                description: `Payment of TK ${Number(data.amount).toLocaleString()} exceeds the remaining due amount of TK ${maxAllowedPayment.toLocaleString()}.`,
+            });
+            return;
+        }
+    }
+
     showLoading(transactionToEdit ? 'Updating Payment...' : 'Recording Payment...');
     try {
         if(transactionToEdit) {
@@ -276,6 +310,29 @@ const AddPaymentForm = ({
                         {errors.flatName && <p className="text-red-500 text-xs">Flat is required</p>}
                     </div>
                 </div>
+
+                {selectedSale && saleInfo && (
+                    <Card className="bg-secondary/50">
+                        <CardHeader className="p-4">
+                            <CardTitle className="text-base font-headline">Sale Summary</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-0 text-sm space-y-2">
+                            <div className="flex justify-between">
+                                <span>Total Sale Value:</span>
+                                <span className="font-medium font-mono">TK {saleInfo.totalAmount.toLocaleString('en-IN')}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Total Paid:</span>
+                                <span className="font-medium font-mono text-green-700">TK {saleInfo.totalPaid.toLocaleString('en-IN')}</span>
+                            </div>
+                            <Separator className="my-2" />
+                            <div className="flex justify-between font-bold">
+                                <span>Amount Due:</span>
+                                <span className="font-mono text-destructive">TK {saleInfo.dueAmount.toLocaleString('en-IN')}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
                 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -563,6 +620,7 @@ export default function PaymentsPage() {
                     projects={projects || []}
                     customers={customers || []}
                     sales={sales || []}
+                    payments={payments}
                     onPaymentAdded={handlePaymentAdded}
                     transactionToEdit={editTransaction}
                 />
