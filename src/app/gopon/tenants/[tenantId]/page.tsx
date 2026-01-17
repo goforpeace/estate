@@ -25,6 +25,7 @@ type Tenant = {
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
+  loginImageUrl?: string;
 };
 
 // Matches the User entity in backend.json
@@ -56,6 +57,7 @@ export default function ManageTenantPage() {
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [loginImageUrl, setLoginImageUrl] = useState('');
 
   const tenantRef = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
@@ -71,6 +73,7 @@ export default function ManageTenantPage() {
         setContactName(tenant.contactName || '');
         setContactEmail(tenant.contactEmail || '');
         setContactPhone(tenant.contactPhone || '');
+        setLoginImageUrl(tenant.loginImageUrl || '');
     }
   }, [tenant]);
 
@@ -150,6 +153,7 @@ export default function ManageTenantPage() {
             contactName: contactName,
             contactEmail: contactEmail,
             contactPhone: contactPhone,
+            loginImageUrl: loginImageUrl,
         });
         toast({
             title: "Tenant Details Saved",
@@ -310,6 +314,10 @@ export default function ManageTenantPage() {
                 <div className="space-y-2">
                     <Label htmlFor="contact-phone">Contact Person Phone</Label>
                     <Input id="contact-phone" placeholder="+123456789" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+                </div>
+                <div className="space-y-2 lg:col-span-3">
+                    <Label htmlFor="login-image-url">Login Page Image URL</Label>
+                    <Input id="login-image-url" placeholder="https://example.com/image.jpg" value={loginImageUrl} onChange={(e) => setLoginImageUrl(e.target.value)} />
                 </div>
             </CardContent>
             <CardFooter>

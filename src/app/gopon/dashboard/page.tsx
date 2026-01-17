@@ -26,6 +26,7 @@ export type Tenant = {
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
+  loginImageUrl?: string;
 };
 
 function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {

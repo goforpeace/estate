@@ -34,6 +34,11 @@
         "contactPhone": {
           "type": "string",
           "description": "The phone number of the contact person for the tenant."
+        },
+        "loginImageUrl": {
+          "type": "string",
+          "description": "URL for the background image on the login page.",
+          "format": "uri"
         }
       },
       "required": [

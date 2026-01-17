@@ -4,9 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Image from 'next/image';
 
 export default function TenantIdPage() {
   const router = useRouter();
@@ -20,35 +20,43 @@ export default function TenantIdPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Card className="shadow-xl border-t-4 border-primary">
-          <CardHeader className="text-center">
+    <div className="min-h-screen w-full lg:grid lg:grid-cols-2">
+      <div className="hidden bg-muted lg:block relative">
+        <Image
+            src="https://picsum.photos/seed/login/1200/1800"
+            alt="Login background"
+            fill
+            className="object-cover"
+            data-ai-hint="restaurant interior"
+        />
+        <div className="absolute bottom-10 left-10 right-10 p-6 bg-black/50 text-white rounded-lg backdrop-blur-sm">
+            <h1 className="text-3xl font-bold font-headline">Welcome to EstateFlow</h1>
+            <p className="mt-2 text-sm">Your all-in-one real estate management partner. Streamline projects, sales, and finances with ease.</p>
+        </div>
+      </div>
+      <div className="flex items-center justify-center py-12 px-4">
+        <div className="mx-auto grid w-full max-w-[350px] gap-6">
+          <div className="grid gap-2 text-center">
             <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
               <Building2 className="h-8 w-8" />
             </div>
-            <CardTitle className="font-headline text-3xl">EstateFlow</CardTitle>
-            <CardDescription>Your Real Estate Management Partner</CardDescription>
-          </CardHeader>
-          <form onSubmit={handleContinue}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="tenantId" className="font-headline">Tenant ID</Label>
-                <Input
-                  id="tenantId"
-                  placeholder="your-company-id"
-                  value={tenantId}
-                  onChange={(e) => setTenantId(e.target.value)}
-                  required
-                  className="text-base"
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" className="w-full font-headline">Continue</Button>
-            </CardFooter>
+            <h1 className="text-3xl font-bold font-headline">EstateFlow</h1>
+            <p className="text-balance text-muted-foreground">Enter your Tenant ID to continue</p>
+          </div>
+          <form onSubmit={handleContinue} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="tenantId">Tenant ID</Label>
+              <Input
+                id="tenantId"
+                placeholder="your-company-id"
+                value={tenantId}
+                onChange={(e) => setTenantId(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full">Continue</Button>
           </form>
-        </Card>
+        </div>
       </div>
     </div>
   );
