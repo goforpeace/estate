@@ -1,3 +1,5 @@
+'use client';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,9 +11,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import Link from "next/link";
+import { useAuth } from "@/firebase";
+import { useRouter } from "next/navigation";
+import { signOut } from "firebase/auth";
 
 export function AppHeader({ tenantId }: { tenantId: string }) {
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    if (auth) {
+      await signOut(auth);
+      router.push(`/${tenantId}/login`);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
       <div className="md:hidden">
@@ -37,9 +51,7 @@ export function AppHeader({ tenantId }: { tenantId: string }) {
           <DropdownMenuItem>Settings</DropdownMenuItem>
           <DropdownMenuItem>Support</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href={`/${tenantId}/login`}>Logout</Link>
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </header>

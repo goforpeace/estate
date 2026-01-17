@@ -11,7 +11,9 @@ import {
   } from "@/components/ui/sidebar"
 import { Building2, LayoutDashboard, Users, Waypoints, HandCoins, Settings, LogOut, CreditCard, Briefcase, MinusCircle, Banknote, Wallet } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { useAuth } from "@/firebase"
+import { signOut } from "firebase/auth"
 
 const navItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -42,9 +44,19 @@ const icons: { [key: string]: React.ElementType } = {
 
 export function AppSidebar({ tenantId }: { tenantId: string }) {
     const pathname = usePathname();
+    const router = useRouter();
+    const auth = useAuth();
+
 
     // Helper to get the base path for comparison
     const basePath = `/${tenantId}`;
+
+    const handleLogout = async () => {
+        if (auth) {
+            await signOut(auth);
+            router.push(`/${tenantId}/login`);
+        }
+    };
     
     return (
         <Sidebar>
@@ -77,12 +89,10 @@ export function AppSidebar({ tenantId }: { tenantId: string }) {
             <SidebarFooter>
                  <SidebarMenu>
                      <SidebarMenuItem>
-                         <Link href={`/${tenantId}/login`}>
-                            <SidebarMenuButton tooltip="Logout">
-                                <LogOut />
-                                <span>Logout</span>
-                            </SidebarMenuButton>
-                         </Link>
+                        <SidebarMenuButton tooltip="Logout" onClick={handleLogout}>
+                            <LogOut />
+                            <span>Logout</span>
+                        </SidebarMenuButton>
                      </SidebarMenuItem>
                  </SidebarMenu>
             </SidebarFooter>
