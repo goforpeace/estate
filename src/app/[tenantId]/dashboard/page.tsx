@@ -384,7 +384,7 @@ export default function DashboardPage() {
     const noticeContent = useMemo(() => {
         if (!notices || notices.length === 0) return null;
         return notices.map(notice => (
-            <span key={notice.id} className="mx-8">{notice.message}</span>
+            <span key={notice.id} className="mx-8 whitespace-nowrap">{notice.message}</span>
         ));
     }, [notices]);
 
@@ -396,11 +396,11 @@ export default function DashboardPage() {
             <div className="p-3 flex items-center gap-4">
                 <MessageSquare className="h-5 w-5 flex-shrink-0" />
                 <div className="flex-1 w-full overflow-hidden">
-                    <div className="flex">
-                        <div className="flex-shrink-0 animate-ticker-scroll">
+                    <div className="flex animate-ticker-scroll">
+                        <div className="flex-shrink-0 flex items-center">
                             {noticeContent}
                         </div>
-                        <div className="flex-shrink-0 animate-ticker-scroll" aria-hidden="true">
+                        <div className="flex-shrink-0 flex items-center" aria-hidden="true">
                             {noticeContent}
                         </div>
                     </div>
