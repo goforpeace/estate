@@ -62,6 +62,12 @@ const SheetContent = React.forwardRef<
     <SheetPrimitive.Content
       ref={ref}
       className={cn(sheetVariants({ side }), className)}
+      onPointerDownOutside={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest('[cmdk-root]')) {
+          event.preventDefault();
+        }
+      }}
       {...props}
     >
       {children}
