@@ -1,20 +1,24 @@
 'use client';
 
 import { PageHeader } from "@/components/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, getDocs } from "firebase/firestore";
 import { useParams } from "next/navigation";
-import { DollarSign, TrendingUp, TrendingDown, Landmark, ArrowLeftRight, Database } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Landmark, ArrowLeftRight, Database, MapPin, Tag, Calendar, Building, Target, Wallet, CircleDollarSign } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { Combobox } from "@/components/ui/combobox";
+import { Badge } from "@/components/ui/badge";
 
 // --- Type Definitions ---
 type FlatSale = {
     id: string;
+    projectId: string;
     amount: number;
 };
 type OutflowTransaction = {
+    projectId: string;
     amount: number;
     paidAmount: number;
 };
@@ -22,6 +26,18 @@ type OperatingCost = {
     amount: number;
     date: string; // ISO string
 };
+
+type Project = {
+  id: string;
+  tenantId: string;
+  name: string;
+  location: string;
+  targetSell: number;
+  status: "Ongoing" | "Upcoming" | "Completed";
+  expectedHandoverDate: string; // Stored as ISO string
+  flats: { name: string; sizeSft: number }[];
+};
+
 
 // --- Helper Functions ---
 const formatCurrency = (value: number) => {
@@ -37,7 +53,15 @@ export default function DashboardPage() {
     const tenantId = params.tenantId as string;
     const firestore = useFirestore();
 
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
     // --- Data Fetching ---
+    const projectsQuery = useMemoFirebase(() => {
+        if (!firestore || !tenantId) return null;
+        return collection(firestore, `tenants/${tenantId}/projects`);
+    }, [firestore, tenantId]);
+    const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
+
     const salesQuery = useMemoFirebase(() => {
         if (!firestore || !tenantId) return null;
         return collection(firestore, `tenants/${tenantId}/flatSales`);
@@ -104,7 +128,7 @@ export default function DashboardPage() {
         return () => { isMounted = false; };
     }, [firestore, tenantId, sales]);
 
-    // --- Memoized Calculations ---
+    // --- Memoized Calculations (Tenant-wide) ---
     const financials = useMemo(() => {
         const totalRevenue = sales?.reduce((acc, sale) => acc + sale.amount, 0) || 0;
         const totalOutflow = expenses?.reduce((acc, expense) => acc + (expense.paidAmount || 0), 0) || 0;
@@ -144,7 +168,80 @@ export default function DashboardPage() {
         };
     }, [sales, expenses, operatingCosts, totalInflow]);
 
-    const isLoading = salesLoading || expensesLoading || opCostsLoading || inflowLoading;
+
+    // --- Project Specific Calculations ---
+    const selectedProject = useMemo(() => {
+        if (!projects || !selectedProjectId) return null;
+        return projects.find(p => p.id === selectedProjectId);
+    }, [projects, selectedProjectId]);
+
+    const projectSales = useMemo(() => {
+        if (!sales || !selectedProjectId) return [];
+        return sales.filter(s => s.projectId === selectedProjectId);
+    }, [sales, selectedProjectId]);
+
+    const projectExpenses = useMemo(() => {
+        if (!expenses || !selectedProjectId) return [];
+        return expenses.filter(e => e.projectId === selectedProjectId);
+    }, [expenses, selectedProjectId]);
+    
+    const [projectInflow, setProjectInflow] = useState(0);
+    const [projectInflowLoading, setProjectInflowLoading] = useState(false);
+
+    useEffect(() => {
+        if (!firestore || !projectSales || !selectedProjectId) {
+            setProjectInflow(0);
+            setProjectInflowLoading(false);
+            return;
+        }
+
+        if (projectSales.length === 0) {
+            setProjectInflow(0);
+            setProjectInflowLoading(false);
+            return;
+        }
+
+        let isMounted = true;
+        const fetchProjectPayments = async () => {
+            setProjectInflowLoading(true);
+            const paymentPromises = projectSales.map(sale => {
+                const paymentsRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
+                return getDocs(paymentsRef);
+            });
+
+            try {
+                const paymentSnapshots = await Promise.all(paymentPromises);
+                if (!isMounted) return;
+
+                const totalInflow = paymentSnapshots.reduce((projectTotal, saleSnapshot) => {
+                    const saleTotal = saleSnapshot.docs.reduce((saleAcc, doc) => saleAcc + (doc.data().amount || 0), 0);
+                    return projectTotal + saleTotal;
+                }, 0);
+                setProjectInflow(totalInflow);
+            } catch (e) {
+                console.error("Error fetching project inflow:", e);
+                if (isMounted) setProjectInflow(0);
+            } finally {
+                if (isMounted) setProjectInflowLoading(false);
+            }
+        };
+
+        fetchProjectPayments();
+
+        return () => { isMounted = false; };
+    }, [firestore, tenantId, projectSales, selectedProjectId]);
+    
+    const projectFinancials = useMemo(() => {
+        const revenue = projectSales.reduce((acc, sale) => acc + sale.amount, 0) || 0;
+        const totalExpenses = projectExpenses.reduce((acc, expense) => acc + expense.amount, 0) || 0;
+        const outflow = projectExpenses.reduce((acc, expense) => acc + (expense.paidAmount || 0), 0) || 0;
+        const cashFlow = projectInflow - outflow;
+        const profit = revenue - totalExpenses;
+        return { revenue, totalExpenses, outflow, cashFlow, profit };
+    }, [projectSales, projectExpenses, projectInflow]);
+
+    const isLoading = salesLoading || expensesLoading || opCostsLoading || inflowLoading || projectsLoading;
+    const projectOverviewLoading = projectInflowLoading;
 
     const summaryCards = [
         { title: "Total Revenue", value: financials.totalRevenue, description: "Total value of all sales contracts", icon: Database, color: "bg-gray-100 text-gray-800", valueColor: "text-gray-900" },
@@ -156,6 +253,13 @@ export default function DashboardPage() {
         { title: "Gross Profit", value: financials.grossProfit, description: "Total Revenue - Project Expenses", icon: TrendingUp, color: "bg-emerald-100 text-emerald-800", valueColor: financials.grossProfit >= 0 ? "text-emerald-900" : "text-red-900" },
         { title: "Actual Profit", value: financials.actualProfit, description: "Revenue - (Proj. + Op. Expenses)", icon: DollarSign, color: "bg-red-100 text-red-800", valueColor: financials.actualProfit >= 0 ? "text-emerald-900" : "text-red-900" }
     ];
+
+    const statusVariant = {
+      Ongoing: "default",
+      Upcoming: "secondary",
+      Completed: "outline",
+    } as const;
+
 
   return (
     <>
@@ -190,6 +294,47 @@ export default function DashboardPage() {
             ))}
         </div>
       )}
+
+        <Card className="mt-6">
+            <CardHeader>
+                <CardTitle className="font-headline">Project Overview</CardTitle>
+                <CardDescription>Select a project to see its detailed financial overview.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Combobox
+                    options={projects?.map(p => ({ value: p.id, label: p.name })) || []}
+                    value={selectedProjectId || ''}
+                    onChange={(value) => setSelectedProjectId(value === selectedProjectId ? null : value)}
+                    placeholder="Select a project"
+                    searchPlaceholder="Search projects..."
+                    emptyPlaceholder="No projects found."
+                />
+
+                {selectedProjectId && projectOverviewLoading && <div className="mt-6 text-center">Loading project overview...</div>}
+                {selectedProjectId && !projectOverviewLoading && selectedProject ? (
+                    <CardContent className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 text-sm">
+                        <div className="flex items-start gap-3"><MapPin className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Location</p><p className="font-medium">{selectedProject.location}</p></div></div>
+                        <div className="flex items-start gap-3"><Tag className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Status</p><p className="font-medium"><Badge variant={statusVariant[selectedProject.status]}>{selectedProject.status}</Badge></p></div></div>
+                        <div className="flex items-start gap-3"><Calendar className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Handover Date</p><p className="font-medium">{new Date(selectedProject.expectedHandoverDate).toLocaleDateString('en-GB')}</p></div></div>
+                        <div className="flex items-start gap-3"><Building className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Total Flats</p><p className="font-medium">{selectedProject.flats?.length || 0}</p></div></div>
+                        
+                        <div className="flex items-start gap-3"><Target className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Target Sell</p><p className="font-medium">TK {selectedProject.targetSell.toLocaleString('en-IN')}</p></div></div>
+                        <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1 text-green-600" /><div><p className="text-muted-foreground">Total Revenue (Sold)</p><p className="font-medium">TK {projectFinancials.revenue.toLocaleString('en-IN')}</p></div></div>
+                        <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1 text-red-600" /><div><p className="text-muted-foreground">Total Expenses</p><p className="font-medium">TK {projectFinancials.totalExpenses.toLocaleString('en-IN')}</p></div></div>
+                        <div className="flex items-start gap-3"><CircleDollarSign className="h-5 w-5 text-muted-foreground mt-1 text-blue-600" /><div><p className="text-muted-foreground">Profit / Loss</p><p className={`font-medium ${projectFinancials.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>TK {projectFinancials.profit.toLocaleString('en-IN')}</p></div></div>
+                        <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Inflow (Payments Rec.)</p><p className="font-medium">TK {projectInflow.toLocaleString('en-IN')}</p></div></div>
+                        <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Outflow (Bills Paid)</p><p className="font-medium">TK {projectFinancials.outflow.toLocaleString('en-IN')}</p></div></div>
+                        <div className="flex items-start gap-3"><Wallet className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Net Cash Flow</p><p className={`font-medium ${projectFinancials.cashFlow >= 0 ? '' : 'text-red-700'}`}>TK {projectFinancials.cashFlow.toLocaleString('en-IN')}</p></div></div>
+                         <div className="lg:col-span-4 mt-2">
+                             <Button asChild variant="outline" size="sm">
+                                <Link href={`/${tenantId}/projects/${selectedProjectId}`}>View Full Project Details</Link>
+                            </Button>
+                         </div>
+                    </CardContent>
+                ) : null}
+                 {!selectedProjectId && !isLoading && <p className="text-sm text-muted-foreground text-center mt-6">Select a project to view its overview.</p>}
+            </CardContent>
+        </Card>
     </>
   );
 }
