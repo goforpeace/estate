@@ -10,6 +10,8 @@ import { useMemo, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 // --- Type Definitions ---
 type FlatSale = {
