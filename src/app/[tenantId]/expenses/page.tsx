@@ -447,7 +447,7 @@ export default function ExpensesPage() {
             return (
                 project.includes(lowercasedTerm) ||
                 vendor.includes(lowercasedTerm) ||
-                expense.expenseCategoryName.toLowerCase().includes(lowercasedTerm) ||
+                (expense.expenseCategoryName || "").toLowerCase().includes(lowercasedTerm) ||
                 expense.status.toLowerCase().includes(lowercasedTerm) ||
                 expense.amount.toString().includes(lowercasedTerm) ||
                 format(new Date(expense.date), 'dd MMM, yyyy').toLowerCase().includes(lowercasedTerm)
@@ -472,7 +472,7 @@ export default function ExpensesPage() {
             return (
                 project.includes(lowercasedTerm) ||
                 vendor.includes(lowercasedTerm) ||
-                payment.expenseCategoryName.toLowerCase().includes(lowercasedTerm) ||
+                (payment.expenseCategoryName || '').toLowerCase().includes(lowercasedTerm) ||
                 (payment.reference || '').toLowerCase().includes(lowercasedTerm) ||
                 payment.amount.toString().includes(lowercasedTerm) ||
                 format(new Date(payment.date), 'dd MMM, yyyy').toLowerCase().includes(lowercasedTerm)
