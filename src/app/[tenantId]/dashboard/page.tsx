@@ -3,84 +3,193 @@
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { collection, query, getDocs } from "firebase/firestore";
 import { useParams } from "next/navigation";
-import { DollarSign, Building2, TrendingUp, CalendarCheck } from "lucide-react";
-import { useMemo } from "react";
+import { DollarSign, TrendingUp, TrendingDown, Landmark, ArrowLeftRight, Database } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
-type Project = {
-    expectedHandoverDate: string;
-    status: string;
-};
-
+// --- Type Definitions ---
 type FlatSale = {
+    id: string;
     amount: number;
 };
+type OutflowTransaction = {
+    amount: number;
+    paidAmount: number;
+};
+type OperatingCost = {
+    amount: number;
+    date: string; // ISO string
+};
 
+// --- Helper Functions ---
+const formatCurrency = (value: number) => {
+    if (Math.abs(value) >= 100000) {
+        return `৳${(value / 100000).toFixed(2)} Lacs`;
+    }
+    return `৳${value.toLocaleString('en-IN')}`;
+};
+
+// --- Main Component ---
 export default function DashboardPage() {
     const params = useParams();
     const tenantId = params.tenantId as string;
     const firestore = useFirestore();
 
-    const projectsQuery = useMemoFirebase(() => {
-        if (!firestore || !tenantId) return null;
-        return collection(firestore, `tenants/${tenantId}/projects`);
-    }, [firestore, tenantId]);
-    const { data: projects } = useCollection<Project>(projectsQuery);
-    
+    // --- Data Fetching ---
     const salesQuery = useMemoFirebase(() => {
         if (!firestore || !tenantId) return null;
         return collection(firestore, `tenants/${tenantId}/flatSales`);
     }, [firestore, tenantId]);
-    const { data: sales } = useCollection<FlatSale>(salesQuery);
+    const { data: sales, isLoading: salesLoading } = useCollection<FlatSale>(salesQuery);
 
-    const totalRevenue = useMemo(() => {
-        return sales?.reduce((acc, sale) => acc + sale.amount, 0) || 0;
-    }, [sales]);
+    const expensesQuery = useMemoFirebase(() => {
+        if (!firestore || !tenantId) return null;
+        return collection(firestore, `tenants/${tenantId}/outflowTransactions`);
+    }, [firestore, tenantId]);
+    const { data: expenses, isLoading: expensesLoading } = useCollection<OutflowTransaction>(expensesQuery);
+    
+    const operatingCostsQuery = useMemoFirebase(() => {
+        if (!firestore || !tenantId) return null;
+        return collection(firestore, `tenants/${tenantId}/operatingCosts`);
+    }, [firestore, tenantId]);
+    const { data: operatingCosts, isLoading: opCostsLoading } = useCollection<OperatingCost>(operatingCostsQuery);
 
-    const totalProjects = useMemo(() => {
-        return projects?.length || 0;
-    }, [projects]);
+    const [totalInflow, setTotalInflow] = useState(0);
+    const [inflowLoading, setInflowLoading] = useState(true);
 
-    const propertiesSold = useMemo(() => {
-        return sales?.length || 0;
-    }, [sales]);
+    useEffect(() => {
+        if (!firestore || !sales) {
+            setInflowLoading(sales === undefined);
+            if(sales === null) {
+                setTotalInflow(0);
+                setInflowLoading(false);
+            }
+            return;
+        }
 
-    const upcomingHandovers = useMemo(() => {
-        if (!projects) return 0;
+        if (sales.length === 0) {
+            setTotalInflow(0);
+            setInflowLoading(false);
+            return;
+        }
+
+        let isMounted = true;
+        const fetchAllPayments = async () => {
+            setInflowLoading(true);
+            const paymentPromises = sales.map(sale => {
+                const paymentsRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
+                return getDocs(paymentsRef);
+            });
+
+            try {
+                const paymentSnapshots = await Promise.all(paymentPromises);
+                if (!isMounted) return;
+
+                const inflow = paymentSnapshots.reduce((projectTotal, saleSnapshot) => {
+                    const saleTotal = saleSnapshot.docs.reduce((saleAcc, doc) => saleAcc + (doc.data().amount || 0), 0);
+                    return projectTotal + saleTotal;
+                }, 0);
+                setTotalInflow(inflow);
+            } catch (e) {
+                console.error("Error fetching project inflow:", e);
+                if (isMounted) setTotalInflow(0);
+            } finally {
+                if (isMounted) setInflowLoading(false);
+            }
+        };
+
+        fetchAllPayments();
+        return () => { isMounted = false; };
+    }, [firestore, tenantId, sales]);
+
+    // --- Memoized Calculations ---
+    const financials = useMemo(() => {
+        const totalRevenue = sales?.reduce((acc, sale) => acc + sale.amount, 0) || 0;
+        const totalOutflow = expenses?.reduce((acc, expense) => acc + (expense.paidAmount || 0), 0) || 0;
+        const netCashFlow = totalInflow - totalOutflow;
+        const totalProjectExpenses = expenses?.reduce((acc, expense) => acc + expense.amount, 0) || 0;
+        const grossProfit = totalRevenue - totalProjectExpenses;
+
         const now = new Date();
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
-        return projects.filter(p => {
-            const handoverDate = new Date(p.expectedHandoverDate);
-            return p.status === 'Ongoing' && handoverDate > now && handoverDate <= nextMonth;
-        }).length;
-    }, [projects]);
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+        const lastMonthYear = lastMonth === 11 ? currentYear - 1 : currentYear;
+
+        const monthlyOperatingCost = operatingCosts?.filter(cost => {
+            const costDate = new Date(cost.date);
+            return costDate.getMonth() === currentMonth && costDate.getFullYear() === currentYear;
+        }).reduce((acc, cost) => acc + cost.amount, 0) || 0;
+
+        const lastMonthOperatingCost = operatingCosts?.filter(cost => {
+            const costDate = new Date(cost.date);
+            return costDate.getMonth() === lastMonth && costDate.getFullYear() === lastMonthYear;
+        }).reduce((acc, cost) => acc + cost.amount, 0) || 0;
+        
+        const totalOperatingCosts = operatingCosts?.reduce((acc, cost) => acc + cost.amount, 0) || 0;
+        const actualProfit = totalRevenue - (totalProjectExpenses + totalOperatingCosts);
+
+        return {
+            totalRevenue,
+            totalInflow,
+            totalOutflow,
+            netCashFlow,
+            totalProjectExpenses,
+            monthlyOperatingCost,
+            lastMonthOperatingCost,
+            grossProfit,
+            actualProfit,
+        };
+    }, [sales, expenses, operatingCosts, totalInflow]);
+
+    const isLoading = salesLoading || expensesLoading || opCostsLoading || inflowLoading;
 
     const summaryCards = [
-        { title: "Total Revenue", value: `৳${(totalRevenue / 1000000).toFixed(2)}M`, icon: DollarSign, description: "All-time revenue" },
-        { title: "Total Projects", value: totalProjects, icon: Building2, description: "All projects managed" },
-        { title: "Properties Sold", value: propertiesSold, icon: TrendingUp, description: "Across all projects" },
-        { title: "Upcoming Handovers", value: upcomingHandovers, icon: CalendarCheck, description: "In the next 30 days" },
+        { title: "Total Revenue", value: financials.totalRevenue, description: "Total value of all sales contracts", icon: Database, color: "bg-gray-100 text-gray-800", valueColor: "text-gray-900" },
+        { title: "Total Inflow", value: financials.totalInflow, description: "Total cash received", icon: TrendingUp, color: "bg-emerald-100 text-emerald-800", valueColor: "text-emerald-900" },
+        { title: "Total Outflow", value: financials.totalOutflow, description: "Total cash paid out", icon: TrendingDown, color: "bg-amber-100 text-amber-800", valueColor: "text-amber-900" },
+        { title: "Net Cash Flow", value: financials.netCashFlow, description: "Inflow - Outflow", icon: ArrowLeftRight, color: "bg-red-100 text-red-800", valueColor: financials.netCashFlow >= 0 ? "text-emerald-900" : "text-red-900" },
+        { title: "Total Project Expenses", value: financials.totalProjectExpenses, description: "Total recorded project expenses", icon: DollarSign, color: "bg-gray-100 text-gray-800", valueColor: "text-gray-900" },
+        { title: "Monthly Operating Cost", value: financials.monthlyOperatingCost, description: `Last Month: ৳${financials.lastMonthOperatingCost.toLocaleString()}`, icon: Landmark, color: "bg-amber-100 text-amber-800", valueColor: "text-amber-900" },
+        { title: "Gross Profit", value: financials.grossProfit, description: "Total Revenue - Project Expenses", icon: TrendingUp, color: "bg-emerald-100 text-emerald-800", valueColor: financials.grossProfit >= 0 ? "text-emerald-900" : "text-red-900" },
+        { title: "Actual Profit", value: financials.actualProfit, description: "Revenue - (Proj. + Op. Expenses)", icon: DollarSign, color: "bg-red-100 text-red-800", valueColor: financials.actualProfit >= 0 ? "text-emerald-900" : "text-red-900" }
     ];
-
 
   return (
     <>
       <PageHeader title="Dashboard" description="An overview of your real estate business." />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {summaryCards.map((card) => (
-            <Card key={card.title}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-                    <card.icon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold font-headline">{card.value}</div>
-                    <p className="text-xs text-muted-foreground">{card.description}</p>
-                </CardContent>
-            </Card>
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {Array(8).fill(0).map((_, index) => (
+                <Card key={index}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <div className="h-4 bg-gray-200 rounded w-2/4 animate-pulse"></div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="h-8 bg-gray-200 rounded w-3/4 mb-2 animate-pulse"></div>
+                        <div className="h-3 bg-gray-200 rounded w-full animate-pulse"></div>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {summaryCards.map((card) => (
+                <Card key={card.title} className={cn("border-none", card.color)}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+                        <card.icon className="h-4 w-4 text-current" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className={cn("text-2xl font-bold font-headline", card.valueColor)}>{formatCurrency(card.value)}</div>
+                        <p className="text-xs text-current/70">{card.description}</p>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+      )}
     </>
   );
 }
