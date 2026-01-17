@@ -21,6 +21,19 @@
         "enabled": {
           "type": "boolean",
           "description": "Indicates whether the tenant account is enabled."
+        },
+        "contactName": {
+          "type": "string",
+          "description": "The name of the contact person for the tenant."
+        },
+        "contactEmail": {
+          "type": "string",
+          "description": "The email of the contact person for the tenant.",
+          "format": "email"
+        },
+        "contactPhone": {
+          "type": "string",
+          "description": "The phone number of the contact person for the tenant."
         }
       },
       "required": [

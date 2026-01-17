@@ -23,12 +23,18 @@ export type Tenant = {
   name: string;
   domain: string;
   enabled: boolean;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
 };
 
 function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const [domain, setDomain] = useState('');
+    const [contactName, setContactName] = useState('');
+    const [contactEmail, setContactEmail] = useState('');
+    const [contactPhone, setContactPhone] = useState('');
     const firestore = useFirestore();
     const { toast } = useToast();
     const { showLoading, hideLoading, isLoading } = useLoading();
@@ -52,6 +58,9 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
                 name,
                 domain,
                 enabled: true,
+                contactName,
+                contactEmail,
+                contactPhone,
             };
 
             await addDocumentNonBlocking(tenantsCol, newTenant);
@@ -63,6 +72,9 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
 
             setName('');
             setDomain('');
+            setContactName('');
+            setContactEmail('');
+            setContactPhone('');
             setOpen(false);
             onTenantAdded();
         } catch (error) {
@@ -98,6 +110,18 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="domain" className="text-right">Domain</Label>
                         <Input id="domain" value={domain} onChange={(e) => setDomain(e.target.value)} className="col-span-3" placeholder="acme.com" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="contactName" className="text-right">Contact Name</Label>
+                        <Input id="contactName" value={contactName} onChange={(e) => setContactName(e.target.value)} className="col-span-3" placeholder="John Doe" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="contactEmail" className="text-right">Contact Email</Label>
+                        <Input id="contactEmail" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="col-span-3" placeholder="john@acme.com" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="contactPhone" className="text-right">Contact Phone</Label>
+                        <Input id="contactPhone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="col-span-3" placeholder="+123456789" />
                     </div>
                 </div>
                 <DialogFooter>

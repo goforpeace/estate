@@ -1,22 +1,20 @@
 'use client'
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc, useFirestore, useMemoFirebase, deleteDocumentNonBlocking, useAuth, useCollection } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, deleteDocumentNonBlocking, useAuth, useCollection, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, setDoc, where } from 'firebase/firestore';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, UserPlus, Send, Trash2, UserX } from 'lucide-react';
+import { ArrowLeft, UserPlus, Save, Trash2, UserX } from 'lucide-react';
 import Link from 'next/link';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { useLoading } from '@/context/loading-context';
 
 type Tenant = {
@@ -24,6 +22,9 @@ type Tenant = {
   name: string;
   domain: string;
   enabled: boolean;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
 };
 
 // Matches the User entity in backend.json
@@ -48,6 +49,13 @@ export default function ManageTenantPage() {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
+  
+  // Form state for editing tenant
+  const [tenantName, setTenantName] = useState('');
+  const [tenantDomain, setTenantDomain] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
 
   const tenantRef = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
@@ -55,6 +63,16 @@ export default function ManageTenantPage() {
   }, [firestore, tenantId]);
 
   const { data: tenant, isLoading, error } = useDoc<Tenant>(tenantRef);
+
+  useEffect(() => {
+    if (tenant) {
+        setTenantName(tenant.name);
+        setTenantDomain(tenant.domain);
+        setContactName(tenant.contactName || '');
+        setContactEmail(tenant.contactEmail || '');
+        setContactPhone(tenant.contactPhone || '');
+    }
+  }, [tenant]);
 
   const usersQuery = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
@@ -119,6 +137,35 @@ export default function ManageTenantPage() {
         hideLoading();
     }
   };
+  
+  const handleUpdateTenant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tenantRef) return;
+
+    showLoading("Saving tenant details...");
+    try {
+        await updateDocumentNonBlocking(tenantRef, {
+            name: tenantName,
+            domain: tenantDomain,
+            contactName: contactName,
+            contactEmail: contactEmail,
+            contactPhone: contactPhone,
+        });
+        toast({
+            title: "Tenant Details Saved",
+            description: "The tenant information has been updated.",
+        });
+    } catch (error: any) {
+        console.error("Error updating tenant:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Update failed',
+            description: error.message || 'Could not save tenant details.',
+        });
+    } finally {
+        hideLoading();
+    }
+  };
 
   const handleDeleteTenant = async () => {
     if (!tenantRef) return;
@@ -138,36 +185,6 @@ export default function ManageTenantPage() {
         hideLoading();
     }
   };
-  
-  const handleSendNotification = (e: React.FormEvent) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
-    const title = formData.get('notification-title') as string;
-    const message = formData.get('notification-message') as string;
-    
-    if (!title || !message) {
-        toast({
-            variant: 'destructive',
-            title: 'Missing content',
-            description: 'Please provide a title and message for the notification.',
-        });
-        return;
-    }
-
-    // Placeholder for actual push notification logic
-    showLoading("Sending notification...");
-    setTimeout(() => {
-        console.log('Sending notification:', { tenantId, title, message });
-
-        toast({
-            title: 'Notification Sent',
-            description: `Push notification sent to ${tenant?.name}.`,
-        });
-        form.reset();
-        hideLoading();
-    }, 1000);
-  }
 
   if (isLoading) {
     return <div className="p-6">Loading tenant details...</div>;
@@ -268,25 +285,37 @@ export default function ManageTenantPage() {
         </Card>
 
         <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle className="font-headline">Send Push Notification</CardTitle>
-            <CardDescription>Send a broadcast message to all users of this tenant.</CardDescription>
-          </CardHeader>
-          <form onSubmit={handleSendNotification}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="notification-title">Title</Label>
-                <Input id="notification-title" name="notification-title" placeholder="Important Announcement" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notification-message">Message</Label>
-                <Textarea id="notification-message" name="notification-message" placeholder="Your message here..." />
-              </div>
+          <form onSubmit={handleUpdateTenant}>
+            <CardHeader>
+                <CardTitle className="font-headline">Tenant Details</CardTitle>
+                <CardDescription>Edit the tenant's information and contact person.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                    <Label htmlFor="tenant-name">Tenant Name</Label>
+                    <Input id="tenant-name" value={tenantName} onChange={(e) => setTenantName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="tenant-domain">Domain</Label>
+                    <Input id="tenant-domain" value={tenantDomain} onChange={(e) => setTenantDomain(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="contact-name">Contact Person Name</Label>
+                    <Input id="contact-name" placeholder="John Doe" value={contactName} onChange={(e) => setContactName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="contact-email">Contact Person Email</Label>
+                    <Input id="contact-email" type="email" placeholder="john@example.com" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="contact-phone">Contact Person Phone</Label>
+                    <Input id="contact-phone" placeholder="+123456789" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+                </div>
             </CardContent>
             <CardFooter>
               <Button type="submit" disabled={isActionInProgress}>
-                <Send className="mr-2 h-4 w-4" />
-                Send Notification
+                <Save className="mr-2 h-4 w-4" />
+                Save Tenant Details
               </Button>
             </CardFooter>
           </form>
