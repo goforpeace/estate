@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import Link from 'next/link';
 
 export default function TenantIdPage() {
   const router = useRouter();
@@ -45,11 +44,8 @@ export default function TenantIdPage() {
                 />
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-4">
+            <CardFooter>
               <Button type="submit" className="w-full font-headline">Continue</Button>
-              <Button variant="link" size="sm" asChild>
-                <Link href="/gopon">Admin Login</Link>
-              </Button>
             </CardFooter>
           </form>
         </Card>
