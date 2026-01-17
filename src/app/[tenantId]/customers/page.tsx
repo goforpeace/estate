@@ -5,12 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { useParams } from "next/navigation";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -164,7 +163,7 @@ export default function CustomersPage() {
   const { toast } = useToast();
   const { showLoading, hideLoading } = useLoading();
 
-  const [isSheetOpen, setSheetOpen] = useState(false);
+  const [view, setView] = useState<'list' | 'form'>('list');
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
   const [deleteCustomer, setDeleteCustomer] = useState<Customer | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
@@ -221,22 +220,41 @@ export default function CustomersPage() {
     }
   }
 
-  const handleSheetClose = () => {
-    setSheetOpen(false);
-    setTimeout(() => {
-      setEditingCustomer(undefined);
-    }, 300); // Delay to allow sheet to animate out
-  };
-
   const handleAddClick = () => {
     setEditingCustomer(undefined);
-    setSheetOpen(true);
+    setView('form');
   };
 
   const handleEditClick = (customer: Customer) => {
     setEditingCustomer(customer);
-    setSheetOpen(true);
+    setView('form');
   };
+
+  const handleCancel = () => {
+    setView('list');
+    setEditingCustomer(undefined);
+  }
+
+  if (view === 'form') {
+    return (
+      <>
+        <PageHeader 
+          title={editingCustomer ? 'Edit Customer' : 'Add New Customer'} 
+          description={editingCustomer ? `Update the details for "${editingCustomer.name}".` : 'Fill in the details to add a new customer.'}
+        >
+          <Button variant="outline" onClick={handleCancel}>
+            <X className="mr-2 h-4 w-4" />
+            Cancel
+          </Button>
+        </PageHeader>
+        <Card className="max-w-2xl">
+          <CardContent className="pt-6">
+            <CustomerForm tenantId={tenantId} onFinished={handleCancel} customer={editingCustomer} />
+          </CardContent>
+        </Card>
+      </>
+    )
+  }
 
   return (
     <>
@@ -246,18 +264,6 @@ export default function CustomersPage() {
           Add Customer
         </Button>
       </PageHeader>
-      
-      <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="sm:max-w-lg">
-          <SheetHeader>
-            <SheetTitle>{editingCustomer ? 'Edit Customer' : 'Add a New Customer'}</SheetTitle>
-            <SheetDescription>
-              {editingCustomer ? `Update the details for "${editingCustomer.name}".` : 'Fill in the details to add a new customer.'}
-            </SheetDescription>
-          </SheetHeader>
-          <CustomerForm tenantId={tenantId} onFinished={handleSheetClose} customer={editingCustomer} />
-        </SheetContent>
-      </Sheet>
       
       <AlertDialog open={!!deleteCustomer} onOpenChange={(isOpen) => !isOpen && setDeleteCustomer(undefined)}>
         <AlertDialogContent>

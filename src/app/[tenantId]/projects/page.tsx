@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, XCircle, Search } from "lucide-react";
+import { MoreHorizontal, PlusCircle, XCircle, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import {
@@ -31,7 +31,6 @@ import {
 } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { useParams, useRouter } from "next/navigation";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -306,7 +305,7 @@ export default function ProjectsPage() {
   const { toast } = useToast();
   const { showLoading, hideLoading } = useLoading();
 
-  const [isSheetOpen, setSheetOpen] = useState(false);
+  const [view, setView] = useState<'list' | 'form'>('list');
   const [editingProject, setEditingProject] = useState<Project | undefined>(undefined);
   const [deleteProject, setDeleteProject] = useState<Project | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
@@ -358,21 +357,19 @@ export default function ProjectsPage() {
     }
   }
 
-  const handleSheetClose = () => {
-    setSheetOpen(false);
-    setTimeout(() => {
-      setEditingProject(undefined);
-    }, 300);
+  const handleCancel = () => {
+    setView('list');
+    setEditingProject(undefined);
   };
 
   const handleAddClick = () => {
     setEditingProject(undefined);
-    setSheetOpen(true);
+    setView('list');
   };
 
   const handleEditClick = (project: Project) => {
     setEditingProject(project);
-    setSheetOpen(true);
+    setView('form');
   };
 
   const statusVariant = {
@@ -381,30 +378,35 @@ export default function ProjectsPage() {
     Completed: "outline",
   } as const;
 
+  if (view === 'form') {
+    return (
+        <>
+            <PageHeader 
+                title={editingProject ? 'Edit Project' : 'Add a New Project'}
+                description={editingProject ? `Update the details for "${editingProject.name}".` : 'Fill in the details below to create a new project.'}
+            >
+                <Button variant="outline" onClick={handleCancel}>
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel
+                </Button>
+            </PageHeader>
+            <ProjectForm tenantId={tenantId} onFinished={handleCancel} project={editingProject} />
+        </>
+    )
+  }
+
   return (
     <>
       <PageHeader
         title="Projects"
         description="Manage your real estate projects."
       >
-        <Button size="sm" className="gap-1" onClick={handleAddClick}>
+        <Button size="sm" className="gap-1" onClick={() => setView('form')}>
           <PlusCircle className="h-4 w-4" />
           Add Project
         </Button>
       </PageHeader>
 
-      <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="sm:max-w-2xl w-full">
-            <SheetHeader>
-            <SheetTitle>{editingProject ? 'Edit Project' : 'Add a New Project'}</SheetTitle>
-            <SheetDescription>
-                {editingProject ? `Update the details for "${editingProject.name}".` : 'Fill in the details below to create a new project.'}
-            </SheetDescription>
-            </SheetHeader>
-            <ProjectForm tenantId={tenantId} onFinished={handleSheetClose} project={editingProject} />
-        </SheetContent>
-      </Sheet>
-      
       <AlertDialog open={!!deleteProject} onOpenChange={(isOpen) => !isOpen && setDeleteProject(undefined)}>
         <AlertDialogContent>
             <AlertDialogHeader>

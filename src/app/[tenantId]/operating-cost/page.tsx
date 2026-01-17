@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Search, Plus } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, Plus, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -23,7 +23,6 @@ import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { useLoading } from "@/context/loading-context";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 // --- Type Definitions ---
 type OperatingCost = {
@@ -206,7 +205,7 @@ export default function OperatingCostPage() {
   const { toast } = useToast();
   const { showLoading, hideLoading } = useLoading();
 
-  const [isSheetOpen, setSheetOpen] = useState(false);
+  const [view, setView] = useState<'list' | 'form'>('list');
   const [editingCost, setEditingCost] = useState<OperatingCost | undefined>(undefined);
   const [viewCost, setViewCost] = useState<OperatingCost | undefined>(undefined);
   const [deleteCost, setDeleteCost] = useState<OperatingCost | undefined>(undefined);
@@ -258,23 +257,42 @@ export default function OperatingCostPage() {
         hideLoading();
     }
   }
-
-  const handleSheetClose = () => {
-    setSheetOpen(false);
-    setTimeout(() => {
-      setEditingCost(undefined);
-    }, 300);
-  };
-
+  
   const handleAddClick = () => {
     setEditingCost(undefined);
-    setSheetOpen(true);
+    setView('form');
   };
 
   const handleEditClick = (cost: OperatingCost) => {
     setEditingCost(cost);
-    setSheetOpen(true);
+    setView('form');
   };
+
+  const handleCancel = () => {
+    setView('list');
+    setEditingCost(undefined);
+  };
+
+  if (view === 'form') {
+    return (
+      <>
+        <PageHeader 
+          title={editingCost ? 'Edit Operating Cost' : 'Add Operating Cost'}
+          description="Manage your general business expenses."
+        >
+          <Button variant="outline" onClick={handleCancel}>
+            <X className="mr-2 h-4 w-4" />
+            Cancel
+          </Button>
+        </PageHeader>
+        <Card className="max-w-2xl">
+          <CardContent className="pt-6">
+            <OperatingCostForm tenantId={tenantId} onFinished={handleCancel} cost={editingCost} />
+          </CardContent>
+        </Card>
+      </>
+    )
+  }
 
   return (
     <>
@@ -284,15 +302,6 @@ export default function OperatingCostPage() {
           Add Cost
         </Button>
       </PageHeader>
-      
-      <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
-          <SheetContent className="sm:max-w-lg">
-            <SheetHeader>
-              <SheetTitle>{editingCost ? 'Edit Operating Cost' : 'Add Operating Cost'}</SheetTitle>
-            </SheetHeader>
-            <OperatingCostForm tenantId={tenantId} onFinished={handleSheetClose} cost={editingCost} />
-          </SheetContent>
-        </Sheet>
       
       <AlertDialog open={!!deleteCost} onOpenChange={(isOpen) => !isOpen && setDeleteCost(undefined)}>
         <AlertDialogContent>

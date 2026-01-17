@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Plus } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Plus, X } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc, getDocs, runTransaction } from "firebase/firestore";
@@ -25,7 +25,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
 import { useLoading } from "@/context/loading-context";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 // --- Type Definitions ---
 type Project = { id: string; name: string; };
@@ -361,7 +360,7 @@ export default function ExpensesPage() {
     const { toast } = useToast();
     const { showLoading, hideLoading } = useLoading();
 
-    const [isSheetOpen, setSheetOpen] = useState(false);
+    const [view, setView] = useState<'list' | 'form'>('list');
     const [editExpense, setEditExpense] = useState<OutflowTransaction | undefined>(undefined);
     const [deleteExpense, setDeleteExpense] = useState<OutflowTransaction | undefined>(undefined);
     const [viewPayment, setViewPayment] = useState<ExpensePayment | undefined>(undefined);
@@ -449,22 +448,20 @@ export default function ExpensesPage() {
         }
     };
 
-    const handleSheetClose = () => {
-        setSheetOpen(false);
-        setTimeout(() => {
-          setEditExpense(undefined);
-        }, 300);
-      };
-    
-      const handleAddClick = () => {
+    const handleFormClose = () => {
+        setView('list');
         setEditExpense(undefined);
-        setSheetOpen(true);
-      };
+    };
     
-      const handleEditClick = (expense: OutflowTransaction) => {
+    const handleAddClick = () => {
+        setEditExpense(undefined);
+        setView('form');
+    };
+    
+    const handleEditClick = (expense: OutflowTransaction) => {
         setEditExpense(expense);
-        setSheetOpen(true);
-      };
+        setView('form');
+    };
 
     const handleDeletePayment = async () => {
         if (!firestore || !deletePayment || !deletePayment._originalPath || !deletePayment.outflowTransactionId) return;
@@ -519,6 +516,26 @@ export default function ExpensesPage() {
         }
     }
 
+    if (view === 'form') {
+        return (
+            <>
+                <PageHeader 
+                    title={editExpense ? 'Edit Expense' : 'Add New Expense'} 
+                    description={editExpense ? 'Update the details for this expense.' : 'Fill in the form to record a new expense.'}
+                >
+                    <Button variant="outline" onClick={handleFormClose}>
+                        <X className="mr-2 h-4 w-4" />
+                        Cancel
+                    </Button>
+                </PageHeader>
+                <Card className="max-w-4xl">
+                  <CardContent className="pt-6">
+                    <ExpenseForm tenantId={tenantId} onFinished={handleFormClose} expense={editExpense} projects={projects || []} vendors={vendors || []} />
+                  </CardContent>
+                </Card>
+            </>
+        )
+    }
 
     return (
         <>
@@ -528,20 +545,6 @@ export default function ExpensesPage() {
                     Add Expense
                 </Button>
             </PageHeader>
-
-            <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
-                <SheetContent className="sm:max-w-2xl w-full">
-                    <SheetHeader>
-                        <SheetTitle>{editExpense ? 'Edit Expense' : 'Add New Expense'}</SheetTitle>
-                        <SheetDescription>{editExpense ? 'Update the details for this expense.' : 'Fill in the form to record a new expense.'}</SheetDescription>
-                    </SheetHeader>
-                    <ScrollArea className="h-[calc(100%-4rem)]">
-                        <div className="pr-6 pl-1 py-4">
-                            <ExpenseForm tenantId={tenantId} onFinished={handleSheetClose} expense={editExpense} projects={projects || []} vendors={vendors || []} />
-                        </div>
-                    </ScrollArea>
-                </SheetContent>
-            </Sheet>
 
             <AlertDialog open={!!deleteExpense} onOpenChange={(isOpen) => !isOpen && setDeleteExpense(undefined)}>
                 <AlertDialogContent>

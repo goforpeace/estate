@@ -5,12 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { useParams } from "next/navigation";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -154,7 +153,7 @@ export default function VendorsPage() {
   const { toast } = useToast();
   const { showLoading, hideLoading } = useLoading();
 
-  const [isFormOpen, setFormOpen] = useState(false);
+  const [view, setView] = useState<'list' | 'form'>('list');
   const [editVendor, setEditVendor] = useState<Vendor | undefined>(undefined);
   const [deleteVendor, setDeleteVendor] = useState<Vendor | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
@@ -206,43 +205,49 @@ export default function VendorsPage() {
   }
 
   const handleFormFinished = () => {
-    setFormOpen(false);
+    setView('list');
     setEditVendor(undefined);
+  }
+
+  const handleAddClick = () => {
+    setEditVendor(undefined);
+    setView('form');
+  }
+
+  const handleEditClick = (vendor: Vendor) => {
+    setEditVendor(vendor);
+    setView('form');
+  }
+
+  if (view === 'form') {
+    return (
+        <>
+            <PageHeader 
+                title={editVendor ? 'Edit Vendor' : 'Add a New Vendor'}
+                description={editVendor ? `Update the details for "${editVendor.name}".` : 'Fill in the details to add a new vendor.'}
+            >
+                 <Button variant="outline" onClick={handleFormFinished}>
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel
+                </Button>
+            </PageHeader>
+            <Card className="max-w-2xl">
+                <CardContent className="pt-6">
+                    <VendorForm tenantId={tenantId} onFinished={handleFormFinished} vendor={editVendor} />
+                </CardContent>
+            </Card>
+        </>
+    )
   }
 
   return (
     <>
       <PageHeader title="Vendors" description="Manage your list of vendors and suppliers.">
-        <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-          <DialogTrigger asChild>
-             <Button size="sm" className="gap-1" onClick={() => { setEditVendor(undefined); setFormOpen(true); }}>
-              <PlusCircle className="h-4 w-4" />
-              Add Vendor
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add a New Vendor</DialogTitle>
-              <DialogDescription>
-                Fill in the details to add a new vendor.
-              </DialogDescription>
-            </DialogHeader>
-            <VendorForm tenantId={tenantId} onFinished={handleFormFinished} />
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" className="gap-1" onClick={handleAddClick}>
+            <PlusCircle className="h-4 w-4" />
+            Add Vendor
+        </Button>
       </PageHeader>
-
-      <Dialog open={!!editVendor} onOpenChange={(isOpen) => !isOpen && setEditVendor(undefined)}>
-          <DialogContent>
-              <DialogHeader>
-              <DialogTitle>Edit Vendor</DialogTitle>
-              <DialogDescription>
-                  Update the details for &quot;{editVendor?.name}&quot;.
-              </DialogDescription>
-              </DialogHeader>
-              {editVendor && <VendorForm tenantId={tenantId} vendor={editVendor} onFinished={handleFormFinished} />}
-          </DialogContent>
-      </Dialog>
       
       <AlertDialog open={!!deleteVendor} onOpenChange={(isOpen) => !isOpen && setDeleteVendor(undefined)}>
         <AlertDialogContent>
@@ -313,7 +318,7 @@ export default function VendorsPage() {
                           <DropdownMenuItem asChild>
                             <Link href={`/${tenantId}/vendors/${vendor.id}`}>View Details</Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setEditVendor(vendor)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditClick(vendor)}>Edit</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => setDeleteVendor(vendor)}>
                             Delete
                           </DropdownMenuItem>

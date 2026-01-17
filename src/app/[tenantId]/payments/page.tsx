@@ -11,7 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { MoreHorizontal, PlusCircle, Search } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useForm, Controller } from 'react-hook-form';
 import {
@@ -39,7 +39,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { type FlatSale } from '../sales/page';
 import { Combobox } from '@/components/ui/combobox';
 import { useLoading } from '@/context/loading-context';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 
 type Project = { id: string; name: string; flats: { name: string }[] };
@@ -352,7 +351,7 @@ const AddPaymentForm = ({
                 </div>
             </div>
         </ScrollArea>
-        <div className="pt-4 absolute bottom-0 right-0 left-0 p-6 bg-background border-t">
+        <div className="pt-4 mt-4 border-t">
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? 'Recording...' : (transactionToEdit ? 'Update Payment' : 'Record Payment')}
           </Button>
@@ -368,7 +367,7 @@ export default function PaymentsPage() {
   const { toast } = useToast();
   const { showLoading, hideLoading } = useLoading();
 
-  const [isSheetOpen, setSheetOpen] = useState(false);
+  const [view, setView] = useState<'list' | 'form'>('list');
   const [isReceiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<{transaction: InflowTransaction, customer: Customer, project: Project} | null>(null);
   const [editTransaction, setEditTransaction] = useState<PaymentRecord | undefined>(undefined);
@@ -500,11 +499,9 @@ export default function PaymentsPage() {
     }
   };
 
-  const handleSheetClose = () => {
-    setSheetOpen(false);
-    setTimeout(() => {
-      setEditTransaction(undefined);
-    }, 300);
+  const handleCancel = () => {
+    setView('list');
+    setEditTransaction(undefined);
   };
   
   const handleDelete = async () => {
@@ -535,16 +532,46 @@ export default function PaymentsPage() {
   
   const handleAddClick = () => {
     setEditTransaction(undefined);
-    setSheetOpen(true);
+    setView('form');
   };
 
   const handleEditClick = (payment: PaymentRecord) => {
     const fullTransaction = getFullTransaction(payment);
     if (fullTransaction) {
         setEditTransaction(fullTransaction);
-        setSheetOpen(true);
+        setView('form');
     }
   };
+
+  if(view === 'form' && allDataAvailable) {
+    return (
+        <>
+            <PageHeader
+                title={editTransaction ? 'Edit Payment' : 'Record a New Payment'}
+                description={editTransaction ? 'Update the details for this payment.' : 'Fill in the details to record a new payment.'}
+            >
+                 <Button variant="outline" onClick={handleCancel}>
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel
+                </Button>
+            </PageHeader>
+            <Card className="max-w-4xl">
+              <CardContent className="pt-6">
+                <AddPaymentForm
+                    onFinished={handleCancel}
+                    tenantId={tenantId}
+                    projects={projects || []}
+                    customers={customers || []}
+                    sales={sales || []}
+                    onPaymentAdded={handlePaymentAdded}
+                    transactionToEdit={editTransaction}
+                />
+              </CardContent>
+            </Card>
+        </>
+    )
+  }
+
 
   return (
     <>
@@ -557,30 +584,6 @@ export default function PaymentsPage() {
             Add Payment
         </Button>
       </PageHeader>
-      
-      <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="sm:max-w-2xl w-full">
-            <SheetHeader>
-                <SheetTitle>{editTransaction ? 'Edit Payment' : 'Record a New Payment'}</SheetTitle>
-                <SheetDescription>
-                {editTransaction ? 'Update the details for this payment.' : 'Fill in the details to record a new payment.'}
-                </SheetDescription>
-            </SheetHeader>
-            {allDataAvailable ? (
-            <AddPaymentForm
-                onFinished={handleSheetClose}
-                tenantId={tenantId}
-                projects={projects || []}
-                customers={customers || []}
-                sales={sales || []}
-                onPaymentAdded={handlePaymentAdded}
-                transactionToEdit={editTransaction}
-            />
-            ) : (
-            <p className="p-6">Loading form data...</p>
-            )}
-        </SheetContent>
-      </Sheet>
       
        {receiptData && (
         <PrintReceiptDialog

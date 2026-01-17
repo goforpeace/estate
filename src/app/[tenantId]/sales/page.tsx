@@ -5,13 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Search, XCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, XCircle, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -287,8 +286,8 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
                         </div>
                     </div>
                 </ScrollArea>
-                 <div className="p-4 pt-0 border-t absolute bottom-0 right-0 left-0 bg-background">
-                    <Button type="submit" className="w-full mt-4" disabled={isLoading}>{sale ? 'Save Changes' : 'Record Sale'}</Button>
+                 <div className="pt-4 mt-4 border-t">
+                    <Button type="submit" className="w-full" disabled={isLoading}>{sale ? 'Save Changes' : 'Record Sale'}</Button>
                 </div>
             </form>
         </Form>
@@ -304,7 +303,7 @@ export default function SalesPage() {
     const { toast } = useToast();
     const { showLoading, hideLoading } = useLoading();
 
-    const [isSheetOpen, setSheetOpen] = useState(false);
+    const [view, setView] = useState<'list' | 'form'>('list');
     const [editingSale, setEditingSale] = useState<FlatSale | undefined>(undefined);
     const [deleteSale, setDeleteSale] = useState<FlatSale | undefined>(undefined);
     const [searchTerm, setSearchTerm] = useState("");
@@ -374,21 +373,40 @@ export default function SalesPage() {
         }
     };
 
-    const handleSheetClose = () => {
-        setSheetOpen(false);
-        setTimeout(() => {
-            setEditingSale(undefined);
-        }, 300);
+    const handleCancel = () => {
+        setView('list');
+        setEditingSale(undefined);
     };
 
     const handleAddClick = () => {
         setEditingSale(undefined);
-        setSheetOpen(true);
+        setView('form');
     }
     
     const handleEditClick = (sale: FlatSale) => {
         setEditingSale(sale);
-        setSheetOpen(true);
+        setView('form');
+    }
+
+    if (view === 'form') {
+        return (
+            <>
+                <PageHeader
+                    title={editingSale ? 'Edit Sale Record' : 'Record a New Sale'}
+                    description={editingSale ? 'Update the details for this sale.' : 'Fill in the details to record a new flat sale.'}
+                >
+                    <Button variant="outline" onClick={handleCancel}>
+                        <X className="mr-2 h-4 w-4" />
+                        Cancel
+                    </Button>
+                </PageHeader>
+                <Card className="max-w-4xl">
+                    <CardContent className="pt-6">
+                        <SaleForm tenantId={tenantId} sale={editingSale} onFinished={handleCancel} projects={projects || []} customers={customers || []} existingSales={sales || []} />
+                    </CardContent>
+                </Card>
+            </>
+        )
     }
 
   return (
@@ -399,16 +417,6 @@ export default function SalesPage() {
                 Add Sale
             </Button>
         </PageHeader>
-
-        <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
-            <SheetContent className="sm:max-w-3xl w-full">
-                <SheetHeader>
-                    <SheetTitle>{editingSale ? 'Edit Sale Record' : 'Record a New Sale'}</SheetTitle>
-                    <SheetDescription>{editingSale ? 'Update the details for this sale.' : 'Fill in the details to record a new flat sale.'}</SheetDescription>
-                </SheetHeader>
-                <SaleForm tenantId={tenantId} sale={editingSale} onFinished={handleSheetClose} projects={projects || []} customers={customers || []} existingSales={sales || []} />
-            </SheetContent>
-        </Sheet>
 
         <AlertDialog open={!!deleteSale} onOpenChange={(isOpen) => !isOpen && setDeleteSale(undefined)}>
             <AlertDialogContent>
