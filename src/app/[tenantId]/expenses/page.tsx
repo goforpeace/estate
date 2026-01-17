@@ -25,6 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
 import { useLoading } from "@/context/loading-context";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 // --- Type Definitions ---
 type Project = { id: string; name: string; };
@@ -217,66 +218,64 @@ function ExpenseForm({ tenantId, onFinished, expense, projects, vendors }: { ten
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-                <ScrollArea className="h-[70vh] p-1 pr-4">
-                    <div className="space-y-4 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField control={form.control} name="projectId" render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                  <FormLabel>Project</FormLabel>
-                                  <Combobox
-                                    options={projects.map(p => ({ value: p.id, label: p.name }))}
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    placeholder="Select a project"
-                                    searchPlaceholder="Search projects..."
-                                  />
-                                  <FormMessage />
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="vendorId" render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                  <FormLabel>Vendor</FormLabel>
-                                  <Combobox
-                                    options={vendors.map(v => ({ value: v.id, label: `${v.enterpriseName} (${v.name})` }))}
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    placeholder="Select a vendor"
-                                    searchPlaceholder="Search vendors..."
-                                  />
-                                  <FormMessage />
-                                </FormItem>
-                            )} />
-                        </div>
-                        <FormField control={form.control} name="expenseCategoryName" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Item / Category</FormLabel>
-                                <div className="flex items-start gap-2">
-                                    <div className="flex-1">
-                                      <Combobox
-                                        options={categories?.map(c => ({ value: c.name, label: c.name })) || []}
-                                        value={field.value}
-                                        onChange={field.onChange}
-                                        placeholder="Select an item"
-                                        searchPlaceholder="Search items..."
-                                      />
-                                    </div>
-                                    <AddCategoryDialog tenantId={tenantId} onFinished={() => { /* `useCollection` will auto-update */ }} />
-                                </div>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6">
+                <div className="space-y-4 p-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="projectId" render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Project</FormLabel>
+                                <Combobox
+                                options={projects.map(p => ({ value: p.id, label: p.name }))}
+                                value={field.value}
+                                onChange={field.onChange}
+                                placeholder="Select a project"
+                                searchPlaceholder="Search projects..."
+                                />
                                 <FormMessage />
                             </FormItem>
                         )} />
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Price / Amount (TK)</FormLabel><FormControl><Input type="number" placeholder="5000" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="qty" render={({ field }) => (<FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" placeholder="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="date" render={({ field }) => (<FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        </div>
-                        <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Describe the expense..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="reference" render={({ field }) => (<FormItem><FormLabel>Reference</FormLabel><FormControl><Input placeholder="Invoice #123" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="vendorId" render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Vendor</FormLabel>
+                                <Combobox
+                                options={vendors.map(v => ({ value: v.id, label: `${v.enterpriseName} (${v.name})` }))}
+                                value={field.value}
+                                onChange={field.onChange}
+                                placeholder="Select a vendor"
+                                searchPlaceholder="Search vendors..."
+                                />
+                                <FormMessage />
+                            </FormItem>
+                        )} />
                     </div>
-                </ScrollArea>
-                <div className="p-4 pt-0 border-t">
-                    <Button type="submit" className="w-full mt-4" disabled={isLoading}>{expense ? 'Save Changes' : 'Add Expense'}</Button>
+                    <FormField control={form.control} name="expenseCategoryName" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Item / Category</FormLabel>
+                            <div className="flex items-start gap-2">
+                                <div className="flex-1">
+                                    <Combobox
+                                    options={categories?.map(c => ({ value: c.name, label: c.name })) || []}
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    placeholder="Select an item"
+                                    searchPlaceholder="Search items..."
+                                    />
+                                </div>
+                                <AddCategoryDialog tenantId={tenantId} onFinished={() => { /* `useCollection` will auto-update */ }} />
+                            </div>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Price / Amount (TK)</FormLabel><FormControl><Input type="number" placeholder="5000" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="qty" render={({ field }) => (<FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" placeholder="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="date" render={({ field }) => (<FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                    <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Describe the expense..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="reference" render={({ field }) => (<FormItem><FormLabel>Reference</FormLabel><FormControl><Input placeholder="Invoice #123" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                </div>
+                <div className="mt-6">
+                    <Button type="submit" className="w-full" disabled={isLoading}>{expense ? 'Save Changes' : 'Add Expense'}</Button>
                 </div>
             </form>
         </Form>
@@ -362,7 +361,7 @@ export default function ExpensesPage() {
     const { toast } = useToast();
     const { showLoading, hideLoading } = useLoading();
 
-    const [isFormOpen, setFormOpen] = useState(false);
+    const [isSheetOpen, setSheetOpen] = useState(false);
     const [editExpense, setEditExpense] = useState<OutflowTransaction | undefined>(undefined);
     const [deleteExpense, setDeleteExpense] = useState<OutflowTransaction | undefined>(undefined);
     const [viewPayment, setViewPayment] = useState<ExpensePayment | undefined>(undefined);
@@ -450,10 +449,22 @@ export default function ExpensesPage() {
         }
     };
 
-    const handleFormFinished = () => {
-        setFormOpen(false);
+    const handleSheetClose = () => {
+        setSheetOpen(false);
+        setTimeout(() => {
+          setEditExpense(undefined);
+        }, 300);
+      };
+    
+      const handleAddClick = () => {
         setEditExpense(undefined);
-    };
+        setSheetOpen(true);
+      };
+    
+      const handleEditClick = (expense: OutflowTransaction) => {
+        setEditExpense(expense);
+        setSheetOpen(true);
+      };
 
     const handleDeletePayment = async () => {
         if (!firestore || !deletePayment || !deletePayment._originalPath || !deletePayment.outflowTransactionId) return;
@@ -512,21 +523,25 @@ export default function ExpensesPage() {
     return (
         <>
             <PageHeader title="Expenses" description="Track and manage all project-related expenses.">
-                <Button size="sm" className="gap-1" onClick={() => { setEditExpense(undefined); setFormOpen(true); }} disabled={isLoading}>
+                <Button size="sm" className="gap-1" onClick={handleAddClick} disabled={isLoading}>
                     <PlusCircle className="h-4 w-4" />
                     Add Expense
                 </Button>
             </PageHeader>
 
-            <Dialog open={isFormOpen || !!editExpense} onOpenChange={(isOpen) => { if (!isOpen) { setFormOpen(false); setEditExpense(undefined); }}}>
-                <DialogContent className="max-w-2xl p-0">
-                    <DialogHeader className="p-6 pb-4">
-                        <DialogTitle>{editExpense ? 'Edit Expense' : 'Add New Expense'}</DialogTitle>
-                        <DialogDescription>{editExpense ? 'Update the details for this expense.' : 'Fill in the form to record a new expense.'}</DialogDescription>
-                    </DialogHeader>
-                    {(isFormOpen || editExpense) && <ExpenseForm tenantId={tenantId} onFinished={handleFormFinished} expense={editExpense} projects={projects || []} vendors={vendors || []} />}
-                </DialogContent>
-            </Dialog>
+            <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
+                <SheetContent className="sm:max-w-2xl w-full">
+                    <SheetHeader>
+                        <SheetTitle>{editExpense ? 'Edit Expense' : 'Add New Expense'}</SheetTitle>
+                        <SheetDescription>{editExpense ? 'Update the details for this expense.' : 'Fill in the form to record a new expense.'}</SheetDescription>
+                    </SheetHeader>
+                    <ScrollArea className="h-[calc(100%-4rem)]">
+                        <div className="pr-6 pl-1 py-4">
+                            <ExpenseForm tenantId={tenantId} onFinished={handleSheetClose} expense={editExpense} projects={projects || []} vendors={vendors || []} />
+                        </div>
+                    </ScrollArea>
+                </SheetContent>
+            </Sheet>
 
             <AlertDialog open={!!deleteExpense} onOpenChange={(isOpen) => !isOpen && setDeleteExpense(undefined)}>
                 <AlertDialogContent>
@@ -626,7 +641,7 @@ export default function ExpensesPage() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                    <DropdownMenuItem onClick={() => setEditExpense(expense)}>Edit</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleEditClick(expense)}>Edit</DropdownMenuItem>
                                                     <DropdownMenuItem className="text-destructive" onClick={() => setDeleteExpense(expense)}>Delete</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>

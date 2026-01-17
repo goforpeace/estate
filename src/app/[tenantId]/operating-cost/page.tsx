@@ -23,6 +23,7 @@ import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { useLoading } from "@/context/loading-context";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 // --- Type Definitions ---
 type OperatingCost = {
@@ -161,7 +162,7 @@ function OperatingCostForm({ tenantId, onFinished, cost }: { tenantId: string; o
 
   return (
     <Form {...form}>
-       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4">
+       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
         <FormField
             control={form.control}
             name="itemName"
@@ -205,8 +206,8 @@ export default function OperatingCostPage() {
   const { toast } = useToast();
   const { showLoading, hideLoading } = useLoading();
 
-  const [isFormOpen, setFormOpen] = useState(false);
-  const [editCost, setEditCost] = useState<OperatingCost | undefined>(undefined);
+  const [isSheetOpen, setSheetOpen] = useState(false);
+  const [editingCost, setEditingCost] = useState<OperatingCost | undefined>(undefined);
   const [viewCost, setViewCost] = useState<OperatingCost | undefined>(undefined);
   const [deleteCost, setDeleteCost] = useState<OperatingCost | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
@@ -258,29 +259,40 @@ export default function OperatingCostPage() {
     }
   }
 
-  const handleFormFinished = () => {
-    setFormOpen(false);
-    setEditCost(undefined);
-  }
+  const handleSheetClose = () => {
+    setSheetOpen(false);
+    setTimeout(() => {
+      setEditingCost(undefined);
+    }, 300);
+  };
+
+  const handleAddClick = () => {
+    setEditingCost(undefined);
+    setSheetOpen(true);
+  };
+
+  const handleEditClick = (cost: OperatingCost) => {
+    setEditingCost(cost);
+    setSheetOpen(true);
+  };
 
   return (
     <>
       <PageHeader title="Operating Costs" description="Manage your general business expenses.">
-        <Dialog open={isFormOpen || !!editCost} onOpenChange={(isOpen) => { if (!isOpen) handleFormFinished() }}>
-          <DialogTrigger asChild>
-             <Button size="sm" className="gap-1" onClick={() => { setEditCost(undefined); setFormOpen(true); }}>
-              <PlusCircle className="h-4 w-4" />
-              Add Cost
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editCost ? 'Edit' : 'Add'} Operating Cost</DialogTitle>
-            </DialogHeader>
-            <OperatingCostForm tenantId={tenantId} onFinished={handleFormFinished} cost={editCost} />
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" className="gap-1" onClick={handleAddClick}>
+          <PlusCircle className="h-4 w-4" />
+          Add Cost
+        </Button>
       </PageHeader>
+      
+      <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
+          <SheetContent className="sm:max-w-lg">
+            <SheetHeader>
+              <SheetTitle>{editingCost ? 'Edit Operating Cost' : 'Add Operating Cost'}</SheetTitle>
+            </SheetHeader>
+            <OperatingCostForm tenantId={tenantId} onFinished={handleSheetClose} cost={editingCost} />
+          </SheetContent>
+        </Sheet>
       
       <AlertDialog open={!!deleteCost} onOpenChange={(isOpen) => !isOpen && setDeleteCost(undefined)}>
         <AlertDialogContent>
@@ -356,7 +368,7 @@ export default function OperatingCostPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => setViewCost(cost)}>View Details</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setEditCost(cost)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditClick(cost)}>Edit</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => setDeleteCost(cost)}>Delete</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

@@ -11,7 +11,7 @@ import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, u
 import { collection, doc } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -152,9 +152,9 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-                <ScrollArea className="h-[70vh] p-1 pr-4">
-                    <div className="space-y-4 p-4 pt-0">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6">
+                <ScrollArea className="h-[calc(100vh-8rem)]">
+                    <div className="space-y-4 p-1 pr-4">
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
@@ -287,7 +287,7 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
                         </div>
                     </div>
                 </ScrollArea>
-                 <div className="p-4 pt-0 border-t">
+                 <div className="p-4 pt-0 border-t absolute bottom-0 right-0 left-0 bg-background">
                     <Button type="submit" className="w-full mt-4" disabled={isLoading}>{sale ? 'Save Changes' : 'Record Sale'}</Button>
                 </div>
             </form>
@@ -304,8 +304,8 @@ export default function SalesPage() {
     const { toast } = useToast();
     const { showLoading, hideLoading } = useLoading();
 
-    const [isFormOpen, setFormOpen] = useState(false);
-    const [editSale, setEditSale] = useState<FlatSale | undefined>(undefined);
+    const [isSheetOpen, setSheetOpen] = useState(false);
+    const [editingSale, setEditingSale] = useState<FlatSale | undefined>(undefined);
     const [deleteSale, setDeleteSale] = useState<FlatSale | undefined>(undefined);
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
@@ -374,40 +374,41 @@ export default function SalesPage() {
         }
     };
 
-    const handleFormFinished = () => {
-        setFormOpen(false);
-        setEditSale(undefined);
+    const handleSheetClose = () => {
+        setSheetOpen(false);
+        setTimeout(() => {
+            setEditingSale(undefined);
+        }, 300);
     };
+
+    const handleAddClick = () => {
+        setEditingSale(undefined);
+        setSheetOpen(true);
+    }
+    
+    const handleEditClick = (sale: FlatSale) => {
+        setEditingSale(sale);
+        setSheetOpen(true);
+    }
 
   return (
     <>
         <PageHeader title="Flat Sales" description="Manage and record all property sales.">
-            <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-                <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1" onClick={() => { setEditSale(undefined); setFormOpen(true); }} disabled={isLoading}>
-                        <PlusCircle className="h-4 w-4" />
-                        Add Sale
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-3xl p-0">
-                    <DialogHeader className="p-6 pb-4">
-                        <DialogTitle>Record a New Sale</DialogTitle>
-                        <DialogDescription>Fill in the details to record a new flat sale.</DialogDescription>
-                    </DialogHeader>
-                    {isFormOpen && <SaleForm tenantId={tenantId} onFinished={handleFormFinished} projects={projects || []} customers={customers || []} existingSales={sales || []} />}
-                </DialogContent>
-            </Dialog>
+            <Button size="sm" className="gap-1" onClick={handleAddClick} disabled={isLoading}>
+                <PlusCircle className="h-4 w-4" />
+                Add Sale
+            </Button>
         </PageHeader>
 
-        <Dialog open={!!editSale} onOpenChange={(isOpen) => !isOpen && setEditSale(undefined)}>
-            <DialogContent className="max-w-3xl p-0">
-                <DialogHeader className="p-6 pb-4">
-                    <DialogTitle>Edit Sale Record</DialogTitle>
-                    <DialogDescription>Update the details for this sale.</DialogDescription>
-                </DialogHeader>
-                {editSale && <SaleForm tenantId={tenantId} sale={editSale} onFinished={handleFormFinished} projects={projects || []} customers={customers || []} existingSales={sales || []} />}
-            </DialogContent>
-        </Dialog>
+        <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
+            <SheetContent className="sm:max-w-3xl w-full">
+                <SheetHeader>
+                    <SheetTitle>{editingSale ? 'Edit Sale Record' : 'Record a New Sale'}</SheetTitle>
+                    <SheetDescription>{editingSale ? 'Update the details for this sale.' : 'Fill in the details to record a new flat sale.'}</SheetDescription>
+                </SheetHeader>
+                <SaleForm tenantId={tenantId} sale={editingSale} onFinished={handleSheetClose} projects={projects || []} customers={customers || []} existingSales={sales || []} />
+            </SheetContent>
+        </Sheet>
 
         <AlertDialog open={!!deleteSale} onOpenChange={(isOpen) => !isOpen && setDeleteSale(undefined)}>
             <AlertDialogContent>
@@ -472,7 +473,7 @@ export default function SalesPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuItem asChild><Link href={`/${tenantId}/sales/${sale.id}`}>View Details</Link></DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setEditSale(sale)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditClick(sale)}>Edit</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => setDeleteSale(sale)}>Delete</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

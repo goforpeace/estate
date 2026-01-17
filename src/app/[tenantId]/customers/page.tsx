@@ -10,7 +10,7 @@ import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { useParams } from "next/navigation";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -96,7 +96,7 @@ function CustomerForm({ tenantId, onFinished, customer }: { tenantId: string; on
 
   return (
     <Form {...form}>
-       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
         <FormField
           control={form.control}
           name="name"
@@ -164,8 +164,8 @@ export default function CustomersPage() {
   const { toast } = useToast();
   const { showLoading, hideLoading } = useLoading();
 
-  const [isFormOpen, setFormOpen] = useState(false);
-  const [editCustomer, setEditCustomer] = useState<Customer | undefined>(undefined);
+  const [isSheetOpen, setSheetOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
   const [deleteCustomer, setDeleteCustomer] = useState<Customer | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -221,44 +221,43 @@ export default function CustomersPage() {
     }
   }
 
-  const handleFormFinished = () => {
-    setFormOpen(false);
-    setEditCustomer(undefined);
-  }
+  const handleSheetClose = () => {
+    setSheetOpen(false);
+    setTimeout(() => {
+      setEditingCustomer(undefined);
+    }, 300); // Delay to allow sheet to animate out
+  };
+
+  const handleAddClick = () => {
+    setEditingCustomer(undefined);
+    setSheetOpen(true);
+  };
+
+  const handleEditClick = (customer: Customer) => {
+    setEditingCustomer(customer);
+    setSheetOpen(true);
+  };
 
   return (
     <>
       <PageHeader title="Customers" description="Manage your customer database.">
-        <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-          <DialogTrigger asChild>
-             <Button size="sm" className="gap-1" onClick={() => { setEditCustomer(undefined); setFormOpen(true); }}>
-              <PlusCircle className="h-4 w-4" />
-              Add Customer
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add a New Customer</DialogTitle>
-              <DialogDescription>
-                Fill in the details to add a new customer.
-              </DialogDescription>
-            </DialogHeader>
-            <CustomerForm tenantId={tenantId} onFinished={handleFormFinished} />
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" className="gap-1" onClick={handleAddClick}>
+          <PlusCircle className="h-4 w-4" />
+          Add Customer
+        </Button>
       </PageHeader>
-
-      <Dialog open={!!editCustomer} onOpenChange={(isOpen) => !isOpen && setEditCustomer(undefined)}>
-          <DialogContent>
-              <DialogHeader>
-              <DialogTitle>Edit Customer</DialogTitle>
-              <DialogDescription>
-                  Update the details for &quot;{editCustomer?.name}&quot;.
-              </DialogDescription>
-              </DialogHeader>
-              {editCustomer && <CustomerForm tenantId={tenantId} customer={editCustomer} onFinished={handleFormFinished} />}
-          </DialogContent>
-      </Dialog>
+      
+      <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{editingCustomer ? 'Edit Customer' : 'Add a New Customer'}</SheetTitle>
+            <SheetDescription>
+              {editingCustomer ? `Update the details for "${editingCustomer.name}".` : 'Fill in the details to add a new customer.'}
+            </SheetDescription>
+          </SheetHeader>
+          <CustomerForm tenantId={tenantId} onFinished={handleSheetClose} customer={editingCustomer} />
+        </SheetContent>
+      </Sheet>
       
       <AlertDialog open={!!deleteCustomer} onOpenChange={(isOpen) => !isOpen && setDeleteCustomer(undefined)}>
         <AlertDialogContent>
@@ -331,7 +330,7 @@ export default function CustomersPage() {
                            <DropdownMenuItem asChild>
                             <Link href={`/${tenantId}/customers/${customer.id}`}>View Details</Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setEditCustomer(customer)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditClick(customer)}>Edit</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => setDeleteCustomer(customer)}>
                             Delete
                           </DropdownMenuItem>

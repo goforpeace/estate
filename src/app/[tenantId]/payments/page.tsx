@@ -7,8 +7,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,10 +36,10 @@ import { format } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import Link from 'next/link';
 import { type FlatSale } from '../sales/page';
 import { Combobox } from '@/components/ui/combobox';
 import { useLoading } from '@/context/loading-context';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 
 type Project = { id: string; name: string; flats: { name: string }[] };
@@ -217,146 +215,145 @@ const AddPaymentForm = ({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-        <ScrollArea className="h-[70vh] p-1 pr-4">
-            <div className="space-y-4 p-4">
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2 col-span-2">
-                <Label htmlFor="customerId">Customer</Label>
-                <Controller
-                    name="customerId"
-                    control={control}
-                    rules={{ required: true }}
-                    render={({ field }) => (
-                      <Combobox
-                        options={customers.map((c) => ({ value: c.id, label: c.name }))}
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Select Customer"
-                        searchPlaceholder="Search customers..."
-                        disabled={!!transactionToEdit}
-                      />
-                    )}
-                />
-                {errors.customerId && <p className="text-red-500 text-xs">Customer is required</p>}
-                </div>
-                <div className="space-y-2">
-                <Label htmlFor="projectId">Project</Label>
-                <Controller
-                    name="projectId"
-                    control={control}
-                    rules={{ required: true }}
-                    render={({ field }) => (
-                      <Combobox
-                        options={filteredProjects.map((p) => ({ value: p.id, label: p.name }))}
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Select Project"
-                        searchPlaceholder="Search projects..."
-                        disabled={!selectedCustomerId || !!transactionToEdit}
-                      />
-                    )}
-                />
-                {errors.projectId && <p className="text-red-500 text-xs">Project is required</p>}
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="flatName">Flat</Label>
+    <form onSubmit={handleSubmit(onSubmit)} className="mt-6">
+        <ScrollArea className="h-[calc(100svh-8rem)]">
+            <div className="space-y-4 p-1 pr-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 col-span-2">
+                    <Label htmlFor="customerId">Customer</Label>
                     <Controller
-                    name="flatName"
-                    control={control}
-                    rules={{ required: true }}
-                    render={({ field }) => (
-                      <Combobox
-                        options={filteredFlats.map((flat) => ({ value: flat, label: flat }))}
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Select Flat"
-                        searchPlaceholder="Search flats..."
-                        disabled={!selectedProjectId || !!transactionToEdit}
-                      />
-                    )}
+                        name="customerId"
+                        control={control}
+                        rules={{ required: true }}
+                        render={({ field }) => (
+                        <Combobox
+                            options={customers.map((c) => ({ value: c.id, label: c.name }))}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select Customer"
+                            searchPlaceholder="Search customers..."
+                            disabled={!!transactionToEdit}
+                        />
+                        )}
                     />
-                    {errors.flatName && <p className="text-red-500 text-xs">Flat is required</p>}
+                    {errors.customerId && <p className="text-red-500 text-xs">Customer is required</p>}
+                    </div>
+                    <div className="space-y-2">
+                    <Label htmlFor="projectId">Project</Label>
+                    <Controller
+                        name="projectId"
+                        control={control}
+                        rules={{ required: true }}
+                        render={({ field }) => (
+                        <Combobox
+                            options={filteredProjects.map((p) => ({ value: p.id, label: p.name }))}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select Project"
+                            searchPlaceholder="Search projects..."
+                            disabled={!selectedCustomerId || !!transactionToEdit}
+                        />
+                        )}
+                    />
+                    {errors.projectId && <p className="text-red-500 text-xs">Project is required</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="flatName">Flat</Label>
+                        <Controller
+                        name="flatName"
+                        control={control}
+                        rules={{ required: true }}
+                        render={({ field }) => (
+                        <Combobox
+                            options={filteredFlats.map((flat) => ({ value: flat, label: flat }))}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select Flat"
+                            searchPlaceholder="Search flats..."
+                            disabled={!selectedProjectId || !!transactionToEdit}
+                        />
+                        )}
+                        />
+                        {errors.flatName && <p className="text-red-500 text-xs">Flat is required</p>}
+                    </div>
                 </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                <Label htmlFor="amount">Amount</Label>
-                <Input id="amount" type="number" {...register('amount', { required: true, valueAsNumber: true })} />
-                {errors.amount && <p className="text-red-500 text-xs">Amount is required</p>}
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                    <Label htmlFor="amount">Amount</Label>
+                    <Input id="amount" type="number" {...register('amount', { required: true, valueAsNumber: true })} />
+                    {errors.amount && <p className="text-red-500 text-xs">Amount is required</p>}
+                    </div>
+                    <div className="space-y-2">
+                    <Label htmlFor="date">Date</Label>
+                    <Input id="date" type="date" {...register('date', { required: true })} />
+                    {errors.date && <p className="text-red-500 text-xs">Date is required</p>}
+                    </div>
                 </div>
-                <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
-                <Input id="date" type="date" {...register('date', { required: true })} />
-                {errors.date && <p className="text-red-500 text-xs">Date is required</p>}
-                </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                <Label htmlFor="paymentType">Payment Type</Label>
-                <Controller
-                    name="paymentType"
-                    control={control}
-                    rules={{ required: true }}
-                    render={({ field }) => (
-                      <Combobox
-                        options={paymentTypes.map(type => ({ value: type, label: type }))}
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Select Type"
-                        searchPlaceholder="Search types..."
-                      />
-                    )}
-                />
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                    <Label htmlFor="paymentType">Payment Type</Label>
+                    <Controller
+                        name="paymentType"
+                        control={control}
+                        rules={{ required: true }}
+                        render={({ field }) => (
+                        <Combobox
+                            options={paymentTypes.map(type => ({ value: type, label: type }))}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select Type"
+                            searchPlaceholder="Search types..."
+                        />
+                        )}
+                    />
+                    </div>
+                    <div className="space-y-2">
+                    <Label htmlFor="paymentMethod">Payment Method</Label>
+                    <Controller
+                        name="paymentMethod"
+                        control={control}
+                        rules={{ required: true }}
+                        render={({ field }) => (
+                        <Combobox
+                            options={[
+                            { value: "Cash", label: "Cash" },
+                            { value: "Cheque", label: "Cheque" },
+                            { value: "Bank Transfer", label: "Bank Transfer" },
+                            ]}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select Method"
+                        />
+                        )}
+                    />
+                    </div>
                 </div>
-                <div className="space-y-2">
-                <Label htmlFor="paymentMethod">Payment Method</Label>
-                <Controller
-                    name="paymentMethod"
-                    control={control}
-                    rules={{ required: true }}
-                    render={({ field }) => (
-                      <Combobox
-                        options={[
-                          { value: "Cash", label: "Cash" },
-                          { value: "Cheque", label: "Cheque" },
-                          { value: "Bank Transfer", label: "Bank Transfer" },
-                        ]}
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Select Method"
-                      />
-                    )}
-                />
-                </div>
-            </div>
 
-            <div className="space-y-2">
-                <Label htmlFor="bankName">Bank Name (if applicable)</Label>
-                <Input id="bankName" {...register('bankName')} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                <Label htmlFor="chequeNo">Cheque No (if applicable)</Label>
-                <Input id="chequeNo" {...register('chequeNo')} />
+                    <Label htmlFor="bankName">Bank Name (if applicable)</Label>
+                    <Input id="bankName" {...register('bankName')} />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                    <Label htmlFor="chequeNo">Cheque No (if applicable)</Label>
+                    <Input id="chequeNo" {...register('chequeNo')} />
+                    </div>
+                    <div className="space-y-2">
+                    <Label htmlFor="chequeDate">Cheque Date (if applicable)</Label>
+                    <Input id="chequeDate" type="date" {...register('chequeDate')} />
+                    </div>
+                </div>
+
                 <div className="space-y-2">
-                <Label htmlFor="chequeDate">Cheque Date (if applicable)</Label>
-                <Input id="chequeDate" type="date" {...register('chequeDate')} />
+                    <Label htmlFor="note">Note</Label>
+                    <Textarea id="note" {...register('note')} />
                 </div>
             </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="note">Note</Label>
-                <Textarea id="note" {...register('note')} />
-            </div>
-            </div>
-
         </ScrollArea>
-        <div className="p-4 pt-0 border-t">
-          <Button type="submit" className="w-full mt-4" disabled={isLoading}>
+        <div className="pt-4 absolute bottom-0 right-0 left-0 p-6 bg-background border-t">
+          <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? 'Recording...' : (transactionToEdit ? 'Update Payment' : 'Record Payment')}
           </Button>
         </div>
@@ -371,7 +368,7 @@ export default function PaymentsPage() {
   const { toast } = useToast();
   const { showLoading, hideLoading } = useLoading();
 
-  const [isFormOpen, setFormOpen] = useState(false);
+  const [isSheetOpen, setSheetOpen] = useState(false);
   const [isReceiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<{transaction: InflowTransaction, customer: Customer, project: Project} | null>(null);
   const [editTransaction, setEditTransaction] = useState<PaymentRecord | undefined>(undefined);
@@ -503,9 +500,11 @@ export default function PaymentsPage() {
     }
   };
 
-  const handleFormFinished = () => {
-    setFormOpen(false);
-    setEditTransaction(undefined);
+  const handleSheetClose = () => {
+    setSheetOpen(false);
+    setTimeout(() => {
+      setEditTransaction(undefined);
+    }, 300);
   };
   
   const handleDelete = async () => {
@@ -533,6 +532,19 @@ export default function PaymentsPage() {
     if (!payment) return undefined;
     return payment;
   };
+  
+  const handleAddClick = () => {
+    setEditTransaction(undefined);
+    setSheetOpen(true);
+  };
+
+  const handleEditClick = (payment: PaymentRecord) => {
+    const fullTransaction = getFullTransaction(payment);
+    if (fullTransaction) {
+        setEditTransaction(fullTransaction);
+        setSheetOpen(true);
+    }
+  };
 
   return (
     <>
@@ -540,36 +552,35 @@ export default function PaymentsPage() {
         title="Payments"
         description="Record and track customer payments."
       >
-        <Dialog open={isFormOpen} onOpenChange={(isOpen) => { if (!isOpen) handleFormFinished(); else setFormOpen(true); }}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1" disabled={!allDataAvailable} onClick={() => { setEditTransaction(undefined); setFormOpen(true);}}>
-              <PlusCircle className="h-4 w-4" />
-              Add Payment
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl p-0">
-            <DialogHeader className="p-6 pb-4">
-              <DialogTitle>{editTransaction ? 'Edit Payment' : 'Record a New Payment'}</DialogTitle>
-              <DialogDescription>
+        <Button size="sm" className="gap-1" disabled={!allDataAvailable} onClick={handleAddClick}>
+            <PlusCircle className="h-4 w-4" />
+            Add Payment
+        </Button>
+      </PageHeader>
+      
+      <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="sm:max-w-2xl w-full">
+            <SheetHeader>
+                <SheetTitle>{editTransaction ? 'Edit Payment' : 'Record a New Payment'}</SheetTitle>
+                <SheetDescription>
                 {editTransaction ? 'Update the details for this payment.' : 'Fill in the details to record a new payment.'}
-              </DialogDescription>
-            </DialogHeader>
+                </SheetDescription>
+            </SheetHeader>
             {allDataAvailable ? (
-              <AddPaymentForm
-                onFinished={handleFormFinished}
+            <AddPaymentForm
+                onFinished={handleSheetClose}
                 tenantId={tenantId}
                 projects={projects || []}
                 customers={customers || []}
                 sales={sales || []}
                 onPaymentAdded={handlePaymentAdded}
                 transactionToEdit={editTransaction}
-              />
+            />
             ) : (
-              <p className="p-6">Loading form data...</p>
+            <p className="p-6">Loading form data...</p>
             )}
-          </DialogContent>
-        </Dialog>
-      </PageHeader>
+        </SheetContent>
+      </Sheet>
       
        {receiptData && (
         <PrintReceiptDialog
@@ -652,13 +663,7 @@ export default function PaymentsPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem onClick={() => handleViewReceipt(payment)}>View Receipt</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => {
-                                const fullTransaction = getFullTransaction(payment);
-                                if (fullTransaction) {
-                                    setEditTransaction(fullTransaction);
-                                    setFormOpen(true);
-                                }
-                              }}>Edit</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditClick(payment)}>Edit</DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive" onClick={() => {
                                  const fullTransaction = getFullTransaction(payment);
                                  if (fullTransaction) setDeleteTransaction(fullTransaction);

@@ -31,7 +31,7 @@ import {
 } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { useParams, useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -169,9 +169,9 @@ function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFi
 
   return (
     <Form {...form}>
-       <form onSubmit={form.handleSubmit(onSubmit)}>
-        <ScrollArea className="h-[70vh] p-1 pr-4">
-          <div className="space-y-6 p-4 pt-0">
+       <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6">
+        <ScrollArea className="h-[calc(100vh-8rem)]">
+          <div className="space-y-6 p-1 pr-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
@@ -288,7 +288,7 @@ function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFi
             </div>
           </div>
         </ScrollArea>
-        <div className="p-4 pt-0 border-t">
+        <div className="p-4 pt-0 border-t absolute bottom-0 right-0 left-0 bg-background">
           <Button type="submit" className="w-full mt-4" disabled={isLoading}>{project ? 'Save Changes' : 'Add Project'}</Button>
         </div>
       </form>
@@ -306,8 +306,8 @@ export default function ProjectsPage() {
   const { toast } = useToast();
   const { showLoading, hideLoading } = useLoading();
 
-  const [isAddDialogOpen, setAddDialogOpen] = useState(false);
-  const [editProject, setEditProject] = useState<Project | undefined>(undefined);
+  const [isSheetOpen, setSheetOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | undefined>(undefined);
   const [deleteProject, setDeleteProject] = useState<Project | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -358,6 +358,23 @@ export default function ProjectsPage() {
     }
   }
 
+  const handleSheetClose = () => {
+    setSheetOpen(false);
+    setTimeout(() => {
+      setEditingProject(undefined);
+    }, 300);
+  };
+
+  const handleAddClick = () => {
+    setEditingProject(undefined);
+    setSheetOpen(true);
+  };
+
+  const handleEditClick = (project: Project) => {
+    setEditingProject(project);
+    setSheetOpen(true);
+  };
+
   const statusVariant = {
     Ongoing: "default",
     Upcoming: "secondary",
@@ -370,39 +387,24 @@ export default function ProjectsPage() {
         title="Projects"
         description="Manage your real estate projects."
       >
-        <Dialog open={isAddDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DialogTrigger asChild>
-             <Button size="sm" className="gap-1" onClick={() => setAddDialogOpen(true)}>
-              <PlusCircle className="h-4 w-4" />
-              Add Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl p-0">
-            <DialogHeader className="p-6 pb-4">
-              <DialogTitle>Add a New Project</DialogTitle>
-              <DialogDescription>
-                Fill in the details below to create a new project for your tenant.
-              </DialogDescription>
-            </DialogHeader>
-            <ProjectForm tenantId={tenantId} onFinished={() => setAddDialogOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" className="gap-1" onClick={handleAddClick}>
+          <PlusCircle className="h-4 w-4" />
+          Add Project
+        </Button>
       </PageHeader>
 
-       {/* Edit Project Dialog */}
-      <Dialog open={!!editProject} onOpenChange={(isOpen) => !isOpen && setEditProject(undefined)}>
-          <DialogContent className="max-w-2xl p-0">
-              <DialogHeader className="p-6 pb-4">
-              <DialogTitle>Edit Project</DialogTitle>
-              <DialogDescription>
-                  Update the details for &quot;{editProject?.name}&quot;.
-              </DialogDescription>
-              </DialogHeader>
-              {editProject && <ProjectForm tenantId={tenantId} project={editProject} onFinished={() => setEditProject(undefined)} />}
-          </DialogContent>
-      </Dialog>
+      <Sheet open={isSheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="sm:max-w-2xl w-full">
+            <SheetHeader>
+            <SheetTitle>{editingProject ? 'Edit Project' : 'Add a New Project'}</SheetTitle>
+            <SheetDescription>
+                {editingProject ? `Update the details for "${editingProject.name}".` : 'Fill in the details below to create a new project.'}
+            </SheetDescription>
+            </SheetHeader>
+            <ProjectForm tenantId={tenantId} onFinished={handleSheetClose} project={editingProject} />
+        </SheetContent>
+      </Sheet>
       
-       {/* Delete Project Alert Dialog */}
       <AlertDialog open={!!deleteProject} onOpenChange={(isOpen) => !isOpen && setDeleteProject(undefined)}>
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -494,7 +496,7 @@ export default function ProjectsPage() {
                           <DropdownMenuItem asChild>
                              <Link href={`/${tenantId}/projects/${project.id}`}>View Details</Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setEditProject(project)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditClick(project)}>Edit</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => setDeleteProject(project)}>
                             Delete
                           </DropdownMenuItem>
