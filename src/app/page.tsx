@@ -7,10 +7,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Image from 'next/image';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function TenantIdPage() {
   const router = useRouter();
   const [tenantId, setTenantId] = useState('');
+  const firestore = useFirestore();
+
+  const brandingRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, 'globalSettings', 'loginBranding');
+  }, [firestore]);
+
+  const { data: branding, isLoading: brandingLoading } = useDoc<{loginImageUrl?: string}>(brandingRef);
 
   const handleContinue = (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,16 +30,23 @@ export default function TenantIdPage() {
     }
   };
 
+  const imageUrl = branding?.loginImageUrl || "https://picsum.photos/seed/login/1200/1800";
+
   return (
-    <div className="min-h-screen w-full lg:grid lg:grid-cols-5">
-      <div className="hidden bg-muted lg:block relative lg:col-span-4">
-        <Image
-            src="https://picsum.photos/seed/login/1200/1800"
-            alt="Login background"
-            fill
-            className="object-cover"
-            data-ai-hint="restaurant interior"
-        />
+    <div className="min-h-screen w-full lg:grid lg:grid-cols-3">
+      <div className="hidden bg-muted lg:block relative lg:col-span-2">
+         {brandingLoading ? (
+            <Skeleton className="h-full w-full" />
+        ) : (
+            <Image
+                src={imageUrl}
+                alt="Login background"
+                fill
+                className="object-cover"
+                data-ai-hint="office building modern"
+                unoptimized
+            />
+        )}
         <div className="absolute bottom-10 left-10 right-10 p-6 bg-black/50 text-white rounded-lg backdrop-blur-sm">
             <h1 className="text-3xl font-bold font-headline">Welcome to EstateFlow</h1>
             <p className="mt-2 text-sm">Your all-in-one real estate management partner. Streamline projects, sales, and finances with ease.</p>

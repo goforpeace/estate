@@ -1,14 +1,14 @@
 'use client'
 
-import { PlusCircle, Settings } from "lucide-react";
+import { PlusCircle, Settings, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
-import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useDoc, setDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -26,8 +26,78 @@ export type Tenant = {
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
-  loginImageUrl?: string;
 };
+
+type GlobalBranding = {
+    loginImageUrl?: string;
+}
+
+function GlobalBrandingCard() {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const { showLoading, hideLoading, isLoading: isActionInProgress } = useLoading();
+    
+    const brandingRef = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return doc(firestore, 'globalSettings', 'loginBranding');
+    }, [firestore]);
+
+    const { data: branding, isLoading } = useDoc<GlobalBranding>(brandingRef);
+
+    const [loginImageUrl, setLoginImageUrl] = useState('');
+
+    useEffect(() => {
+        if (branding) {
+            setLoginImageUrl(branding.loginImageUrl || '');
+        }
+    }, [branding]);
+    
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!brandingRef) return;
+        showLoading('Saving global branding...');
+        try {
+            await setDocumentNonBlocking(brandingRef, { loginImageUrl }, { merge: true });
+            toast({
+                title: 'Branding Updated',
+                description: 'The global login image has been updated.'
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Update Failed',
+                description: 'Could not save branding settings.'
+            });
+        } finally {
+            hideLoading();
+        }
+    };
+
+    if (isLoading) {
+        return <Card><CardHeader><CardTitle>Global Branding</CardTitle></CardHeader><CardContent>Loading...</CardContent></Card>;
+    }
+
+    return (
+        <Card>
+            <form onSubmit={handleSave}>
+                <CardHeader>
+                    <CardTitle className="font-headline">Global Branding</CardTitle>
+                    <CardDescription>Manage the look and feel for all tenants.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="login-image-url">Global Login Page Image URL</Label>
+                        <Input id="login-image-url" placeholder="https://example.com/image.jpg" value={loginImageUrl} onChange={(e) => setLoginImageUrl(e.target.value)} />
+                    </div>
+                </CardContent>
+                 <CardFooter>
+                    <Button type="submit" disabled={isActionInProgress}><Save className="mr-2 h-4 w-4" /> Save Image URL</Button>
+                </CardFooter>
+            </form>
+        </Card>
+    );
+}
+
 
 function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
     const [open, setOpen] = useState(false);
@@ -36,7 +106,6 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
     const [contactName, setContactName] = useState('');
     const [contactEmail, setContactEmail] = useState('');
     const [contactPhone, setContactPhone] = useState('');
-    const [loginImageUrl, setLoginImageUrl] = useState('');
     const firestore = useFirestore();
     const { toast } = useToast();
     const { showLoading, hideLoading, isLoading } = useLoading();
@@ -63,7 +132,6 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
                 contactName,
                 contactEmail,
                 contactPhone,
-                loginImageUrl,
             };
 
             await addDocumentNonBlocking(tenantsCol, newTenant);
@@ -78,7 +146,6 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
             setContactName('');
             setContactEmail('');
             setContactPhone('');
-            setLoginImageUrl('');
             setOpen(false);
             onTenantAdded();
         } catch (error) {
@@ -127,10 +194,6 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
                         <Label htmlFor="contactPhone" className="text-right">Contact Phone</Label>
                         <Input id="contactPhone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="col-span-3" placeholder="+123456789" />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="loginImageUrl" className="text-right">Image URL</Label>
-                        <Input id="loginImageUrl" value={loginImageUrl} onChange={(e) => setLoginImageUrl(e.target.value)} className="col-span-3" placeholder="https://example.com/image.jpg" />
-                    </div>
                 </div>
                 <DialogFooter>
                     <Button onClick={handleAddTenant} disabled={isLoading}>Add Tenant</Button>
@@ -171,57 +234,64 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <PageHeader title="Tenant Management" description="Add, manage, and disable tenant accounts.">
+      <PageHeader title="Admin Dashboard" description="Manage tenants and global settings.">
         <AddTenantDialog onTenantAdded={() => {}} />
       </PageHeader>
-      <Card>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Company Name</TableHead>
-                <TableHead>Tenant Domain</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Access</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {error && (
-                 <TableRow>
-                    <TableCell colSpan={5} className="text-center text-destructive">Error loading tenants: {error.message}</TableCell>
+      <div className="grid gap-6">
+        <GlobalBrandingCard />
+        <Card>
+            <CardHeader>
+                <CardTitle>Tenant Management</CardTitle>
+                <CardDescription>Add, manage, and disable tenant accounts.</CardDescription>
+            </CardHeader>
+            <CardContent>
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead>Company Name</TableHead>
+                    <TableHead>Tenant Domain</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Access</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              )}
-              {!isTenantsLoading && tenants?.map((tenant) => (
-                <TableRow key={tenant.id}>
-                  <TableCell className="font-medium">{tenant.name}</TableCell>
-                  <TableCell>{tenant.domain}</TableCell>
-                  <TableCell>
-                     <Badge variant={tenant.enabled ? 'secondary' : 'destructive'}>
-                        {tenant.enabled ? 'active' : 'inactive'}
-                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={tenant.enabled}
-                      onCheckedChange={() => toggleTenantStatus(tenant.id, tenant.enabled)}
-                      aria-label="Toggle tenant access"
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/gopon/tenants/${tenant.id}`}>
-                        <Settings className="h-4 w-4 mr-2" />
-                        Manage
-                      </Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                {error && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center text-destructive">Error loading tenants: {error.message}</TableCell>
+                    </TableRow>
+                )}
+                {!isTenantsLoading && tenants?.map((tenant) => (
+                    <TableRow key={tenant.id}>
+                    <TableCell className="font-medium">{tenant.name}</TableCell>
+                    <TableCell>{tenant.domain}</TableCell>
+                    <TableCell>
+                        <Badge variant={tenant.enabled ? 'secondary' : 'destructive'}>
+                            {tenant.enabled ? 'active' : 'inactive'}
+                        </Badge>
+                    </TableCell>
+                    <TableCell>
+                        <Switch
+                        checked={tenant.enabled}
+                        onCheckedChange={() => toggleTenantStatus(tenant.id, tenant.enabled)}
+                        aria-label="Toggle tenant access"
+                        />
+                    </TableCell>
+                    <TableCell className="text-right">
+                        <Button asChild variant="outline" size="sm">
+                        <Link href={`/gopon/tenants/${tenant.id}`}>
+                            <Settings className="h-4 w-4 mr-2" />
+                            Manage
+                        </Link>
+                        </Button>
+                    </TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
+            </CardContent>
+        </Card>
+      </div>
     </>
   );
 }

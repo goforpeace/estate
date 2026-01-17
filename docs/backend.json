@@ -35,11 +35,6 @@
           "type": "string",
           "description": "The phone number of the contact person for the tenant."
         },
-        "loginImageUrl": {
-          "type": "string",
-          "description": "URL for the background image on the login page.",
-          "format": "uri"
-        },
         "noticeMessage": {
           "type": "string",
           "description": "A specific notice message for this tenant, shown as a pop-up on login."
@@ -768,6 +763,27 @@
         "isActive",
         "createdAt"
       ]
+    },
+    "GlobalBranding": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "GlobalBranding",
+      "type": "object",
+      "description": "Stores global branding settings like the login page image.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "A fixed ID for the settings document, e.g., 'login'."
+        },
+        "loginImageUrl": {
+          "type": "string",
+          "description": "URL for the global login page background image.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "loginImageUrl"
+      ]
     }
   },
   "auth": {
@@ -1073,6 +1089,22 @@
             {
               "name": "noticeId",
               "description": "Unique identifier for the notice."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/globalSettings/{settingId}",
+        "definition": {
+          "entityName": "GlobalBranding",
+          "schema": {
+            "$ref": "#/backend/entities/GlobalBranding"
+          },
+          "description": "Stores global application settings. A single document with a fixed ID like 'loginBranding' will be used.",
+          "params": [
+            {
+              "name": "settingId",
+              "description": "A fixed unique identifier for the setting document, e.g., 'loginBranding'."
             }
           ]
         }

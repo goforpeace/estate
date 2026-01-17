@@ -16,7 +16,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 type Tenant = {
   id: string;
   name: string;
-  loginImageUrl?: string;
 };
 
 export default function LoginPage({ params }: { params: { tenantId: string } }) {
@@ -27,6 +26,12 @@ export default function LoginPage({ params }: { params: { tenantId: string } }) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
+  const brandingRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, 'globalSettings', 'loginBranding');
+  }, [firestore]);
+  const { data: branding, isLoading: brandingLoading } = useDoc<{loginImageUrl?: string}>(brandingRef);
+
   const tenantRef = useMemoFirebase(() => {
       if (!firestore || !params.tenantId) return null;
       return doc(firestore, 'tenants', params.tenantId as string);
@@ -43,17 +48,20 @@ export default function LoginPage({ params }: { params: { tenantId: string } }) 
         });
         return;
     }
-    initiateEmailSignIn(auth, email, password);
-    // The useUser hook in the layout will redirect on successful login
-    router.push(`/${params.tenantId}/dashboard`);
+    if (auth) {
+      initiateEmailSignIn(auth, email, password);
+      // The useUser hook in the layout will redirect on successful login
+      // router.push(`/${params.tenantId}/dashboard`);
+    }
   };
 
-  const imageUrl = tenant?.loginImageUrl || "https://picsum.photos/seed/login/1200/1800";
+  const imageUrl = branding?.loginImageUrl || "https://picsum.photos/seed/login/1200/1800";
+  const isLoading = brandingLoading || tenantLoading;
 
   return (
-    <div className="w-full min-h-screen lg:grid lg:grid-cols-5">
-      <div className="hidden bg-muted lg:block relative lg:col-span-4">
-        {tenantLoading ? (
+    <div className="w-full min-h-screen lg:grid lg:grid-cols-3">
+      <div className="hidden bg-muted lg:block relative lg:col-span-2">
+        {isLoading ? (
             <Skeleton className="h-full w-full" />
         ) : (
             <Image
@@ -61,7 +69,7 @@ export default function LoginPage({ params }: { params: { tenantId: string } }) 
                 alt="Login background"
                 fill
                 className="object-cover"
-                data-ai-hint="restaurant interior"
+                data-ai-hint="office building modern"
                 unoptimized
             />
         )}

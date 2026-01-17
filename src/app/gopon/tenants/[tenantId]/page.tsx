@@ -27,7 +27,6 @@ type Tenant = {
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
-  loginImageUrl?: string;
   noticeMessage?: string;
   noticeActive?: boolean;
   noticeLocked?: boolean;
@@ -120,39 +119,6 @@ function ContactPersonCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: 
                 </CardContent>
                 <CardFooter>
                     <Button type="submit" disabled={isActionInProgress}><Save className="mr-2 h-4 w-4" /> Save Contact</Button>
-                </CardFooter>
-            </form>
-        </Card>
-    );
-}
-
-function BrandingCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial<Tenant>) => Promise<boolean> }) {
-    const [loginImageUrl, setLoginImageUrl] = useState(tenant.loginImageUrl || '');
-    const { isLoading: isActionInProgress } = useLoading();
-
-    useEffect(() => {
-        setLoginImageUrl(tenant.loginImageUrl || '');
-    }, [tenant]);
-    
-    const handleSave = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave({ loginImageUrl });
-    };
-
-    return (
-        <Card>
-            <form onSubmit={handleSave}>
-                <CardHeader>
-                    <CardTitle className="font-headline">Branding</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="login-image-url">Login Page Image URL</Label>
-                        <Input id="login-image-url" placeholder="https://example.com/image.jpg" value={loginImageUrl} onChange={(e) => setLoginImageUrl(e.target.value)} />
-                    </div>
-                </CardContent>
-                 <CardFooter>
-                    <Button type="submit" disabled={isActionInProgress}><Save className="mr-2 h-4 w-4" /> Save Image URL</Button>
                 </CardFooter>
             </form>
         </Card>
@@ -452,8 +418,6 @@ export default function ManageTenantPage() {
         <TenantDetailsCard tenant={tenant} onSave={handleUpdateTenant} />
         
         <ContactPersonCard tenant={tenant} onSave={handleUpdateTenant} />
-
-        <BrandingCard tenant={tenant} onSave={handleUpdateTenant} />
         
         <NoticeCard tenant={tenant} onSave={handleUpdateTenant} />
 
