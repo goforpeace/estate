@@ -44,48 +44,47 @@ export default function AppLayout({
   
   const { data: tenant, isLoading: isTenantLoading, error: tenantError } = useDoc<Tenant>(tenantRef);
 
-  // Unified loading state
-  const isLoading = isUserLoading || (tenantId && isTenantLoading);
-
   useEffect(() => {
-    // Wait until all data is loaded before running any logic
-    if (isLoading) return;
+    // Phase 1: Wait for essential data (user session and tenantId from URL) to finish loading.
+    if (isUserLoading || !tenantId) {
+      return; 
+    }
 
     const isLoginPage = pathname === `/${tenantId}/login`;
 
+    // Phase 2: Handle unauthenticated users. If not on login page, redirect them.
     if (!user) {
-      // If user is not logged in, they should only be on the login page.
-      // If they land anywhere else, redirect them.
       if (!isLoginPage) {
         router.push(`/${tenantId}/login`);
       }
-      return; // Stay on login page
+      return;
+    }
+    
+    // At this point, the user is logged in and we have a tenantId.
+    // Phase 3: Wait for the tenant data itself to finish loading from Firestore.
+    if (isTenantLoading) {
+        return;
     }
 
-    // From here, we know the user is logged in.
-
-    // Check if the tenant is valid.
+    // At this point, the database fetch for the tenant is complete.
+    // Phase 4: Handle the case where the tenant is invalid (not found, disabled, or an error occurred).
     if (!tenant || !tenant.enabled || tenantError) {
-      // If tenant is invalid, disabled, or there was an error, log the user out and redirect them home.
-      // This prevents them from being stuck on an error page for an invalid tenant.
       signOut(auth).then(() => {
-          toast({
-              variant: 'destructive',
-              title: 'Access Denied',
-              description: 'Tenant not found or account is disabled.',
-          });
-          router.push('/');
+        toast({
+          variant: 'destructive',
+          title: 'Access Denied',
+          description: 'Tenant not found or account is disabled.',
+        });
+        router.push('/');
       });
       return;
     }
 
-    // From here, we know user is logged in AND tenant is valid.
-
+    // Phase 5: All checks passed. User is authenticated and the tenant is valid.
+    // Handle routing and display the tenant-specific notice if needed.
     if (isLoginPage) {
-      // If they are on the login page somehow, redirect to the dashboard.
       router.push(`/${tenantId}/dashboard`);
     } else {
-      // If on any other page, check if a notice should be displayed.
       if (tenant.noticeActive && tenant.noticeMessage) {
         const NOTICE_INTERVAL = 5 * 60 * 1000; // 5 minutes
         const storageKey = `noticeLastClosed_${tenant.id}`;
@@ -97,7 +96,18 @@ export default function AppLayout({
         }
       }
     }
-  }, [isLoading, user, tenant, tenantId, pathname, router, auth, toast, tenantError]);
+  }, [
+      isUserLoading, 
+      user, 
+      tenantId, 
+      isTenantLoading, 
+      tenant,
+      tenantError, 
+      pathname, 
+      router, 
+      auth, 
+      toast
+  ]);
 
 
   const handleCloseNotice = () => {
@@ -106,18 +116,26 @@ export default function AppLayout({
     localStorage.setItem(storageKey, new Date().getTime().toString());
   };
   
-  // Render loading state while waiting for auth/data.
-  if (isLoading) {
-    return (
+  const isLoginPage = pathname === `/${tenantId}/login`;
+  
+  // If we are on the login page, just render it. The useEffect handles any necessary redirects.
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
+
+  // For any other page, if we don't have a valid user and tenant yet, show a global loading screen.
+  // This prevents flashing the UI before authentication is confirmed.
+  if (isUserLoading || !user || (tenantId && (isTenantLoading || !tenant))) {
+     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <p>Loading application...</p>
       </div>
     );
   }
-
-  // If user is authenticated and tenant is valid, render the full app layout.
-  // The useEffect above handles redirecting away from the login page.
-  if (user && tenant && tenant.enabled && pathname !== `/${tenantId}/login`) {
+  
+  // If all checks pass and the user is on a protected page, render the full application layout.
+  // The useEffect has already handled the redirect for invalid tenants, so we only need to check for existence here.
+  if (user && tenant) {
       return (
         <>
           <SidebarProvider>
@@ -139,7 +157,10 @@ export default function AppLayout({
       );
   }
 
-  // Otherwise, render the children (e.g., the login page) as the default.
-  // The useEffect will handle any necessary redirects.
-  return <>{children}</>;
+  // Fallback case, which should be brief. The useEffect will redirect quickly if something is wrong.
+  return (
+    <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <p>Validating session...</p>
+    </div>
+  );
 }
