@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { Shield, LogOut } from "lucide-react";
-import { useAuth } from "@/firebase";
+import { useAuth, useUser } from "@/firebase";
 import { signOut } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 
 export default function AdminLayout({
   children,
@@ -14,6 +15,17 @@ export default function AdminLayout({
 }) {
   const auth = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const { user, isUserLoading } = useUser();
+
+  useEffect(() => {
+    // This layout protects all child routes. If auth is done and no user, redirect to admin login.
+    if (!isUserLoading && !user) {
+      if (pathname !== '/gopon') {
+          router.push('/gopon');
+      }
+    }
+  }, [user, isUserLoading, router, pathname]);
 
   const handleLogout = () => {
     if (auth) {
@@ -23,6 +35,21 @@ export default function AdminLayout({
     }
   };
 
+  // If user is on the login page, render it without layout.
+  if (pathname === '/gopon') {
+      return <>{children}</>;
+  }
+
+  // While checking auth or if there is no user (and we are about to redirect), show a loading screen.
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <p>Loading admin portal...</p>
+      </div>
+    );
+  }
+
+  // If user is authenticated, render the layout for child pages.
   return (
     <div className="min-h-screen flex flex-col bg-muted/40">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">

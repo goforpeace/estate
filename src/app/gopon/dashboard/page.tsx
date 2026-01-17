@@ -5,16 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
-import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useUser } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLoading } from "@/context/loading-context";
 
@@ -112,15 +111,6 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
 export default function AdminDashboard() {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-  
-  useEffect(() => {
-    // If user is not logged in after check, redirect to login
-    if (!isUserLoading && !user) {
-      router.push('/gopon');
-    }
-  }, [isUserLoading, user, router]);
 
   const tenantsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -128,9 +118,6 @@ export default function AdminDashboard() {
   }, [firestore]);
 
   const { data: tenants, isLoading: isTenantsLoading, error } = useCollection<Tenant>(tenantsQuery);
-  
-  // Combine loading states
-  const isLoading = isUserLoading || (user && isTenantsLoading);
 
   const toggleTenantStatus = (id: string, currentStatus: boolean) => {
     if (!firestore) return;
@@ -142,9 +129,7 @@ export default function AdminDashboard() {
     });
   };
 
-  // Show a loading screen while auth is being checked or data is being loaded.
-  // This also prevents rendering the main component when the user is not authenticated.
-  if (isLoading || !user) {
+  if (isTenantsLoading) {
     return (
         <div className="flex h-full w-full items-center justify-center">
             <p>Loading dashboard...</p>
