@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, getDocs } from "firebase/firestore";
 import { useParams } from "next/navigation";
-import { DollarSign, TrendingUp, TrendingDown, Landmark, ArrowLeftRight, Database, MapPin, Tag, Calendar, Building, Target, Wallet, CircleDollarSign } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Landmark, ArrowLeftRight, Database, MapPin, Tag, Calendar, Building, Target, Wallet, CircleDollarSign, User, Phone, Home } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Combobox } from "@/components/ui/combobox";
@@ -18,6 +18,7 @@ type FlatSale = {
     id: string;
     projectId: string;
     amount: number;
+    customerId: string;
 };
 type OutflowTransaction = {
     projectId: string;
@@ -40,6 +41,13 @@ type Project = {
   flats: { name: string; sizeSft: number }[];
 };
 
+type Customer = {
+  id: string;
+  name: string;
+  phoneNumber: string;
+  address: string;
+};
+
 
 // --- Helper Functions ---
 const formatCurrency = (value: number) => {
@@ -56,6 +64,7 @@ export default function DashboardPage() {
     const firestore = useFirestore();
 
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+    const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
     // --- Data Fetching ---
     const projectsQuery = useMemoFirebase(() => {
@@ -63,6 +72,12 @@ export default function DashboardPage() {
         return collection(firestore, `tenants/${tenantId}/projects`);
     }, [firestore, tenantId]);
     const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
+
+    const customersQuery = useMemoFirebase(() => {
+        if (!firestore || !tenantId) return null;
+        return collection(firestore, `tenants/${tenantId}/customers`);
+    }, [firestore, tenantId]);
+    const { data: customers, isLoading: customersLoading } = useCollection<Customer>(customersQuery);
 
     const salesQuery = useMemoFirebase(() => {
         if (!firestore || !tenantId) return null;
@@ -242,7 +257,24 @@ export default function DashboardPage() {
         return { revenue, totalExpenses, outflow, cashFlow, profit };
     }, [projectSales, projectExpenses, projectInflow]);
 
-    const isLoading = salesLoading || expensesLoading || opCostsLoading || inflowLoading || projectsLoading;
+    // --- Customer Specific Calculations ---
+    const selectedCustomer = useMemo(() => {
+        if (!customers || !selectedCustomerId) return null;
+        return customers.find(c => c.id === selectedCustomerId);
+    }, [customers, selectedCustomerId]);
+
+    const customerSales = useMemo(() => {
+        if (!sales || !selectedCustomerId) return [];
+        return sales.filter(s => s.customerId === selectedCustomerId);
+    }, [sales, selectedCustomerId]);
+
+    const customerFinancials = useMemo(() => {
+        const totalRevenue = customerSales.reduce((acc, sale) => acc + sale.amount, 0);
+        return { totalRevenue };
+    }, [customerSales]);
+
+
+    const isLoading = salesLoading || expensesLoading || opCostsLoading || inflowLoading || projectsLoading || customersLoading;
     const projectOverviewLoading = projectInflowLoading;
 
     const summaryCards = [
@@ -335,6 +367,41 @@ export default function DashboardPage() {
                     </CardContent>
                 ) : null}
                  {!selectedProjectId && !isLoading && <p className="text-sm text-muted-foreground text-center mt-6">Select a project to view its overview.</p>}
+            </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+            <CardHeader>
+                <CardTitle className="font-headline">Customer Overview</CardTitle>
+                <CardDescription>Select a customer to see their purchase summary.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Combobox
+                    options={customers?.map(c => ({ value: c.id, label: c.name })) || []}
+                    value={selectedCustomerId || ''}
+                    onChange={(value) => setSelectedCustomerId(value === selectedCustomerId ? null : value)}
+                    placeholder="Select a customer"
+                    searchPlaceholder="Search customers..."
+                    emptyPlaceholder="No customers found."
+                />
+
+                {selectedCustomerId && isLoading && <div className="mt-6 text-center">Loading customer overview...</div>}
+                {selectedCustomerId && !isLoading && selectedCustomer ? (
+                    <CardContent className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                         <div className="md:col-span-2 flex items-start gap-3"><User className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Name</p><p className="font-medium">{selectedCustomer.name}</p></div></div>
+                         <div className="flex items-start gap-3"><Phone className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Phone</p><p className="font-medium">{selectedCustomer.phoneNumber}</p></div></div>
+                         <div className="flex items-start gap-3"><Home className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Address</p><p className="font-medium">{selectedCustomer.address}</p></div></div>
+                         <div className="flex items-start gap-3"><Building className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Properties Purchased</p><p className="font-medium">{customerSales.length}</p></div></div>
+                         <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1 text-green-600" /><div><p className="text-muted-foreground">Total Revenue from Customer</p><p className="font-medium">TK {customerFinancials.totalRevenue.toLocaleString('en-IN')}</p></div></div>
+                         
+                         <div className="md:col-span-2 mt-2">
+                            <Button asChild variant="outline" size="sm">
+                                <Link href={`/${tenantId}/customers/${selectedCustomerId}`}>View Full Customer Details</Link>
+                            </Button>
+                         </div>
+                    </CardContent>
+                ) : null}
+                {!selectedCustomerId && !isLoading && <p className="text-sm text-muted-foreground text-center mt-6">Select a customer to view their overview.</p>}
             </CardContent>
         </Card>
     </>
