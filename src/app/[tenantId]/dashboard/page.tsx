@@ -19,6 +19,7 @@ type FlatSale = {
     projectId: string;
     amount: number;
     customerId: string;
+    additionalCosts?: { description: string, price: number }[];
 };
 type OutflowTransaction = {
     projectId: string;
@@ -269,9 +270,82 @@ export default function DashboardPage() {
     }, [sales, selectedCustomerId]);
 
     const customerFinancials = useMemo(() => {
-        const totalRevenue = customerSales.reduce((acc, sale) => acc + sale.amount, 0);
+        const totalRevenue = customerSales.reduce((acc, sale) => {
+            const additionalCostsTotal = sale.additionalCosts?.reduce((sum, cost) => sum + cost.price, 0) || 0;
+            return acc + sale.amount + additionalCostsTotal;
+        }, 0);
         return { totalRevenue };
     }, [customerSales]);
+    
+    const [customerExtraFinancials, setCustomerExtraFinancials] = useState<{
+        totalPaid: number;
+        dueAmount: number;
+        lastPaymentAmount: number | null;
+        lastPaymentDate: string | null;
+    }>({
+        totalPaid: 0,
+        dueAmount: 0,
+        lastPaymentAmount: null,
+        lastPaymentDate: null,
+    });
+    const [customerFinancialsLoading, setCustomerFinancialsLoading] = useState(false);
+
+    useEffect(() => {
+        if (!firestore || !tenantId || !customerSales.length) {
+            setCustomerExtraFinancials({ totalPaid: 0, dueAmount: 0, lastPaymentAmount: null, lastPaymentDate: null });
+            setCustomerFinancialsLoading(false);
+            return;
+        }
+
+        let isMounted = true;
+        const fetchCustomerPayments = async () => {
+            setCustomerFinancialsLoading(true);
+            const paymentPromises = customerSales.map(sale => {
+                const paymentsRef = collection(firestore, `tenants/${tenantId}/flatSales/${sale.id}/payments`);
+                return getDocs(paymentsRef);
+            });
+
+            try {
+                const paymentSnapshots = await Promise.all(paymentPromises);
+                if (!isMounted) return;
+
+                const allPayments = paymentSnapshots.flatMap(snapshot => 
+                    snapshot.docs.map(doc => doc.data() as { amount: number; date: string })
+                );
+
+                const totalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
+                const dueAmount = customerFinancials.totalRevenue - totalPaid;
+
+                let lastPaymentAmount: number | null = null;
+                let lastPaymentDate: string | null = null;
+
+                if (allPayments.length > 0) {
+                    allPayments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                    lastPaymentAmount = allPayments[0].amount;
+                    lastPaymentDate = allPayments[0].date;
+                }
+                
+                setCustomerExtraFinancials({
+                    totalPaid,
+                    dueAmount,
+                    lastPaymentAmount,
+                    lastPaymentDate,
+                });
+
+            } catch (e) {
+                console.error("Error fetching customer payments:", e);
+                if (isMounted) {
+                     setCustomerExtraFinancials({ totalPaid: 0, dueAmount: 0, lastPaymentAmount: null, lastPaymentDate: null });
+                }
+            } finally {
+                if (isMounted) setCustomerFinancialsLoading(false);
+            }
+        };
+
+        fetchCustomerPayments();
+
+        return () => { isMounted = false; };
+    }, [firestore, tenantId, customerSales, customerFinancials.totalRevenue]);
 
 
     const isLoading = salesLoading || expensesLoading || opCostsLoading || inflowLoading || projectsLoading || customersLoading;
@@ -385,15 +459,24 @@ export default function DashboardPage() {
                     emptyPlaceholder="No customers found."
                 />
 
-                {selectedCustomerId && isLoading && <div className="mt-6 text-center">Loading customer overview...</div>}
-                {selectedCustomerId && !isLoading && selectedCustomer ? (
+                {selectedCustomerId && (isLoading || customerFinancialsLoading) && <div className="mt-6 text-center">Loading customer overview...</div>}
+                {selectedCustomerId && !isLoading && !customerFinancialsLoading && selectedCustomer ? (
                     <CardContent className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
                          <div className="md:col-span-2 flex items-start gap-3"><User className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Name</p><p className="font-medium">{selectedCustomer.name}</p></div></div>
                          <div className="flex items-start gap-3"><Phone className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Phone</p><p className="font-medium">{selectedCustomer.phoneNumber}</p></div></div>
                          <div className="flex items-start gap-3"><Home className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Address</p><p className="font-medium">{selectedCustomer.address}</p></div></div>
                          <div className="flex items-start gap-3"><Building className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Properties Purchased</p><p className="font-medium">{customerSales.length}</p></div></div>
-                         <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1 text-green-600" /><div><p className="text-muted-foreground">Total Revenue from Customer</p><p className="font-medium">TK {customerFinancials.totalRevenue.toLocaleString('en-IN')}</p></div></div>
+                         <div className="flex items-start gap-3"><Database className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Total Sale Value</p><p className="font-medium">TK {customerFinancials.totalRevenue.toLocaleString('en-IN')}</p></div></div>
                          
+                         {!customerFinancialsLoading && (
+                            <>
+                                <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1 text-green-600" /><div><p className="text-muted-foreground">Total Paid</p><p className="font-medium">TK {customerExtraFinancials.totalPaid.toLocaleString('en-IN')}</p></div></div>
+                                <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1 text-red-600" /><div><p className="text-muted-foreground">Total Due</p><p className="font-medium">TK {customerExtraFinancials.dueAmount.toLocaleString('en-IN')}</p></div></div>
+                                <div className="flex items-start gap-3"><Wallet className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Last Paid Amount</p><p className="font-medium">{customerExtraFinancials.lastPaymentAmount ? `TK ${customerExtraFinancials.lastPaymentAmount.toLocaleString('en-IN')}` : 'N/A'}</p></div></div>
+                                <div className="flex items-start gap-3"><Calendar className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Last Payment Date</p><p className="font-medium">{customerExtraFinancials.lastPaymentDate ? new Date(customerExtraFinancials.lastPaymentDate).toLocaleDateString('en-GB') : 'N/A'}</p></div></div>
+                            </>
+                         )}
+
                          <div className="md:col-span-2 mt-2">
                             <Button asChild variant="outline" size="sm">
                                 <Link href={`/${tenantId}/customers/${selectedCustomerId}`}>View Full Customer Details</Link>
