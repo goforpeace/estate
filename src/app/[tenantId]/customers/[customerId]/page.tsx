@@ -236,7 +236,7 @@ export default function CustomerDetailsPage() {
         </Button>
       </PageHeader>
       
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3 mb-6">
         <div className="md:col-span-1 space-y-6">
             <Card>
                 <CardHeader>
@@ -297,96 +297,95 @@ export default function CustomerDetailsPage() {
                     )}
                 </CardContent>
              </Card>
-
-             <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline flex items-center gap-2"><List className="h-5 w-5 text-primary"/> Payment History</CardTitle>
-                    <CardDescription>A log of all payments made by this customer.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="relative mb-4">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                        type="search"
-                        placeholder="Search by project, flat, type, amount..."
-                        className="w-full pl-8"
-                        value={searchTerm}
-                        onChange={(e) => {
-                            setSearchTerm(e.target.value);
-                            setCurrentPage(1);
-                        }}
-                        />
-                    </div>
-                     <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Project</TableHead>
-                                <TableHead>Flat</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead className="text-right">Amount (TK)</TableHead>
-                                <TableHead><span className="sr-only">Actions</span></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {paymentsLoading && (
-                                <TableRow><TableCell colSpan={6} className="h-24 text-center">Loading payment log...</TableCell></TableRow>
-                            )}
-                            {!paymentsLoading && paginatedPayments && paginatedPayments.length > 0 ? (
-                                paginatedPayments.map(payment => (
-                                    <TableRow key={payment.id}>
-                                        <TableCell>{format(new Date(payment.date), 'dd MMM, yyyy')}</TableCell>
-                                        <TableCell>{projectsMap.get(payment.projectId)?.name || 'N/A'}</TableCell>
-                                        <TableCell>{payment.flatName}</TableCell>
-                                        <TableCell>{payment.paymentType}</TableCell>
-                                        <TableCell className="text-right">{payment.amount.toLocaleString()}</TableCell>
-                                        <TableCell className="text-right">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span></Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                    <DropdownMenuItem onClick={() => handleViewReceipt(payment)}>View Receipt</DropdownMenuItem>
-                                                    <DropdownMenuItem disabled>Edit</DropdownMenuItem>
-                                                    <DropdownMenuItem disabled className="text-destructive">Delete</DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                               !paymentsLoading && <TableRow><TableCell colSpan={6} className="h-24 text-center">No payments found for this customer.</TableCell></TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-                {totalPages > 1 && (
-                    <CardFooter className="flex justify-end items-center gap-2 pt-4">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                            disabled={currentPage === 1}
-                        >
-                            Previous
-                        </Button>
-                        <span className="text-sm text-muted-foreground">
-                            Page {currentPage} of {totalPages}
-                        </span>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                            disabled={currentPage === totalPages}
-                        >
-                            Next
-                        </Button>
-                    </CardFooter>
-                )}
-             </Card>
         </div>
       </div>
+      <Card>
+        <CardHeader>
+            <CardTitle className="font-headline flex items-center gap-2"><List className="h-5 w-5 text-primary"/> Payment History</CardTitle>
+            <CardDescription>A log of all payments made by this customer.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="relative mb-4">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                type="search"
+                placeholder="Search by project, flat, type, amount..."
+                className="w-full pl-8"
+                value={searchTerm}
+                onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                }}
+                />
+            </div>
+             <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Flat</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead className="text-right">Amount (TK)</TableHead>
+                        <TableHead><span className="sr-only">Actions</span></TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {paymentsLoading && (
+                        <TableRow><TableCell colSpan={6} className="h-24 text-center">Loading payment log...</TableCell></TableRow>
+                    )}
+                    {!paymentsLoading && paginatedPayments && paginatedPayments.length > 0 ? (
+                        paginatedPayments.map(payment => (
+                            <TableRow key={payment.id}>
+                                <TableCell>{format(new Date(payment.date), 'dd MMM, yyyy')}</TableCell>
+                                <TableCell>{projectsMap.get(payment.projectId)?.name || 'N/A'}</TableCell>
+                                <TableCell>{payment.flatName}</TableCell>
+                                <TableCell>{payment.paymentType}</TableCell>
+                                <TableCell className="text-right">{payment.amount.toLocaleString()}</TableCell>
+                                <TableCell className="text-right">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span></Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem onClick={() => handleViewReceipt(payment)}>View Receipt</DropdownMenuItem>
+                                            <DropdownMenuItem disabled>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem disabled className="text-destructive">Delete</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                       !paymentsLoading && <TableRow><TableCell colSpan={6} className="h-24 text-center">No payments found for this customer.</TableCell></TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </CardContent>
+        {totalPages > 1 && (
+            <CardFooter className="flex justify-end items-center gap-2 pt-4">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                >
+                    Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                >
+                    Next
+                </Button>
+            </CardFooter>
+        )}
+     </Card>
     </>
   );
 }
