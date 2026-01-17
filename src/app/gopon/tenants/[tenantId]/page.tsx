@@ -16,6 +16,8 @@ import Link from 'next/link';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useLoading } from '@/context/loading-context';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 
 type Tenant = {
   id: string;
@@ -26,6 +28,9 @@ type Tenant = {
   contactEmail?: string;
   contactPhone?: string;
   loginImageUrl?: string;
+  noticeMessage?: string;
+  noticeActive?: boolean;
+  noticeLocked?: boolean;
 };
 
 // Matches the User entity in backend.json
@@ -154,6 +159,70 @@ function BrandingCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Parti
     );
 }
 
+function NoticeCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial<Tenant>) => Promise<boolean> }) {
+    const [message, setMessage] = useState(tenant.noticeMessage || '');
+    const [isActive, setIsActive] = useState(tenant.noticeActive || false);
+    const [isLocked, setIsLocked] = useState(tenant.noticeLocked || false);
+    const { isLoading: isActionInProgress } = useLoading();
+
+    useEffect(() => {
+        setMessage(tenant.noticeMessage || '');
+        setIsActive(tenant.noticeActive || false);
+        setIsLocked(tenant.noticeLocked || false);
+    }, [tenant]);
+
+    const handleSave = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave({ 
+            noticeMessage: message,
+            noticeActive: isActive,
+            noticeLocked: isLocked,
+        });
+    };
+    
+    const handleClear = () => {
+        onSave({ 
+            noticeMessage: '',
+            noticeActive: false,
+            noticeLocked: false,
+        });
+    };
+
+    return (
+        <Card>
+            <form onSubmit={handleSave}>
+                <CardHeader>
+                    <CardTitle className="font-headline">Tenant Notice Pop-up</CardTitle>
+                    <CardDescription>Display a pop-up notice when a user from this tenant logs in.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="notice-message">Notice Message</Label>
+                        <Textarea id="notice-message" placeholder="E.g., Your payment is due..." value={message} onChange={(e) => setMessage(e.target.value)} rows={4} />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="notice-active">Activate Notice</Label>
+                            <p className="text-xs text-muted-foreground">Show this notice to the tenant.</p>
+                        </div>
+                        <Switch id="notice-active" checked={isActive} onCheckedChange={setIsActive} />
+                    </div>
+                     <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="notice-locked">Lock Pop-up</Label>
+                             <p className="text-xs text-muted-foreground">Prevent user from closing pop-up for 3 mins.</p>
+                        </div>
+                        <Switch id="notice-locked" checked={isLocked} onCheckedChange={setIsLocked} />
+                    </div>
+                </CardContent>
+                <CardFooter className="justify-between">
+                    <Button type="submit" disabled={isActionInProgress}><Save className="mr-2 h-4 w-4" /> Save Notice</Button>
+                    <Button type="button" variant="destructive" onClick={handleClear} disabled={isActionInProgress}><Trash2 className="mr-2 h-4 w-4" /> Deactivate</Button>
+                </CardFooter>
+            </form>
+        </Card>
+    );
+}
 
 export default function ManageTenantPage() {
   const params = useParams();
@@ -246,8 +315,8 @@ export default function ManageTenantPage() {
     try {
         await updateDocumentNonBlocking(tenantRef, updateData);
         toast({
-            title: "Details Saved",
-            description: "The tenant information has been updated.",
+            title: "Tenant Updated",
+            description: "The tenant information has been successfully updated.",
         });
         return true;
     } catch (error: any) {
@@ -385,6 +454,8 @@ export default function ManageTenantPage() {
         <ContactPersonCard tenant={tenant} onSave={handleUpdateTenant} />
 
         <BrandingCard tenant={tenant} onSave={handleUpdateTenant} />
+        
+        <NoticeCard tenant={tenant} onSave={handleUpdateTenant} />
 
         <Card className="lg:col-span-3 border-destructive">
             <CardHeader>
