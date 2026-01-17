@@ -37,8 +37,9 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
-      onPointerDownOutside={(event) => {
+      onInteractOutside={(event) => {
         const target = event.target as HTMLElement;
+        // Check if the interaction is within a `cmdk` component. If so, prevent the dialog from closing.
         if (target.closest('[cmdk-root]')) {
           event.preventDefault();
         }
