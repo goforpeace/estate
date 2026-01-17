@@ -720,6 +720,37 @@
         "tenantId",
         "name"
       ]
+    },
+    "Notice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notice",
+      "type": "object",
+      "description": "Represents a global notice for all tenants.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Notice entity."
+        },
+        "message": {
+          "type": "string",
+          "description": "The content of the notice."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether the notice is currently active and should be displayed."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the notice was created."
+        }
+      },
+      "required": [
+        "id",
+        "message",
+        "isActive",
+        "createdAt"
+      ]
     }
   },
   "auth": {
@@ -1009,6 +1040,22 @@
             {
               "name": "itemId",
               "description": "Unique identifier for the operating cost item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/notices/{noticeId}",
+        "definition": {
+          "entityName": "Notice",
+          "schema": {
+            "$ref": "#/backend/entities/Notice"
+          },
+          "description": "Stores global notices to be displayed to all tenants.",
+          "params": [
+            {
+              "name": "noticeId",
+              "description": "Unique identifier for the notice."
             }
           ]
         }

@@ -3,15 +3,17 @@
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, getDocs } from "firebase/firestore";
+import { collection, query, getDocs, where } from "firebase/firestore";
 import { useParams } from "next/navigation";
-import { DollarSign, TrendingUp, TrendingDown, Landmark, ArrowLeftRight, Database, MapPin, Tag, Calendar, Building, Target, Wallet, CircleDollarSign, User, Phone, Home } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { DollarSign, TrendingUp, TrendingDown, Landmark, ArrowLeftRight, Database, MapPin, Tag, Calendar, Building, Target, Wallet, CircleDollarSign, User, Phone, Home, MessageSquare } from "lucide-react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 
 // --- Type Definitions ---
 type FlatSale = {
@@ -47,6 +49,13 @@ type Customer = {
   name: string;
   phoneNumber: string;
   address: string;
+};
+
+type Notice = {
+  id: string;
+  message: string;
+  isActive: boolean;
+  createdAt: string;
 };
 
 
@@ -98,8 +107,18 @@ export default function DashboardPage() {
     }, [firestore, tenantId]);
     const { data: operatingCosts, isLoading: opCostsLoading } = useCollection<OperatingCost>(operatingCostsQuery);
 
+    const noticesQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'notices'), where('isActive', '==', true));
+    }, [firestore]);
+    const { data: notices, isLoading: noticesLoading } = useCollection<Notice>(noticesQuery);
+
     const [totalInflow, setTotalInflow] = useState(0);
     const [inflowLoading, setInflowLoading] = useState(true);
+
+    const autoplayPlugin = useRef(
+        Autoplay({ delay: 5000, stopOnInteraction: true })
+    );
 
     useEffect(() => {
         if (!firestore || !sales) {
@@ -371,6 +390,28 @@ export default function DashboardPage() {
 
   return (
     <>
+      {!noticesLoading && notices && notices.length > 0 && (
+        <Card className="mb-6 bg-accent border-none text-accent-foreground">
+            <Carousel
+                plugins={[autoplayPlugin.current]}
+                className="w-full"
+                onMouseEnter={autoplayPlugin.current.stop}
+                onMouseLeave={autoplayPlugin.current.reset}
+            >
+            <CarouselContent>
+                {notices.map(notice => (
+                <CarouselItem key={notice.id}>
+                    <div className="p-3 flex items-center justify-center gap-4">
+                    <MessageSquare className="h-5 w-5" />
+                    <p className="text-sm font-medium">{notice.message}</p>
+                    </div>
+                </CarouselItem>
+                ))}
+            </CarouselContent>
+            </Carousel>
+        </Card>
+      )}
+
       <PageHeader title="Dashboard" description="An overview of your real estate business." />
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

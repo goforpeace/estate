@@ -1,7 +1,7 @@
 'use client'
 
 import Link from "next/link";
-import { Shield, LogOut } from "lucide-react";
+import { Shield, LogOut, Newspaper } from "lucide-react";
 import { useAuth, useUser } from "@/firebase";
 import { signOut } from "firebase/auth";
 import { useRouter, usePathname } from "next/navigation";
@@ -53,13 +53,23 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen flex flex-col bg-muted/40">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
-        <Link
-          href="/gopon/dashboard"
-          className="flex items-center gap-2 text-lg font-semibold md:text-base font-headline"
-        >
-          <Shield className="h-6 w-6 text-primary" />
-          <span className="">EstateFlow Admin</span>
-        </Link>
+        <div className="flex items-center gap-6">
+            <Link
+            href="/gopon/dashboard"
+            className="flex items-center gap-2 text-lg font-semibold md:text-base font-headline"
+            >
+            <Shield className="h-6 w-6 text-primary" />
+            <span className="">EstateFlow Admin</span>
+            </Link>
+             <nav className="flex items-center gap-4 text-sm">
+                <Link href="/gopon/dashboard" className={pathname === '/gopon/dashboard' ? 'text-foreground font-medium' : 'text-muted-foreground transition-colors hover:text-foreground'}>
+                    Tenants
+                </Link>
+                <Link href="/gopon/notice-board" className={pathname.startsWith('/gopon/notice-board') ? 'text-foreground font-medium' : 'text-muted-foreground transition-colors hover:text-foreground'}>
+                    Notice Board
+                </Link>
+            </nav>
+        </div>
         <Button variant="outline" size="sm" onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           Logout
