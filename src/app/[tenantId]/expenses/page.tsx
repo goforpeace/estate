@@ -2,10 +2,10 @@
 
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, PlusCircle, Plus, X } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Plus, X, Search } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc, getDocs, runTransaction } from "firebase/firestore";
@@ -353,6 +353,7 @@ function EditExpensePaymentForm({ tenantId, payment, onFinished }: { tenantId: s
 }
 
 // --- Main Page ---
+const ITEMS_PER_PAGE = 10;
 export default function ExpensesPage() {
     const params = useParams();
     const tenantId = params.tenantId as string;
@@ -366,6 +367,10 @@ export default function ExpensesPage() {
     const [viewPayment, setViewPayment] = useState<ExpensePayment | undefined>(undefined);
     const [editPayment, setEditPayment] = useState<ExpensePayment | undefined>(undefined);
     const [deletePayment, setDeletePayment] = useState<ExpensePayment | undefined>(undefined);
+
+    const [searchTerm, setSearchTerm] = useState("");
+    const [expensesCurrentPage, setExpensesCurrentPage] = useState(1);
+    const [paymentsCurrentPage, setPaymentsCurrentPage] = useState(1);
 
     // --- Data Fetching ---
     const projectsQuery = useMemoFirebase(() => collection(firestore, `tenants/${tenantId}/projects`), [firestore, tenantId]);
@@ -430,6 +435,57 @@ export default function ExpensesPage() {
     // --- Data Maps ---
     const projectsMap = useMemo(() => new Map(projects?.map(p => [p.id, p.name])), [projects]);
     const vendorsMap = useMemo(() => new Map(vendors?.map(v => [v.id, v.enterpriseName])), [vendors]);
+
+    // --- Search & Pagination ---
+    const filteredExpenses = useMemo(() => {
+        if (!expenses) return [];
+        if (!searchTerm) return expenses;
+        const lowercasedTerm = searchTerm.toLowerCase();
+        return expenses.filter(expense => {
+            const project = projectsMap.get(expense.projectId)?.toLowerCase() || '';
+            const vendor = vendorsMap.get(expense.vendorId)?.toLowerCase() || '';
+            return (
+                project.includes(lowercasedTerm) ||
+                vendor.includes(lowercasedTerm) ||
+                expense.expenseCategoryName.toLowerCase().includes(lowercasedTerm) ||
+                expense.status.toLowerCase().includes(lowercasedTerm) ||
+                expense.amount.toString().includes(lowercasedTerm) ||
+                format(new Date(expense.date), 'dd MMM, yyyy').toLowerCase().includes(lowercasedTerm)
+            );
+        });
+    }, [expenses, searchTerm, projectsMap, vendorsMap]);
+
+    const paginatedExpenses = useMemo(() => {
+        const startIndex = (expensesCurrentPage - 1) * ITEMS_PER_PAGE;
+        return filteredExpenses.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [filteredExpenses, expensesCurrentPage]);
+
+    const totalExpensePages = Math.ceil(filteredExpenses.length / ITEMS_PER_PAGE);
+
+    const filteredExpensePayments = useMemo(() => {
+        if (!expensePayments) return [];
+        if (!searchTerm) return expensePayments;
+        const lowercasedTerm = searchTerm.toLowerCase();
+        return expensePayments.filter(payment => {
+            const project = projectsMap.get(payment.projectId)?.toLowerCase() || '';
+            const vendor = vendorsMap.get(payment.vendorId)?.toLowerCase() || '';
+            return (
+                project.includes(lowercasedTerm) ||
+                vendor.includes(lowercasedTerm) ||
+                payment.expenseCategoryName.toLowerCase().includes(lowercasedTerm) ||
+                (payment.reference || '').toLowerCase().includes(lowercasedTerm) ||
+                payment.amount.toString().includes(lowercasedTerm) ||
+                format(new Date(payment.date), 'dd MMM, yyyy').toLowerCase().includes(lowercasedTerm)
+            );
+        });
+    }, [expensePayments, searchTerm, projectsMap, vendorsMap]);
+
+    const paginatedExpensePayments = useMemo(() => {
+        const startIndex = (paymentsCurrentPage - 1) * ITEMS_PER_PAGE;
+        return filteredExpensePayments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [filteredExpensePayments, paymentsCurrentPage]);
+
+    const totalPaymentPages = Math.ceil(filteredExpensePayments.length / ITEMS_PER_PAGE);
 
     // --- Handlers ---
     const handleDeleteExpense = async () => {
@@ -546,6 +602,21 @@ export default function ExpensesPage() {
                 </Button>
             </PageHeader>
 
+            <div className="relative mb-4">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                type="search"
+                placeholder="Search expenses & payments..."
+                className="w-full pl-8"
+                value={searchTerm}
+                onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setExpensesCurrentPage(1);
+                    setPaymentsCurrentPage(1);
+                }}
+                />
+            </div>
+
             <AlertDialog open={!!deleteExpense} onOpenChange={(isOpen) => !isOpen && setDeleteExpense(undefined)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -622,8 +693,8 @@ export default function ExpensesPage() {
                         <TableBody>
                             {isLoading ? (
                                 <TableRow><TableCell colSpan={7} className="h-24 text-center">Loading expenses...</TableCell></TableRow>
-                            ) : expenses && expenses.length > 0 ? (
-                                expenses.map((expense) => {
+                            ) : paginatedExpenses && paginatedExpenses.length > 0 ? (
+                                paginatedExpenses.map((expense) => {
                                     const due = expense.amount - expense.paidAmount;
                                     return (
                                     <TableRow key={expense.id}>
@@ -652,11 +723,34 @@ export default function ExpensesPage() {
                                     </TableRow>
                                 )})
                             ) : (
-                                <TableRow><TableCell colSpan={7} className="h-24 text-center">No expenses recorded yet.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={7} className="h-24 text-center">No expenses found.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
                 </CardContent>
+                 {totalExpensePages > 1 && (
+                    <CardFooter className="flex justify-end items-center gap-2 pt-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExpensesCurrentPage((prev) => Math.max(prev - 1, 1))}
+                            disabled={expensesCurrentPage === 1}
+                        >
+                            Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                            Page {expensesCurrentPage} of {totalExpensePages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExpensesCurrentPage((prev) => Math.min(prev + 1, totalExpensePages))}
+                            disabled={expensesCurrentPage === totalExpensePages}
+                        >
+                            Next
+                        </Button>
+                    </CardFooter>
+                )}
             </Card>
 
             <Card className="mt-6">
@@ -680,8 +774,8 @@ export default function ExpensesPage() {
                         <TableBody>
                             {isLoading ? (
                                 <TableRow><TableCell colSpan={7} className="h-24 text-center">Loading payment log...</TableCell></TableRow>
-                            ) : expensePayments && expensePayments.length > 0 ? (
-                                expensePayments.map((payment) => (
+                            ) : paginatedExpensePayments && paginatedExpensePayments.length > 0 ? (
+                                paginatedExpensePayments.map((payment) => (
                                     <TableRow key={payment.id}>
                                         <TableCell>{format(new Date(payment.date), 'dd MMM, yyyy')}</TableCell>
                                         <TableCell>{projectsMap.get(payment.projectId) || 'N/A'}</TableCell>
@@ -710,6 +804,29 @@ export default function ExpensesPage() {
                         </TableBody>
                     </Table>
                 </CardContent>
+                {totalPaymentPages > 1 && (
+                    <CardFooter className="flex justify-end items-center gap-2 pt-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPaymentsCurrentPage((prev) => Math.max(prev - 1, 1))}
+                            disabled={paymentsCurrentPage === 1}
+                        >
+                            Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                            Page {paymentsCurrentPage} of {totalPaymentPages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPaymentsCurrentPage((prev) => Math.min(prev + 1, totalPaymentPages))}
+                            disabled={paymentsCurrentPage === totalPaymentPages}
+                        >
+                            Next
+                        </Button>
+                    </CardFooter>
+                )}
             </Card>
         </>
     );
