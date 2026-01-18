@@ -2,8 +2,8 @@
 
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, getDocs, where } from "firebase/firestore";
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, getDocs, where, doc } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { DollarSign, TrendingUp, TrendingDown, Landmark, ArrowLeftRight, Database, MapPin, Tag, Calendar, Building, Target, Wallet, CircleDollarSign, User, Phone, Home, MessageSquare } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
@@ -14,6 +14,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 // --- Type Definitions ---
+type Tenant = {
+  id: string;
+  noticeMessage?: string;
+  noticeActive?: boolean;
+}
 type FlatSale = {
     id: string;
     projectId: string;
@@ -49,7 +54,7 @@ type Customer = {
   address: string;
 };
 
-type Notice = {
+type GlobalNotice = {
   id: string;
   message: string;
   isActive: boolean;
@@ -73,6 +78,13 @@ export default function DashboardPage() {
 
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+
+    // --- New Tenant Notice Fetching ---
+    const tenantRef = useMemoFirebase(() => {
+        if (!firestore || !tenantId) return null;
+        return doc(firestore, 'tenants', tenantId);
+    }, [firestore, tenantId]);
+    const { data: tenantData, isLoading: tenantLoading } = useDoc<Tenant>(tenantRef);
 
     // --- Data Fetching ---
     const projectsQuery = useMemoFirebase(() => {
@@ -105,11 +117,11 @@ export default function DashboardPage() {
     }, [firestore, tenantId]);
     const { data: operatingCosts, isLoading: opCostsLoading } = useCollection<OperatingCost>(operatingCostsQuery);
 
-    const noticesQuery = useMemoFirebase(() => {
+    const globalNoticesQuery = useMemoFirebase(() => {
         if (!firestore) return null;
         return query(collection(firestore, 'notices'), where('isActive', '==', true));
     }, [firestore]);
-    const { data: notices, isLoading: noticesLoading } = useCollection<Notice>(noticesQuery);
+    const { data: globalNotices, isLoading: globalNoticesLoading } = useCollection<GlobalNotice>(globalNoticesQuery);
 
     const [totalInflow, setTotalInflow] = useState(0);
     const [inflowLoading, setInflowLoading] = useState(true);
@@ -361,7 +373,7 @@ export default function DashboardPage() {
     }, [firestore, tenantId, customerSales, customerFinancials.totalRevenue]);
 
 
-    const isLoading = salesLoading || expensesLoading || opCostsLoading || inflowLoading || projectsLoading || customersLoading;
+    const isLoading = tenantLoading || salesLoading || expensesLoading || opCostsLoading || inflowLoading || projectsLoading || customersLoading;
     const projectOverviewLoading = projectInflowLoading;
 
     const summaryCards = [
@@ -381,32 +393,44 @@ export default function DashboardPage() {
       Completed: "outline",
     } as const;
 
-    const noticeContent = useMemo(() => {
-        if (!notices || notices.length === 0) return null;
-        return notices.map(notice => (
+    const globalNoticeContent = useMemo(() => {
+        if (!globalNotices || globalNotices.length === 0) return null;
+        return globalNotices.map(notice => (
             <span key={notice.id} className="mx-8 whitespace-nowrap">{notice.message}</span>
         ));
-    }, [notices]);
+    }, [globalNotices]);
 
 
   return (
     <>
-      {!noticesLoading && notices && notices.length > 0 && (
+      {!globalNoticesLoading && globalNotices && globalNotices.length > 0 && (
         <Card className="mb-6 bg-accent border-none text-accent-foreground overflow-hidden">
             <div className="p-3 flex items-center gap-4">
                 <MessageSquare className="h-5 w-5 flex-shrink-0" />
                 <div className="flex-1 w-full overflow-hidden">
                     <div className="flex animate-ticker-scroll">
                         <div className="flex-shrink-0 flex items-center">
-                            {noticeContent}
+                            {globalNoticeContent}
                         </div>
                         <div className="flex-shrink-0 flex items-center" aria-hidden="true">
-                            {noticeContent}
+                            {globalNoticeContent}
                         </div>
                     </div>
                 </div>
             </div>
         </Card>
+      )}
+
+      {!tenantLoading && tenantData && tenantData.noticeActive && tenantData.noticeMessage && (
+          <Card className="mb-6 bg-yellow-100 border-yellow-300 text-yellow-900">
+              <CardHeader className="flex flex-row items-center gap-4 !pb-4">
+                  <MessageSquare className="h-6 w-6 text-yellow-700" />
+                  <CardTitle className="font-headline text-lg">Important Notice</CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <p className="whitespace-pre-wrap">{tenantData.noticeMessage}</p>
+              </CardContent>
+          </Card>
       )}
 
       <PageHeader title="Dashboard" description="An overview of your real estate business." />

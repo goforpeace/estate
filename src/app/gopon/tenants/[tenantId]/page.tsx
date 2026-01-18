@@ -29,7 +29,6 @@ type Tenant = {
   contactPhone?: string;
   noticeMessage?: string;
   noticeActive?: boolean;
-  noticeLocked?: boolean;
 };
 
 // Matches the User entity in backend.json
@@ -128,13 +127,11 @@ function ContactPersonCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: 
 function NoticeCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial<Tenant>) => Promise<boolean> }) {
     const [message, setMessage] = useState(tenant.noticeMessage || '');
     const [isActive, setIsActive] = useState(tenant.noticeActive || false);
-    const [isLocked, setIsLocked] = useState(tenant.noticeLocked || false);
     const { isLoading: isActionInProgress } = useLoading();
 
     useEffect(() => {
         setMessage(tenant.noticeMessage || '');
         setIsActive(tenant.noticeActive || false);
-        setIsLocked(tenant.noticeLocked || false);
     }, [tenant]);
 
     const handleSave = (e: React.FormEvent) => {
@@ -142,7 +139,6 @@ function NoticeCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial
         onSave({ 
             noticeMessage: message,
             noticeActive: isActive,
-            noticeLocked: isLocked,
         });
     };
     
@@ -150,7 +146,6 @@ function NoticeCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial
         onSave({ 
             noticeMessage: '',
             noticeActive: false,
-            noticeLocked: false,
         });
     };
 
@@ -158,8 +153,8 @@ function NoticeCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial
         <Card>
             <form onSubmit={handleSave}>
                 <CardHeader>
-                    <CardTitle className="font-headline">Tenant Notice Pop-up</CardTitle>
-                    <CardDescription>Display a pop-up notice when a user from this tenant logs in.</CardDescription>
+                    <CardTitle className="font-headline">Tenant Notice</CardTitle>
+                    <CardDescription>Display a notice on this tenant's dashboard.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
@@ -173,17 +168,10 @@ function NoticeCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial
                         </div>
                         <Switch id="notice-active" checked={isActive} onCheckedChange={setIsActive} />
                     </div>
-                     <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                        <div className="space-y-0.5">
-                            <Label htmlFor="notice-locked">Lock Pop-up</Label>
-                             <p className="text-xs text-muted-foreground">Prevent user from closing pop-up for 3 mins.</p>
-                        </div>
-                        <Switch id="notice-locked" checked={isLocked} onCheckedChange={setIsLocked} />
-                    </div>
                 </CardContent>
                 <CardFooter className="justify-between">
                     <Button type="submit" disabled={isActionInProgress}><Save className="mr-2 h-4 w-4" /> Save Notice</Button>
-                    <Button type="button" variant="destructive" onClick={handleClear} disabled={isActionInProgress}><Trash2 className="mr-2 h-4 w-4" /> Deactivate</Button>
+                    <Button type="button" variant="ghost" onClick={handleClear} disabled={isActionInProgress}>Deactivate</Button>
                 </CardFooter>
             </form>
         </Card>

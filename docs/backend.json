@@ -42,10 +42,6 @@
         "noticeActive": {
           "type": "boolean",
           "description": "Whether the tenant-specific notice is active."
-        },
-        "noticeLocked": {
-          "type": "boolean",
-          "description": "If true, the tenant cannot close the notice pop-up for a period."
         }
       },
       "required": [
