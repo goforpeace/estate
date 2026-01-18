@@ -49,7 +49,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
-  const firestore = useFirestore();
 
   const tenantId = params?.tenantId as string;
 
@@ -96,17 +95,19 @@ function TenantLayout({ children, tenantId }: { children: React.ReactNode, tenan
         return doc(firestore, 'tenants', tenantId);
     }, [firestore, tenantId]);
     
+    // We still fetch the tenant data to make it available to child components (e.g., for the notice),
+    // but we no longer use it to block access in this layout.
     const { data: tenant, isLoading: isTenantLoading } = useDoc<Tenant>(tenantRef);
 
     if (isTenantLoading) {
-        return <div className="flex h-screen w-screen items-center justify-center bg-background"><p>Verifying tenant access...</p></div>;
+        return <div className="flex h-screen w-screen items-center justify-center bg-background"><p>Loading application...</p></div>;
     }
+    
+    // Previously, there was a check here: if (!tenant || !tenant.enabled).
+    // This was the source of the race condition and has been removed as requested
+    // to ensure the notice feature does not interfere with user access.
+    // The responsibility of checking for a valid tenant is now handled at the login screen.
 
-    if (!tenant || !tenant.enabled) {
-        return <InvalidAccessState message="The tenant you are trying to access does not exist or has been disabled. Please check the ID or contact support." showSignOut={true} />;
-    }
-
-    // Tenant is valid, render the app.
     return (
         <SidebarProvider>
             <AppSidebar tenantId={tenantId} />
