@@ -53,18 +53,14 @@ function TenantLayout({ children, tenantId }: { children: React.ReactNode, tenan
         return doc(firestore, 'tenants', tenantId);
     }, [firestore, tenantId]);
     
-    // We still fetch the tenant data to make it available to child components (e.g., for the notice),
-    // but we no longer use it to block access in this layout.
     const { data: tenant, isLoading: isTenantLoading } = useDoc<Tenant>(tenantRef);
 
     if (isTenantLoading) {
         return <div className="flex h-screen w-screen items-center justify-center bg-background"><p>Loading application...</p></div>;
     }
     
-    // Previously, there was a check here: if (!tenant || !tenant.enabled).
-    // This was the source of the race condition and has been removed as requested
-    // to ensure the notice feature does not interfere with user access.
-    // The responsibility of checking for a valid tenant is now handled at the login screen.
+    // The responsibility of checking for a valid tenant is handled at the login screen.
+    // If a user gets here, we assume they have access.
 
     return (
         <SidebarProvider>
@@ -89,17 +85,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const tenantId = params?.tenantId as string;
 
-  useEffect(() => {
-    // 1. Redirect to login if not authenticated and not already on a login-related page.
-    if (!isUserLoading && !user) {
-      if (pathname !== `/${tenantId}/login` && pathname !== `/gopon`) {
-        router.push(`/${tenantId || ''}`);
+   useEffect(() => {
+    if (isUserLoading || !tenantId) {
+      return; // Wait until user status and tenantId are resolved
+    }
+
+    // User is logged in
+    if (user) {
+      // If user is on the login page or root, redirect to dashboard
+      if (pathname === `/${tenantId}/login` || pathname === `/`) {
+        router.push(`/${tenantId}/dashboard`);
+      }
+    } else { // User is not logged in
+      // If user is on a protected page, redirect to the tenant's login page
+      if (pathname !== `/${tenantId}/login` && pathname !== `/` && !pathname.startsWith('/gopon')) {
+        router.push(`/${tenantId}/login`);
       }
     }
   }, [isUserLoading, user, pathname, tenantId, router]);
 
+
   // While checking user auth, show a global loading screen.
-  if (isUserLoading || !tenantId) {
+  if (isUserLoading || (!user && pathname !== `/${tenantId}/login` && pathname !== `/`)) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <p>Validating session...</p>
@@ -107,15 +114,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
   
-  // If on a public or login page, render it directly.
-  if (pathname === `/${tenantId}/login` || pathname === `/`) {
-      return <>{children}</>;
-  }
-
-  if (!user) {
-    return <div className="flex h-screen w-screen items-center justify-center bg-background"><p>Redirecting...</p></div>;
+  // If we have a user, render the protected layout.
+  // Or if we are on a public/login page, render it directly.
+  if (user) {
+    return <TenantLayout tenantId={tenantId}>{children}</TenantLayout>;
   }
   
-  // If we have a user, render the protected layout
-  return <TenantLayout tenantId={tenantId}>{children}</TenantLayout>;
+  return <>{children}</>;
 }

@@ -29,6 +29,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   const brandingRef = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -42,7 +43,7 @@ export default function LoginPage() {
   }, [firestore, tenantId]);
   const { data: tenant, isLoading: tenantLoading } = useDoc<Tenant>(tenantRef);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
         toast({
@@ -53,9 +54,20 @@ export default function LoginPage() {
         return;
     }
     if (auth) {
-      initiateEmailSignIn(auth, email, password);
-      // The useUser hook in the layout will redirect on successful login
-      // router.push(`/${tenantId}/dashboard`);
+      setIsLoggingIn(true);
+      try {
+        await initiateEmailSignIn(auth, email, password);
+        // On success, the layout's useEffect will handle the redirect.
+      } catch (error) {
+        console.error("Login failed:", error);
+        toast({
+          variant: "destructive",
+          title: "Login Failed",
+          description: "The email or password you entered is incorrect.",
+        });
+      } finally {
+        setIsLoggingIn(false);
+      }
     }
   };
 
@@ -106,7 +118,9 @@ export default function LoginPage() {
                   </div>
                   <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
                 </div>
-                <Button type="submit" className="w-full">Login</Button>
+                <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                  {isLoggingIn ? 'Signing In...' : 'Login'}
+                </Button>
                 <Button variant="link" size="sm" asChild>
                     <Link href="/">Wrong Tenant ID?</Link>
                 </Button>
