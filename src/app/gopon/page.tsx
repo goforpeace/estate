@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Shield } from 'lucide-react';
@@ -10,6 +11,7 @@ import Link from 'next/link';
 import { useAuth, initiateEmailSignIn, useUser } from '@/firebase';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { AppFooter } from '@/components/layout/footer';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -56,36 +58,39 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Card className="shadow-xl border-t-4 border-destructive">
-          <CardHeader className="text-center">
-            <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
-              <Shield className="h-8 w-8" />
-            </div>
-            <CardTitle className="font-headline text-3xl">Admin Panel</CardTitle>
-            <CardDescription>EstateFlow Tenant Management</CardDescription>
-          </CardHeader>
-          <form onSubmit={handleLogin}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="font-headline">Admin Email</Label>
-                <Input id="email" type="email" placeholder="admin@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
+    <div className="flex flex-col min-h-screen">
+      <main className="flex-1 bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <Card className="shadow-xl border-t-4 border-destructive">
+            <CardHeader className="text-center">
+              <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
+                <Shield className="h-8 w-8" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-2">
-              <Button type="submit" className="w-full font-headline">Login</Button>
-               <Button variant="link" size="sm" asChild>
-                <Link href="/">Back to Tenant Portal</Link>
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
-      </div>
+              <CardTitle className="font-headline text-3xl">Admin Panel</CardTitle>
+              <CardDescription>EstateFlow Tenant Management</CardDescription>
+            </CardHeader>
+            <form onSubmit={handleLogin}>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="font-headline">Admin Email</Label>
+                  <Input id="email" type="email" placeholder="admin@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
+                </div>
+              </CardContent>
+              <CardFooter className="flex flex-col gap-2">
+                <Button type="submit" className="w-full font-headline">Login</Button>
+                <Button variant="link" size="sm" asChild>
+                  <Link href="/">Back to Tenant Portal</Link>
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </div>
+      </main>
+      <AppFooter />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+
 'use client'
 
 import Link from "next/link";
@@ -8,6 +9,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { AppFooter } from "@/components/layout/footer";
 
 export default function AdminLayout({
   children,
@@ -115,6 +117,7 @@ export default function AdminLayout({
         </div>
       </header>
       <main className="flex-1 p-4 sm:px-6 sm:py-6">{children}</main>
+      <AppFooter />
     </div>
   );
 }

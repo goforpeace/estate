@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useUser, useFirestore, useMemoFirebase, useDoc, signOut, useAuth } from '@/firebase';
@@ -9,6 +10,7 @@ import { AppHeader } from "@/components/layout/header";
 import { doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { AppFooter } from '@/components/layout/footer';
 
 type Tenant = {
   id: string;
@@ -72,6 +74,7 @@ function TenantLayout({ children, tenantId }: { children: React.ReactNode, tenan
                 <main className="flex-1 p-4 sm:p-6 bg-muted/30">
                     {children}
                 </main>
+                <AppFooter />
             </div>
         </SidebarProvider>
     );
