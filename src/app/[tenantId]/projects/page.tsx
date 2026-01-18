@@ -169,8 +169,8 @@ function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFi
   return (
     <Form {...form}>
        <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6">
-        <ScrollArea className="h-[calc(100svh-8rem)]">
-          <div className="space-y-6 p-1 pr-4 pb-20">
+        <ScrollArea className="h-[calc(100svh-10rem)]">
+          <div className="space-y-6 p-1 pr-4 pb-24">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
@@ -287,7 +287,7 @@ function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFi
             </div>
           </div>
         </ScrollArea>
-        <div className="p-4 pt-0 border-t absolute bottom-0 right-0 left-0 bg-background">
+        <div className="p-4 pt-0 mt-4 border-t bg-background">
           <Button type="submit" className="w-full mt-4" disabled={isLoading}>{project ? 'Save Changes' : 'Add Project'}</Button>
         </div>
       </form>
@@ -364,7 +364,7 @@ export default function ProjectsPage() {
 
   const handleAddClick = () => {
     setEditingProject(undefined);
-    setView('list');
+    setView('form');
   };
 
   const handleEditClick = (project: Project) => {
@@ -380,7 +380,7 @@ export default function ProjectsPage() {
 
   if (view === 'form') {
     return (
-        <>
+        <div className="flex flex-col h-full">
             <PageHeader 
                 title={editingProject ? 'Edit Project' : 'Add a New Project'}
                 description={editingProject ? `Update the details for "${editingProject.name}".` : 'Fill in the details below to create a new project.'}
@@ -390,8 +390,10 @@ export default function ProjectsPage() {
                     Cancel
                 </Button>
             </PageHeader>
-            <ProjectForm tenantId={tenantId} onFinished={handleCancel} project={editingProject} />
-        </>
+            <div className="flex-1 min-h-0">
+              <ProjectForm tenantId={tenantId} onFinished={handleCancel} project={editingProject} />
+            </div>
+        </div>
     )
   }
 

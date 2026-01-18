@@ -71,7 +71,7 @@ export const PrintReceiptDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Print Receipt</DialogTitle>
         </DialogHeader>
@@ -84,7 +84,7 @@ export const PrintReceiptDialog = ({
               project={project}
             />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col sm:flex-row justify-end gap-2">
             <Button variant="outline" onClick={handleSaveAsPdf}>
               Save as PDF
             </Button>

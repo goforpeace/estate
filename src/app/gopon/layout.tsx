@@ -1,12 +1,13 @@
 'use client'
 
 import Link from "next/link";
-import { Shield, LogOut, Newspaper } from "lucide-react";
+import { Shield, LogOut, Newspaper, PanelLeft } from "lucide-react";
 import { useAuth, useUser } from "@/firebase";
 import { signOut } from "firebase/auth";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export default function AdminLayout({
   children,
@@ -17,6 +18,8 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
+  const [open, setOpen] = useState(false);
+
 
   useEffect(() => {
     // This layout protects all child routes. If auth is done and no user, redirect to admin login.
@@ -49,6 +52,27 @@ export default function AdminLayout({
     );
   }
 
+  const navLinks = (
+      <nav className="grid gap-2 text-lg font-medium">
+          <Link
+              href="/gopon/dashboard"
+              className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+              onClick={() => setOpen(false)}
+          >
+              <Shield className="h-5 w-5" />
+              Tenants
+          </Link>
+          <Link
+              href="/gopon/notice-board"
+              className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+              onClick={() => setOpen(false)}
+          >
+              <Newspaper className="h-5 w-5" />
+              Notice Board
+          </Link>
+      </nav>
+  );
+
   // If user is authenticated, render the layout for child pages.
   return (
     <div className="min-h-screen flex flex-col bg-muted/40">
@@ -56,10 +80,10 @@ export default function AdminLayout({
         <div className="flex items-center gap-6">
             <Link
             href="/gopon/dashboard"
-            className="flex items-center gap-2 text-lg font-semibold md:text-base font-headline"
+            className="flex items-center gap-2 text-lg font-semibold font-headline"
             >
             <Shield className="h-6 w-6 text-primary" />
-            <span className="">EstateFlow Admin</span>
+            <span className="hidden sm:inline-block">EstateFlow Admin</span>
             </Link>
              <nav className="hidden md:flex items-center gap-4 text-sm">
                 <Link href="/gopon/dashboard" className={pathname === '/gopon/dashboard' ? 'text-foreground font-medium' : 'text-muted-foreground transition-colors hover:text-foreground'}>
@@ -70,14 +94,27 @@ export default function AdminLayout({
                 </Link>
             </nav>
         </div>
-        <Button variant="outline" size="sm" onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Logout
-        </Button>
+
+        <div className="flex items-center gap-4">
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="md:hidden">
+                <PanelLeft className="h-5 w-5" />
+                <span className="sr-only">Toggle Menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="sm:max-w-xs">
+              {navLinks}
+            </SheetContent>
+          </Sheet>
+
+          <Button variant="outline" size="sm" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Logout</span>
+          </Button>
+        </div>
       </header>
       <main className="flex-1 p-4 sm:px-6 sm:py-6">{children}</main>
     </div>
   );
 }
-
-    
