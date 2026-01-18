@@ -12,6 +12,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { TenantNoticeDialog } from "@/components/TenantNoticeDialog";
 
 // --- Type Definitions ---
 type Tenant = {
@@ -78,6 +79,7 @@ export default function DashboardPage() {
 
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+    const [isNoticeOpen, setNoticeOpen] = useState(false);
 
     // --- New Tenant Notice Fetching ---
     const tenantRef = useMemoFirebase(() => {
@@ -85,6 +87,13 @@ export default function DashboardPage() {
         return doc(firestore, 'tenants', tenantId);
     }, [firestore, tenantId]);
     const { data: tenantData, isLoading: tenantLoading } = useDoc<Tenant>(tenantRef);
+
+    // Effect to open the dialog when the component loads and a notice is active
+    useEffect(() => {
+        if (tenantData && tenantData.noticeActive && tenantData.noticeMessage) {
+            setNoticeOpen(true);
+        }
+    }, [tenantData]);
 
     // --- Data Fetching ---
     const projectsQuery = useMemoFirebase(() => {
@@ -403,6 +412,14 @@ export default function DashboardPage() {
 
   return (
     <>
+      {tenantData?.noticeMessage && (
+          <TenantNoticeDialog
+              isOpen={isNoticeOpen}
+              onClose={() => setNoticeOpen(false)}
+              message={tenantData.noticeMessage}
+          />
+      )}
+
       {!globalNoticesLoading && globalNotices && globalNotices.length > 0 && (
         <Card className="mb-6 bg-accent border-none text-accent-foreground overflow-hidden">
             <div className="p-3 flex items-center gap-4">
@@ -419,18 +436,6 @@ export default function DashboardPage() {
                 </div>
             </div>
         </Card>
-      )}
-
-      {!tenantLoading && tenantData && tenantData.noticeActive && tenantData.noticeMessage && (
-          <Card className="mb-6 bg-yellow-100 border-yellow-300 text-yellow-900">
-              <CardHeader className="flex flex-row items-center gap-4 !pb-4">
-                  <MessageSquare className="h-6 w-6 text-yellow-700" />
-                  <CardTitle className="font-headline text-lg">Important Notice</CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <p className="whitespace-pre-wrap">{tenantData.noticeMessage}</p>
-              </CardContent>
-          </Card>
       )}
 
       <PageHeader title="Dashboard" description="An overview of your real estate business." />
