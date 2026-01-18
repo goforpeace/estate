@@ -4,7 +4,7 @@ import { Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth, initiateEmailSignIn, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { useState } from 'react';
@@ -18,8 +18,10 @@ type Tenant = {
   name: string;
 };
 
-export default function LoginPage({ params }: { params: { tenantId: string } }) {
+export default function LoginPage() {
   const router = useRouter();
+  const params = useParams();
+  const tenantId = params.tenantId as string;
   const auth = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -33,9 +35,9 @@ export default function LoginPage({ params }: { params: { tenantId: string } }) 
   const { data: branding, isLoading: brandingLoading } = useDoc<{loginImageUrl?: string}>(brandingRef);
 
   const tenantRef = useMemoFirebase(() => {
-      if (!firestore || !params.tenantId) return null;
-      return doc(firestore, 'tenants', params.tenantId as string);
-  }, [firestore, params.tenantId]);
+      if (!firestore || !tenantId) return null;
+      return doc(firestore, 'tenants', tenantId);
+  }, [firestore, tenantId]);
   const { data: tenant, isLoading: tenantLoading } = useDoc<Tenant>(tenantRef);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -51,7 +53,7 @@ export default function LoginPage({ params }: { params: { tenantId: string } }) 
     if (auth) {
       initiateEmailSignIn(auth, email, password);
       // The useUser hook in the layout will redirect on successful login
-      // router.push(`/${params.tenantId}/dashboard`);
+      // router.push(`/${tenantId}/dashboard`);
     }
   };
 
@@ -86,7 +88,7 @@ export default function LoginPage({ params }: { params: { tenantId: string } }) 
             </div>
             <h1 className="text-3xl font-bold">Login</h1>
             <p className="text-balance text-muted-foreground">
-                Sign in to tenant <span className="font-bold text-primary">{params.tenantId}</span>
+                Sign in to tenant <span className="font-bold text-primary">{tenantId}</span>
             </p>
           </div>
           <form onSubmit={handleLogin} className="grid gap-4">

@@ -2,7 +2,7 @@
 
 import { useUser, useFirestore, useMemoFirebase, useDoc, signOut, useAuth } from '@/firebase';
 import { useRouter, usePathname, useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { AppHeader } from "@/components/layout/header";
@@ -46,54 +46,40 @@ function InvalidTenantState() {
 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  // --- 1. HOOKS (unconditional) ---
   const params = useParams();
   const tenantId = params.tenantId as string;
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const firestore = useFirestore();
-  const isLoginPage = pathname === `/${tenantId}/login`;
-  
-  // State for tenant notice
   const [isNoticeOpen, setNoticeOpen] = useState(false);
 
-  // --- 1. Handle User Authentication ---
-  
-  // While checking auth, show a global loading screen.
-  if (isUserLoading) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <p>Validating session...</p>
-      </div>
-    );
-  }
+  const isLoginPage = useMemo(() => pathname === `/${tenantId}/login`, [pathname, tenantId]);
 
-  // If user is not logged in...
-  if (!user) {
-    // and they are not on the login page, redirect them.
-    if (!isLoginPage) {
-      useEffect(() => {
-        router.push(`/${tenantId}/login`);
-      }, [tenantId, router]);
-      return null; // Render nothing while redirect happens.
-    }
-    // otherwise, show the login page.
-    return <>{children}</>;
-  }
-  
-  // --- 2. Handle Authenticated User and Tenant Data ---
-
-  // At this point, `user` is guaranteed to exist.
-  // We can now safely fetch tenant-specific data.
   const tenantRef = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
     return doc(firestore, 'tenants', tenantId);
   }, [firestore, tenantId]);
   
   const { data: tenant, isLoading: isTenantLoading, error: tenantError } = useDoc<Tenant>(tenantRef);
+
+  // --- 2. EFFECTS ---
   
-  // This effect handles showing the tenant-specific notice.
-  // It only runs when the tenant data is successfully loaded.
+  // Effect for handling redirects
+  useEffect(() => {
+    if (isUserLoading) return; // Wait until user status is known
+
+    if (!user && !isLoginPage) {
+      router.push(`/${tenantId}/login`);
+    }
+
+    if (user && isLoginPage) {
+      router.push(`/${tenantId}/dashboard`);
+    }
+  }, [isUserLoading, user, isLoginPage, tenantId, router]);
+  
+  // Effect for handling tenant notice
   useEffect(() => {
       if (tenant && tenant.noticeActive && tenant.noticeMessage) {
         const NOTICE_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -105,16 +91,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             setNoticeOpen(true);
         }
       }
-  }, [tenant]); // Depend only on tenant data.
+  }, [tenant]);
 
+  // --- 3. RENDER LOGIC ---
 
-  // --- 3. Render based on combined loading and data states ---
+  // While checking user auth, show a global loading screen.
+  if (isUserLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <p>Validating session...</p>
+      </div>
+    );
+  }
 
-  // If user is logged in, but on the login page, they are about to be redirected.
+  // If user is not logged in...
+  if (!user) {
+    // and they ARE on the login page, render it.
+    if (isLoginPage) {
+      return <>{children}</>;
+    }
+    // and they are NOT on the login page, show loading during redirect.
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <p>Redirecting to login...</p>
+      </div>
+    );
+  }
+  
+  // --- At this point, the user is authenticated ---
+
+  // If user is logged in, but on the login page, show loading while redirecting to dashboard.
   if (isLoginPage) {
-    useEffect(() => {
-        router.push(`/${tenantId}/dashboard`);
-    }, [tenantId, router]);
     return (
         <div className="flex h-screen w-screen items-center justify-center bg-background">
           <p>Redirecting to dashboard...</p>
