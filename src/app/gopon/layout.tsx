@@ -61,7 +61,7 @@ export default function AdminLayout({
             <Shield className="h-6 w-6 text-primary" />
             <span className="">EstateFlow Admin</span>
             </Link>
-             <nav className="flex items-center gap-4 text-sm">
+             <nav className="hidden md:flex items-center gap-4 text-sm">
                 <Link href="/gopon/dashboard" className={pathname === '/gopon/dashboard' ? 'text-foreground font-medium' : 'text-muted-foreground transition-colors hover:text-foreground'}>
                     Tenants
                 </Link>

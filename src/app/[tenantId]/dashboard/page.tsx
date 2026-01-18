@@ -482,7 +482,7 @@ export default function DashboardPage() {
 
                 {selectedProjectId && projectOverviewLoading && <div className="mt-6 text-center">Loading project overview...</div>}
                 {selectedProjectId && !projectOverviewLoading && selectedProject ? (
-                    <CardContent className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 text-sm">
+                    <CardContent className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 text-sm">
                         <div className="flex items-start gap-3"><MapPin className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Location</p><p className="font-medium">{selectedProject.location}</p></div></div>
                         <div className="flex items-start gap-3"><Tag className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Status</p><p className="font-medium"><Badge variant={statusVariant[selectedProject.status]}>{selectedProject.status}</Badge></p></div></div>
                         <div className="flex items-start gap-3"><Calendar className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Handover Date</p><p className="font-medium">{new Date(selectedProject.expectedHandoverDate).toLocaleDateString('en-GB')}</p></div></div>
@@ -523,8 +523,8 @@ export default function DashboardPage() {
 
                 {selectedCustomerId && (isLoading || customerFinancialsLoading) && <div className="mt-6 text-center">Loading customer overview...</div>}
                 {selectedCustomerId && !isLoading && !customerFinancialsLoading && selectedCustomer ? (
-                    <CardContent className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                         <div className="md:col-span-2 flex items-start gap-3"><User className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Name</p><p className="font-medium">{selectedCustomer.name}</p></div></div>
+                    <CardContent className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+                         <div className="sm:col-span-2 flex items-start gap-3"><User className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Name</p><p className="font-medium">{selectedCustomer.name}</p></div></div>
                          <div className="flex items-start gap-3"><Phone className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Phone</p><p className="font-medium">{selectedCustomer.phoneNumber}</p></div></div>
                          <div className="flex items-start gap-3"><Home className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Address</p><p className="font-medium">{selectedCustomer.address}</p></div></div>
                          <div className="flex items-start gap-3"><Building className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Properties Purchased</p><p className="font-medium">{customerSales.length}</p></div></div>
@@ -539,7 +539,7 @@ export default function DashboardPage() {
                             </>
                          )}
 
-                         <div className="md:col-span-2 mt-2">
+                         <div className="sm:col-span-2 mt-2">
                             <Button asChild variant="outline" size="sm">
                                 <Link href={`/${tenantId}/customers/${selectedCustomerId}`}>View Full Customer Details</Link>
                             </Button>

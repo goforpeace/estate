@@ -250,7 +250,7 @@ const AddPaymentForm = ({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mt-6">
         <ScrollArea className="h-[calc(100svh-8rem)]">
-            <div className="space-y-4 p-1 pr-4">
+            <div className="space-y-4 p-1 pr-4 pb-20">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 col-span-2">
                     <Label htmlFor="customerId">Customer</Label>

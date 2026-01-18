@@ -152,8 +152,8 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6">
-                <ScrollArea className="h-[calc(100vh-8rem)]">
-                    <div className="space-y-4 p-1 pr-4">
+                <ScrollArea className="h-[calc(100svh-8rem)]">
+                    <div className="space-y-4 p-1 pr-4 pb-20">
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}

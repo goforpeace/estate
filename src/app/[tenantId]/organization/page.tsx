@@ -125,18 +125,19 @@ export default function OrganizationPage() {
               <CardDescription>This information will appear on receipts and other official documents.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
-               <div className="flex items-center gap-4">
+               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                   {logoPreview ? (
-                    <Image
-                      alt="Company Logo"
-                      className="rounded-lg object-contain bg-muted"
-                      height="80"
-                      src={logoPreview}
-                      width="200"
-                      data-ai-hint="company logo"
-                    />
+                    <div className="relative w-full sm:w-48 h-20 shrink-0">
+                        <Image
+                        alt="Company Logo"
+                        className="rounded-lg object-contain bg-muted"
+                        fill
+                        src={logoPreview}
+                        data-ai-hint="company logo"
+                        />
+                    </div>
                   ) : (
-                    <div className="h-[80px] w-[200px] flex items-center justify-center bg-muted rounded-lg text-sm text-muted-foreground">
+                    <div className="h-20 w-full sm:w-48 shrink-0 flex items-center justify-center bg-muted rounded-lg text-sm text-muted-foreground">
                         No logo provided
                     </div>
                   )}
@@ -144,7 +145,7 @@ export default function OrganizationPage() {
                     control={form.control}
                     name="logoUrl"
                     render={({ field }) => (
-                      <FormItem className="flex-1">
+                      <FormItem className="flex-1 w-full">
                         <FormLabel>Logo Link</FormLabel>
                         <FormControl>
                           <Input placeholder="https://example.com/logo.png" {...field} />
@@ -155,7 +156,7 @@ export default function OrganizationPage() {
                   />
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem><FormLabel>Company Name</FormLabel><FormControl><Input placeholder="Your Company LLC" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
@@ -169,7 +170,7 @@ export default function OrganizationPage() {
                     <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="contact@yourcompany.com" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="address" render={({ field }) => (
-                    <FormItem className="md:col-span-2"><FormLabel>Address</FormLabel><FormControl><Input placeholder="123 Main St, Anytown USA" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="sm:col-span-2"><FormLabel>Address</FormLabel><FormControl><Input placeholder="123 Main St, Anytown USA" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
               </div>
             </CardContent>

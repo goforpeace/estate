@@ -167,7 +167,7 @@ export default function ProjectDetailsPage() {
           <CardHeader>
             <CardTitle className="font-headline">Project Overview</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 text-sm">
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 text-sm">
             {/* Project Info */}
             <div className="flex items-start gap-3"><MapPin className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Location</p><p className="font-medium">{project.location}</p></div></div>
             <div className="flex items-start gap-3"><Tag className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Status</p><p className="font-medium"><Badge variant={statusVariant[project.status]}>{project.status}</Badge></p></div></div>

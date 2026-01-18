@@ -76,7 +76,7 @@ export const PrintReceiptDialog = ({
           <DialogTitle>Print Receipt</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
-          <div className="max-h-[60vh] overflow-y-auto border rounded-lg">
+          <div className="max-h-[70svh] overflow-auto border rounded-lg">
             <Receipt
               ref={receiptRef}
               transaction={transaction}
