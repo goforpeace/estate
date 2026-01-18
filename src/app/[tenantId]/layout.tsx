@@ -2,7 +2,7 @@
 
 import { useUser, useFirestore, useMemoFirebase, useDoc, signOut, useAuth } from '@/firebase';
 import { useRouter, usePathname, useParams } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { AppHeader } from "@/components/layout/header";
@@ -20,116 +20,38 @@ type Tenant = {
   noticeLocked?: boolean;
 };
 
-// A component to render when the user is logged in but tenant validation fails.
-function InvalidTenantState() {
-    const auth = useAuth();
-    const router = useRouter();
-
-    const handleSignOut = () => {
-        signOut(auth).then(() => {
-            router.push('/');
-          });
-    };
-
-    return (
-        <div className="flex h-screen w-screen items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-4 text-center p-4">
-                <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
-                <p className="text-muted-foreground max-w-md">
-                    The tenant you are trying to access does not exist, has been disabled, or there was an error loading the data. Please check the tenant ID or contact support.
-                </p>
-                <Button onClick={handleSignOut}>Sign Out</Button>
-            </div>
-      </div>
-    );
-}
-
-
-export default function AppLayout({ children }: { children: React.ReactNode }) {
-  // --- 1. HOOKS (unconditional) ---
-  const params = useParams();
-  const tenantId = params.tenantId as string;
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-  const pathname = usePathname();
+// This component assumes a user is logged in.
+// It is responsible for fetching tenant data and protecting the route based on tenant status.
+function TenantLayout({ children, tenantId }: { children: React.ReactNode, tenantId: string }) {
   const firestore = useFirestore();
   const [isNoticeOpen, setNoticeOpen] = useState(false);
 
-  const isLoginPage = useMemo(() => pathname === `/${tenantId}/login`, [pathname, tenantId]);
-
+  // Step 1: Create the tenant document reference.
   const tenantRef = useMemoFirebase(() => {
-    if (!firestore || !tenantId) return null;
+    // tenantId is guaranteed to be a string here by the parent component.
     return doc(firestore, 'tenants', tenantId);
   }, [firestore, tenantId]);
   
+  // Step 2: Fetch the tenant data.
   const { data: tenant, isLoading: isTenantLoading, error: tenantError } = useDoc<Tenant>(tenantRef);
 
-  // --- 2. EFFECTS ---
-  
-  // Effect for handling redirects
+  // Step 3: Handle the notice pop-up logic.
   useEffect(() => {
-    if (isUserLoading) return; // Wait until user status is known
+    if (tenant && tenant.noticeActive && tenant.noticeMessage) {
+      const NOTICE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+      const storageKey = `noticeLastClosed_${tenant.id}`;
+      const lastClosed = localStorage.getItem(storageKey);
+      const now = new Date().getTime();
 
-    if (!user && !isLoginPage) {
-      router.push(`/${tenantId}/login`);
-    }
-
-    if (user && isLoginPage) {
-      router.push(`/${tenantId}/dashboard`);
-    }
-  }, [isUserLoading, user, isLoginPage, tenantId, router]);
-  
-  // Effect for handling tenant notice
-  useEffect(() => {
-      if (tenant && tenant.noticeActive && tenant.noticeMessage) {
-        const NOTICE_INTERVAL = 5 * 60 * 1000; // 5 minutes
-        const storageKey = `noticeLastClosed_${tenant.id}`;
-        const lastClosed = localStorage.getItem(storageKey);
-        const now = new Date().getTime();
-
-        if (!lastClosed || now - Number(lastClosed) > NOTICE_INTERVAL) {
-            setNoticeOpen(true);
-        }
+      if (!lastClosed || now - Number(lastClosed) > NOTICE_INTERVAL) {
+        setNoticeOpen(true);
       }
-  }, [tenant]);
-
-  // --- 3. RENDER LOGIC ---
-
-  // While checking user auth, show a global loading screen.
-  if (isUserLoading) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <p>Validating session...</p>
-      </div>
-    );
-  }
-
-  // If user is not logged in...
-  if (!user) {
-    // and they ARE on the login page, render it.
-    if (isLoginPage) {
-      return <>{children}</>;
     }
-    // and they are NOT on the login page, show loading during redirect.
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <p>Redirecting to login...</p>
-      </div>
-    );
-  }
-  
-  // --- At this point, the user is authenticated ---
+  }, [tenant]); // This effect only runs when the tenant data changes.
 
-  // If user is logged in, but on the login page, show loading while redirecting to dashboard.
-  if (isLoginPage) {
-    return (
-        <div className="flex h-screen w-screen items-center justify-center bg-background">
-          <p>Redirecting to dashboard...</p>
-        </div>
-      );
-  }
+  // --- Render Logic for TenantLayout ---
 
-  // While tenant data is being fetched, show loader.
+  // While fetching tenant data, show a consistent loading screen.
   if (isTenantLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
@@ -139,7 +61,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   // After loading, if tenant is invalid for any reason, show the error state.
-  if (!tenant || !tenant.enabled || tenantError) {
+  if (tenantError || !tenant || !tenant.enabled) {
     return <InvalidTenantState />;
   }
 
@@ -168,4 +90,79 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       />
     </>
   );
+}
+
+// This component handles the primary user authentication guard.
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const params = useParams();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const tenantId = params?.tenantId as string;
+  const isLoginPage = pathname === `/${tenantId}/login`;
+
+  // Effect for handling redirects based on authentication status.
+  useEffect(() => {
+    if (isUserLoading || !tenantId) return; // Wait until auth status and tenantId are known.
+
+    if (!user && !isLoginPage) {
+      router.push(`/${tenantId}/login`);
+    }
+
+    if (user && isLoginPage) {
+      router.push(`/${tenantId}/dashboard`);
+    }
+  }, [isUserLoading, user, isLoginPage, tenantId, router]);
+
+  // While checking user auth or waiting for tenantId, show a global loading screen.
+  if (isUserLoading || !tenantId) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <p>Validating session...</p>
+      </div>
+    );
+  }
+
+  // If user is not logged in, render the login page or a redirecting message.
+  if (!user) {
+    return isLoginPage ? <>{children}</> : <div className="flex h-screen w-screen items-center justify-center bg-background"><p>Redirecting to login...</p></div>;
+  }
+  
+  // If user is logged in, but on the login page, show loading while redirecting.
+  if (isLoginPage) {
+    return (
+        <div className="flex h-screen w-screen items-center justify-center bg-background">
+          <p>Redirecting to dashboard...</p>
+        </div>
+      );
+  }
+
+  // If authenticated and not on login page, render the TenantLayout which handles tenant data.
+  return <TenantLayout tenantId={tenantId}>{children}</TenantLayout>;
+}
+
+// A standalone component for the error state.
+function InvalidTenantState() {
+    const auth = useAuth();
+    const router = useRouter();
+
+    const handleSignOut = () => {
+        if (!auth) return;
+        signOut(auth).then(() => {
+            router.push('/');
+        });
+    };
+
+    return (
+        <div className="flex h-screen w-screen items-center justify-center bg-background">
+            <div className="flex flex-col items-center gap-4 text-center p-4">
+                <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
+                <p className="text-muted-foreground max-w-md">
+                    The tenant you are trying to access does not exist, has been disabled, or there was an error loading the data. Please check the tenant ID or contact support.
+                </p>
+                <Button onClick={handleSignOut}>Sign Out</Button>
+            </div>
+      </div>
+    );
 }
