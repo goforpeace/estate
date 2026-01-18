@@ -1,6 +1,6 @@
 'use client';
 
-import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
+import { useUser, useFirestore, useMemoFirebase, useDoc, signOut, useAuth } from '@/firebase';
 import { useRouter, usePathname, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -8,8 +8,7 @@ import { AppSidebar } from "@/components/layout/sidebar";
 import { AppHeader } from "@/components/layout/header";
 import { doc } from 'firebase/firestore';
 import { TenantNoticeDialog } from '@/components/TenantNoticeDialog';
-import { useToast } from '@/hooks/use-toast';
-import { signOut, useAuth } from '@/firebase';
+import { Button } from '@/components/ui/button';
 
 type Tenant = {
   id: string;
@@ -21,107 +20,123 @@ type Tenant = {
   noticeLocked?: boolean;
 };
 
+// A component to render when the user is logged in but tenant validation fails.
+function InvalidTenantState() {
+    const auth = useAuth();
+    const router = useRouter();
 
-/**
- * This component is rendered only for authenticated users.
- * It is responsible for:
- * 1. Fetching the tenant's data.
- * 2. Validating if the tenant is valid and enabled.
- * 3. Redirecting if the tenant is invalid or if the user is on the login page.
- * 4. Displaying the main application UI and the tenant-specific notice pop-up.
- */
-function TenantProtectedLayout({ children, tenantId, isLoginPage }: { children: React.ReactNode; tenantId: string; isLoginPage: boolean }) {
+    const handleSignOut = () => {
+        signOut(auth).then(() => {
+            router.push('/');
+          });
+    };
+
+    return (
+        <div className="flex h-screen w-screen items-center justify-center bg-background">
+            <div className="flex flex-col items-center gap-4 text-center p-4">
+                <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
+                <p className="text-muted-foreground max-w-md">
+                    The tenant you are trying to access does not exist, has been disabled, or there was an error loading the data. Please check the tenant ID or contact support.
+                </p>
+                <Button onClick={handleSignOut}>Sign Out</Button>
+            </div>
+      </div>
+    );
+}
+
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const params = useParams();
+  const tenantId = params.tenantId as string;
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const pathname = usePathname();
   const firestore = useFirestore();
-  const auth = useAuth();
-  const { toast } = useToast();
-
+  const isLoginPage = pathname === `/${tenantId}/login`;
+  
+  // State for tenant notice
   const [isNoticeOpen, setNoticeOpen] = useState(false);
 
-  // A memoized reference to the tenant document in Firestore.
+  // --- 1. Handle User Authentication ---
+  
+  // While checking auth, show a global loading screen.
+  if (isUserLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <p>Validating session...</p>
+      </div>
+    );
+  }
+
+  // If user is not logged in...
+  if (!user) {
+    // and they are not on the login page, redirect them.
+    if (!isLoginPage) {
+      useEffect(() => {
+        router.push(`/${tenantId}/login`);
+      }, [tenantId, router]);
+      return null; // Render nothing while redirect happens.
+    }
+    // otherwise, show the login page.
+    return <>{children}</>;
+  }
+  
+  // --- 2. Handle Authenticated User and Tenant Data ---
+
+  // At this point, `user` is guaranteed to exist.
+  // We can now safely fetch tenant-specific data.
   const tenantRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !tenantId) return null;
     return doc(firestore, 'tenants', tenantId);
   }, [firestore, tenantId]);
-
-  // The hook that fetches the tenant data in real-time.
+  
   const { data: tenant, isLoading: isTenantLoading, error: tenantError } = useDoc<Tenant>(tenantRef);
-
-  // This single, robust effect handles all validation and redirection logic.
+  
+  // This effect handles showing the tenant-specific notice.
+  // It only runs when the tenant data is successfully loaded.
   useEffect(() => {
-    // 1. Wait until the tenant data has finished loading before making any decisions.
-    if (isTenantLoading) {
-      return;
-    }
+      if (tenant && tenant.noticeActive && tenant.noticeMessage) {
+        const NOTICE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+        const storageKey = `noticeLastClosed_${tenant.id}`;
+        const lastClosed = localStorage.getItem(storageKey);
+        const now = new Date().getTime();
 
-    // 2. Once loaded, check if the tenant is invalid (doesn't exist, is disabled, or a DB error occurred).
-    // If so, deny access by signing the user out and redirecting them to the home page.
-    if (!tenant || !tenant.enabled || tenantError) {
-      signOut(auth).then(() => {
-        toast({
-          variant: 'destructive',
-          title: 'Access Denied',
-          description: tenantError ? `Error: ${tenantError.message}` : 'Tenant not found or account is disabled.',
-        });
-        router.push('/');
-      });
-      return; // Stop further execution.
-    }
-
-    // 3. If the tenant is valid and the user is on the login page, it means they just logged in.
-    // Redirect them to their dashboard.
-    if (isLoginPage) {
-      router.push(`/${tenantId}/dashboard`);
-      return; // Stop further execution.
-    }
-
-    // 4. If the tenant is valid and logged in, check if we need to show the tenant-specific notice.
-    if (tenant.noticeActive && tenant.noticeMessage) {
-      const NOTICE_INTERVAL = 5 * 60 * 1000; // 5 minutes
-      const storageKey = `noticeLastClosed_${tenant.id}`;
-      const lastClosed = localStorage.getItem(storageKey);
-      const now = new Date().getTime();
-
-      // Show the notice if it has never been closed or if 5 minutes have passed since it was last closed.
-      if (!lastClosed || now - Number(lastClosed) > NOTICE_INTERVAL) {
-        setNoticeOpen(true);
+        if (!lastClosed || now - Number(lastClosed) > NOTICE_INTERVAL) {
+            setNoticeOpen(true);
+        }
       }
-    }
-    
-  }, [tenant, isTenantLoading, tenantError, isLoginPage, tenantId, auth, router, toast]);
+  }, [tenant]); // Depend only on tenant data.
 
-  // --- RENDER LOGIC ---
 
-  // While tenant data is being fetched, show a full-screen loader.
+  // --- 3. Render based on combined loading and data states ---
+
+  // If user is logged in, but on the login page, they are about to be redirected.
+  if (isLoginPage) {
+    useEffect(() => {
+        router.push(`/${tenantId}/dashboard`);
+    }, [tenantId, router]);
+    return (
+        <div className="flex h-screen w-screen items-center justify-center bg-background">
+          <p>Redirecting to dashboard...</p>
+        </div>
+      );
+  }
+
+  // While tenant data is being fetched, show loader.
   if (isTenantLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <p>Loading application...</p>
-      </div>
-    );
-  }
-  
-  // If the user is authenticated but on the login page, they will be redirected by the effect.
-  // Show a "Redirecting..." message in the meantime.
-  if (isLoginPage) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <p>Redirecting...</p>
+        <p>Loading application data...</p>
       </div>
     );
   }
 
-  // If loading is finished but the tenant is invalid, the effect above will trigger a redirect.
-  // We render a generic "Validating..." screen to prevent any content flashing before the redirect occurs.
+  // After loading, if tenant is invalid for any reason, show the error state.
   if (!tenant || !tenant.enabled || tenantError) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <p>Validating access...</p>
-      </div>
-    );
+    return <InvalidTenantState />;
   }
 
-  // If all checks have passed, render the full application UI.
+  // If all checks pass, render the full application UI.
   return (
     <>
       <SidebarProvider>
@@ -137,7 +152,6 @@ function TenantProtectedLayout({ children, tenantId, isLoginPage }: { children: 
           isOpen={isNoticeOpen}
           onClose={() => {
             setNoticeOpen(false);
-            // Record when the user closes the notice so we don't show it again for 5 minutes.
             if (tenant) {
                 localStorage.setItem(`noticeLastClosed_${tenant.id}`, new Date().getTime().toString());
             }
@@ -147,51 +161,4 @@ function TenantProtectedLayout({ children, tenantId, isLoginPage }: { children: 
       />
     </>
   );
-}
-
-
-/**
- * This is the root layout for all tenant-specific pages.
- * It acts as a gatekeeper, checking for user authentication before proceeding.
- */
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const params = useParams();
-  const tenantId = params.tenantId as string;
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-  const pathname = usePathname();
-  
-  const isLoginPage = pathname === `/${tenantId}/login`;
-
-  // 1. While we're checking if a user is logged in, show a global loading screen.
-  if (isUserLoading) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <p>Validating session...</p>
-      </div>
-    );
-  }
-
-  // 2. If the user is NOT authenticated:
-  if (!user) {
-    // If they try to access any page other than the login page, redirect them to it.
-    if (!isLoginPage) {
-      useEffect(() => {
-        router.push(`/${tenantId}/login`);
-      }, [tenantId, router]);
-      // Render nothing while the redirect happens.
-      return null;
-    }
-    // If they are already on the login page, just render it.
-    return <>{children}</>;
-  }
-  
-  // 3. If we reach here, a user IS authenticated.
-  // We can now render the TenantProtectedLayout, which will handle fetching
-  // the tenant's data and all further logic.
-  return <TenantProtectedLayout tenantId={tenantId} isLoginPage={isLoginPage}>{children}</TenantProtectedLayout>;
 }
