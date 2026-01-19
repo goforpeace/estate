@@ -76,8 +76,8 @@ export default function LoginPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <main className="flex-1">
-        <div className="w-full h-full lg:grid lg:grid-cols-3">
+      <main className="flex-1 flex">
+        <div className="w-full lg:grid lg:grid-cols-3">
           <div className="hidden bg-muted lg:block relative lg:col-span-2">
             {isLoading ? (
                 <Skeleton className="h-full w-full" />
