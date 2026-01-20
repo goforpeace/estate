@@ -78,6 +78,8 @@ export default function DashboardPage() {
     const firestore = useFirestore();
 
     const [isNoticeOpen, setNoticeOpen] = useState(false);
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+    const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
     // --- New Tenant Notice Fetching ---
     const tenantRef = useMemoFirebase(() => {
@@ -382,9 +384,7 @@ export default function DashboardPage() {
 
     const isLoading = tenantLoading || salesLoading || expensesLoading || opCostsLoading || inflowLoading || projectsLoading || customersLoading;
     const projectOverviewLoading = projectInflowLoading;
-     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-    const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-
+    
     const summaryCards = [
         { title: "Total Revenue", value: financials.totalRevenue, description: "Total value of all sales contracts", icon: Database, color: "bg-gray-100 text-gray-800", valueColor: "text-gray-900" },
         { title: "Total Inflow", value: financials.totalInflow, description: "Total cash received", icon: TrendingUp, color: "bg-emerald-100 text-emerald-800", valueColor: "text-emerald-900" },
