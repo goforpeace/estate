@@ -154,7 +154,7 @@ function NoticeCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial
             <form onSubmit={handleSave}>
                 <CardHeader>
                     <CardTitle className="font-headline">Tenant Notice</CardTitle>
-                    <CardDescription>Display a notice on this tenant's dashboard.</CardDescription>
+                    <CardDescription>Create a pop-up notice that this tenant will see immediately after logging into their dashboard.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">

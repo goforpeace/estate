@@ -77,23 +77,16 @@ export default function DashboardPage() {
     const tenantId = params.tenantId as string;
     const firestore = useFirestore();
 
-    const [isNoticeOpen, setNoticeOpen] = useState(false);
+    const [noticeHasBeenShown, setNoticeHasBeenShown] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
-    // --- New Tenant Notice Fetching ---
+    // --- Tenant and Notice Fetching ---
     const tenantRef = useMemoFirebase(() => {
         if (!firestore || !tenantId) return null;
         return doc(firestore, 'tenants', tenantId);
     }, [firestore, tenantId]);
     const { data: tenantData, isLoading: tenantLoading } = useDoc<Tenant>(tenantRef);
-
-    // Effect to open the dialog when the component loads and a notice is active
-    useEffect(() => {
-        if (!tenantLoading && tenantData && tenantData.noticeActive && tenantData.noticeMessage) {
-            setNoticeOpen(true);
-        }
-    }, [tenantLoading, tenantData]);
 
     // --- Data Fetching ---
     const projectsQuery = useMemoFirebase(() => {
@@ -409,13 +402,15 @@ export default function DashboardPage() {
         ));
     }, [globalNotices]);
 
+    const shouldShowTenantNotice = !tenantLoading && !!tenantData?.noticeActive && !!tenantData.noticeMessage && !noticeHasBeenShown;
+
 
   return (
     <>
       {tenantData?.noticeMessage && (
           <TenantNoticeDialog
-              isOpen={isNoticeOpen}
-              onClose={() => setNoticeOpen(false)}
+              isOpen={shouldShowTenantNotice}
+              onClose={() => setNoticeHasBeenShown(true)}
               message={tenantData.noticeMessage}
           />
       )}
