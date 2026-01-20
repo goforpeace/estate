@@ -62,9 +62,11 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    // If the query reference is not ready, set a clean non-loading state.
     if (!memoizedTargetRefOrQuery) {
-      if (data !== null) setData(null);
-      if (!isLoading) setIsLoading(true);
+      setIsLoading(false);
+      setData(null);
+      setError(null);
       return;
     }
 
