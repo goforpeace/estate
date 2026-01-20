@@ -77,9 +77,9 @@ export default function DashboardPage() {
     const tenantId = params.tenantId as string;
     const firestore = useFirestore();
 
-    const [noticeHasBeenShown, setNoticeHasBeenShown] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+    const [noticeHasBeenShown, setNoticeHasBeenShown] = useState(false);
 
     // --- Tenant and Notice Fetching ---
     const tenantRef = useMemoFirebase(() => {
@@ -401,8 +401,14 @@ export default function DashboardPage() {
             <span key={notice.id} className="mx-8 whitespace-nowrap">{notice.message}</span>
         ));
     }, [globalNotices]);
-
+    
     const shouldShowTenantNotice = !tenantLoading && !!tenantData?.noticeActive && !!tenantData.noticeMessage && !noticeHasBeenShown;
+
+    const handleNoticeOpenChange = (open: boolean) => {
+        if (!open) {
+            setNoticeHasBeenShown(true);
+        }
+    };
 
 
   return (
@@ -410,7 +416,7 @@ export default function DashboardPage() {
       {tenantData?.noticeMessage && (
           <TenantNoticeDialog
               isOpen={shouldShowTenantNotice}
-              onClose={() => setNoticeHasBeenShown(true)}
+              onOpenChange={handleNoticeOpenChange}
               message={tenantData.noticeMessage}
           />
       )}

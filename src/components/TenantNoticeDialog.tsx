@@ -5,14 +5,14 @@ import { Button } from '@/components/ui/button';
 
 interface TenantNoticeDialogProps {
   isOpen: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
   message: string;
 }
 
-export function TenantNoticeDialog({ isOpen, onClose, message }: TenantNoticeDialogProps) {
+export function TenantNoticeDialog({ isOpen, onOpenChange, message }: TenantNoticeDialogProps) {
   
   return (
-    <AlertDialog open={isOpen} onOpenChange={onClose}>
+    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Important Notice</AlertDialogTitle>
@@ -21,7 +21,7 @@ export function TenantNoticeDialog({ isOpen, onClose, message }: TenantNoticeDia
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-            <Button onClick={onClose}>
+            <Button onClick={() => onOpenChange(false)}>
                 Close
             </Button>
         </AlertDialogFooter>
