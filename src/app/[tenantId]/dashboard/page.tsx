@@ -77,8 +77,6 @@ export default function DashboardPage() {
     const tenantId = params.tenantId as string;
     const firestore = useFirestore();
 
-    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-    const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
     const [isNoticeOpen, setNoticeOpen] = useState(false);
 
     // --- New Tenant Notice Fetching ---
@@ -90,10 +88,10 @@ export default function DashboardPage() {
 
     // Effect to open the dialog when the component loads and a notice is active
     useEffect(() => {
-        if (tenantData && tenantData.noticeActive && tenantData.noticeMessage) {
+        if (!tenantLoading && tenantData && tenantData.noticeActive && tenantData.noticeMessage) {
             setNoticeOpen(true);
         }
-    }, [tenantData]);
+    }, [tenantLoading, tenantData]);
 
     // --- Data Fetching ---
     const projectsQuery = useMemoFirebase(() => {
@@ -384,6 +382,8 @@ export default function DashboardPage() {
 
     const isLoading = tenantLoading || salesLoading || expensesLoading || opCostsLoading || inflowLoading || projectsLoading || customersLoading;
     const projectOverviewLoading = projectInflowLoading;
+     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+    const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
     const summaryCards = [
         { title: "Total Revenue", value: financials.totalRevenue, description: "Total value of all sales contracts", icon: Database, color: "bg-gray-100 text-gray-800", valueColor: "text-gray-900" },
