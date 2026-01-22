@@ -22,7 +22,6 @@ import { Switch } from '@/components/ui/switch';
 type Tenant = {
   id: string;
   name: string;
-  domain: string;
   enabled: boolean;
   contactName?: string;
   contactEmail?: string;
@@ -40,19 +39,17 @@ type UserProfile = {
     phone?: string;
 }
 
-function TenantDetailsCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial<Tenant>) => Promise<boolean> }) {
+function TenantDetailsCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial<Omit<Tenant, 'id'>>) => Promise<boolean> }) {
     const [name, setName] = useState(tenant.name);
-    const [domain, setDomain] = useState(tenant.domain);
     const { isLoading: isActionInProgress } = useLoading();
 
     useEffect(() => {
         setName(tenant.name);
-        setDomain(tenant.domain);
     }, [tenant]);
 
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ name, domain });
+        onSave({ name });
     };
 
     return (
@@ -67,8 +64,9 @@ function TenantDetailsCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: 
                         <Input id="tenant-name" value={name} onChange={(e) => setName(e.target.value)} />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="tenant-domain">Domain</Label>
-                        <Input id="tenant-domain" value={domain} onChange={(e) => setDomain(e.target.value)} />
+                        <Label htmlFor="tenant-domain">Domain (Login ID)</Label>
+                        <Input id="tenant-domain" value={tenant.id} disabled />
+                         <p className="text-xs text-muted-foreground">The Login ID cannot be changed after creation.</p>
                     </div>
                 </CardContent>
                 <CardFooter>
@@ -444,5 +442,3 @@ export default function ManageTenantPage() {
     </>
   );
 }
-
-    

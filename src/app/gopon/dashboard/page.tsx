@@ -22,7 +22,6 @@ import { useLoading } from "@/context/loading-context";
 export type Tenant = {
   id: string;
   name: string;
-  domain: string;
   enabled: boolean;
   contactName?: string;
   contactEmail?: string;
@@ -129,7 +128,7 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
             const tenantRef = doc(firestore, 'tenants', trimmedDomain);
             const newTenant = {
                 name,
-                domain: trimmedDomain,
+                id: trimmedDomain,
                 enabled: true,
                 contactName,
                 contactEmail,
@@ -266,7 +265,7 @@ export default function AdminDashboard() {
                 {!isTenantsLoading && tenants?.map((tenant) => (
                     <TableRow key={tenant.id}>
                     <TableCell className="font-medium">{tenant.name}</TableCell>
-                    <TableCell>{tenant.domain}</TableCell>
+                    <TableCell>{tenant.id}</TableCell>
                     <TableCell>
                         <Badge variant={tenant.enabled ? 'secondary' : 'destructive'}>
                             {tenant.enabled ? 'Active' : 'Inactive'}
