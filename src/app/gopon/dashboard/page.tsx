@@ -111,7 +111,8 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
     const { showLoading, hideLoading, isLoading } = useLoading();
 
     const handleAddTenant = async () => {
-        if (!name || !domain) {
+        const trimmedDomain = domain.toLowerCase().trim();
+        if (!name || !trimmedDomain) {
             toast({
                 variant: "destructive",
                 title: "Missing Information",
@@ -124,17 +125,17 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
 
         showLoading("Adding tenant...");
         try {
-            const tenantsCol = collection(firestore, 'tenants');
+            const tenantRef = doc(firestore, 'tenants', trimmedDomain);
             const newTenant = {
                 name,
-                domain,
+                domain: trimmedDomain,
                 enabled: true,
                 contactName,
                 contactEmail,
                 contactPhone,
             };
 
-            await addDocumentNonBlocking(tenantsCol, newTenant);
+            await setDocumentNonBlocking(tenantRef, newTenant, {});
             
             toast({
                 title: "Tenant Added",
@@ -170,7 +171,7 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
                 <DialogHeader>
                     <DialogTitle>Add New Tenant</DialogTitle>
                     <DialogDescription>
-                        Create a new tenant account in the system.
+                        Create a new tenant account in the system. The domain will be used as the Login ID.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -179,7 +180,7 @@ function AddTenantDialog({ onTenantAdded }: { onTenantAdded: () => void }) {
                         <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" placeholder="Acme Inc." />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="domain" className="text-right">Domain</Label>
+                        <Label htmlFor="domain" className="text-right">Domain (Login ID)</Label>
                         <Input id="domain" value={domain} onChange={(e) => setDomain(e.target.value)} className="col-span-3" placeholder="acme" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -249,7 +250,7 @@ export default function AdminDashboard() {
                 <TableHeader>
                 <TableRow>
                     <TableHead>Company Name</TableHead>
-                    <TableHead>Tenant Domain</TableHead>
+                    <TableHead>Tenant Login ID</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Access</TableHead>
                     <TableHead className="text-right">Actions</TableHead>

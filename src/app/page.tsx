@@ -28,7 +28,7 @@ export default function TenantIdPage() {
   const handleContinue = (e: React.FormEvent) => {
     e.preventDefault();
     if (tenantId.trim()) {
-      router.push(`/${tenantId.trim()}/login`);
+      router.push(`/${tenantId.toLowerCase().trim()}/login`);
     }
   };
 
