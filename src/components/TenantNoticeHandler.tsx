@@ -23,20 +23,31 @@ export function TenantNoticeHandler({ tenantId }: { tenantId: string }) {
   const { data: tenant, isLoading: tenantLoading } = useDoc<Tenant>(tenantRef);
 
   useEffect(() => {
-    // This effect runs on the client after hydration
-    if (typeof window !== 'undefined') {
-      const noticeShown = sessionStorage.getItem(`noticeShown_${tenantId}`);
+    let intervalId: NodeJS.Timeout | null = null;
 
-      if (tenant && !tenantLoading && !noticeShown) {
-        if (tenant.noticeActive && tenant.noticeMessage) {
-          setNoticeMessage(tenant.noticeMessage);
-          setIsNoticeOpen(true);
-          // Set the flag in session storage so it doesn't show again during this session
-          sessionStorage.setItem(`noticeShown_${tenantId}`, 'true');
-        }
-      }
+    if (tenant && !tenantLoading && tenant.noticeActive && tenant.noticeMessage) {
+      setNoticeMessage(tenant.noticeMessage);
+      
+      // Show the notice immediately on load
+      setIsNoticeOpen(true);
+
+      // Set up an interval to show the notice every 30 seconds
+      intervalId = setInterval(() => {
+        setIsNoticeOpen(true);
+      }, 30000); // 30000 milliseconds = 30 seconds
+    } else {
+        // If notice is not active or message is empty, ensure the dialog is closed.
+        setIsNoticeOpen(false);
     }
-  }, [tenant, tenantLoading, tenantId]);
+
+    // Cleanup function to clear the interval when the component unmounts
+    // or when the dependencies of the useEffect hook change.
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [tenant, tenantLoading]);
 
   return (
     <TenantNoticeDialog
