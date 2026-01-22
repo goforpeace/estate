@@ -422,7 +422,7 @@ export default function DashboardPage() {
       )}
 
       {!globalNoticesLoading && globalNotices && globalNotices.length > 0 && (
-        <Card className="mb-6 bg-accent border-none text-accent-foreground overflow-hidden">
+        <Card className="mb-6 bg-primary border-none text-primary-foreground overflow-hidden">
             <div className="p-3 flex items-center gap-4">
                 <MessageSquare className="h-5 w-5 flex-shrink-0" />
                 <div className="flex-1 w-full overflow-hidden">
