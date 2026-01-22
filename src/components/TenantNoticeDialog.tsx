@@ -29,3 +29,5 @@ export function TenantNoticeDialog({ isOpen, onOpenChange, message }: TenantNoti
     </AlertDialog>
   );
 }
+
+    
