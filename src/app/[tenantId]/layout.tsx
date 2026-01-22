@@ -56,10 +56,18 @@ function TenantLayout({ children, tenantId }: { children: React.ReactNode, tenan
         return doc(firestore, 'tenants', tenantId);
     }, [firestore, tenantId]);
     
-    const { isLoading: isTenantLoading } = useDoc<Tenant>(tenantRef);
+    const { data: tenant, isLoading: isTenantLoading } = useDoc<Tenant>(tenantRef);
 
     if (isTenantLoading) {
         return <div className="flex h-screen w-screen items-center justify-center bg-background"><p>Loading application...</p></div>;
+    }
+
+    if (!tenant) {
+        return <InvalidAccessState message="The tenant you are trying to access does not exist." showSignOut={true} />;
+    }
+
+    if (!tenant.enabled) {
+        return <InvalidAccessState message="This tenant account has been disabled. Please contact your administrator." showSignOut={true} />;
     }
     
     // The responsibility of checking for a valid tenant is handled at the login screen.

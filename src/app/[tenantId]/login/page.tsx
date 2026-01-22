@@ -14,10 +14,13 @@ import { doc } from 'firebase/firestore';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppFooter } from '@/components/layout/footer';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal } from 'lucide-react';
 
 type Tenant = {
   id: string;
   name: string;
+  enabled: boolean;
 };
 
 export default function LoginPage() {
@@ -45,6 +48,16 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (tenant && !tenant.enabled) {
+      toast({
+          variant: "destructive",
+          title: "Login Failed",
+          description: "This tenant account is disabled. Please contact support.",
+      });
+      return;
+    }
+
     if (!email || !password) {
         toast({
             variant: "destructive",
@@ -73,6 +86,7 @@ export default function LoginPage() {
 
   const imageUrl = branding?.loginImageUrl || "https://picsum.photos/seed/login/1200/1800";
   const isLoading = brandingLoading || tenantLoading;
+  const isFormDisabled = isLoggingIn || !tenant || !tenant.enabled;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -104,21 +118,43 @@ export default function LoginPage() {
                 </div>
                 <h1 className="text-3xl font-bold">Login</h1>
                 <p className="text-balance text-muted-foreground">
-                    Sign in to tenant <span className="font-bold text-primary">{tenantId}</span>
+                    Sign in to tenant <span className="font-bold text-primary">{tenant?.name || tenantId}</span>
                 </p>
               </div>
+
+              {!tenant && !tenantLoading && (
+                <Alert variant="destructive">
+                  <Terminal className="h-4 w-4" />
+                  <AlertTitle>Invalid Tenant</AlertTitle>
+                  <AlertDescription>
+                    The tenant ID "{tenantId}" does not exist. Please check the URL and try again.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {tenant && !tenant.enabled && (
+                <Alert variant="destructive">
+                  <Terminal className="h-4 w-4" />
+                  <AlertTitle>Account Disabled</AlertTitle>
+                  <AlertDescription>
+                    This tenant account is currently disabled. Please contact support.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+
               <form onSubmit={handleLogin} className="grid gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="user@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Input id="email" type="email" placeholder="user@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isFormDisabled} />
                 </div>
                 <div className="grid gap-2">
                   <div className="flex items-center">
                     <Label htmlFor="password">Password</Label>
                   </div>
-                  <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isFormDisabled} />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                <Button type="submit" className="w-full" disabled={isFormDisabled}>
                   {isLoggingIn ? 'Signing In...' : 'Login'}
                 </Button>
                 <Button variant="link" size="sm" asChild>

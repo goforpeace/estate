@@ -267,7 +267,7 @@ export default function AdminDashboard() {
                     <TableCell>{tenant.domain}</TableCell>
                     <TableCell>
                         <Badge variant={tenant.enabled ? 'secondary' : 'destructive'}>
-                            {tenant.enabled ? 'active' : 'inactive'}
+                            {tenant.enabled ? 'Active' : 'Inactive'}
                         </Badge>
                     </TableCell>
                     <TableCell>
