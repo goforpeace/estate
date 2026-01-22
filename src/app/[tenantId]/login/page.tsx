@@ -7,10 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, initiateEmailSignIn, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useAuth, initiateEmailSignIn, useDoc, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { doc } from 'firebase/firestore';
+import { collection, doc, query, where } from 'firebase/firestore';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppFooter } from '@/components/layout/footer';
@@ -40,11 +40,13 @@ export default function LoginPage() {
   }, [firestore]);
   const { data: branding, isLoading: brandingLoading } = useDoc<{loginImageUrl?: string}>(brandingRef);
 
-  const tenantRef = useMemoFirebase(() => {
+  const tenantsQuery = useMemoFirebase(() => {
       if (!firestore || !tenantId) return null;
-      return doc(firestore, 'tenants', tenantId);
+      return query(collection(firestore, 'tenants'), where('domain', '==', tenantId));
   }, [firestore, tenantId]);
-  const { data: tenant, isLoading: tenantLoading } = useDoc<Tenant>(tenantRef);
+  const { data: tenants, isLoading: tenantLoading } = useCollection<Tenant>(tenantsQuery);
+
+  const tenant = tenants?.[0];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
