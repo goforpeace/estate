@@ -3,7 +3,7 @@
 
 import { useUser, useFirestore, useMemoFirebase, useDoc, signOut, useAuth } from '@/firebase';
 import { useRouter, usePathname, useParams } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect } from 'react';
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { AppHeader } from "@/components/layout/header";
@@ -11,7 +11,6 @@ import { doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { AppFooter } from '@/components/layout/footer';
-import { TenantNoticeDialog } from '@/components/TenantNoticeDialog';
 
 type Tenant = {
   id: string;
@@ -50,30 +49,13 @@ function InvalidAccessState({ message, showSignOut }: { message: string, showSig
 
 function TenantLayout({ children, tenantId }: { children: React.ReactNode, tenantId: string }) {
     const firestore = useFirestore();
-    const [isNoticeOpen, setIsNoticeOpen] = useState(false);
-    const [noticeMessage, setNoticeMessage] = useState('');
-    // Using a ref to track if we've already checked for the notice, to avoid re-showing on re-renders.
-    const noticeCheckedRef = useRef(false);
 
     const tenantRef = useMemoFirebase(() => {
         if (!firestore || !tenantId) return null;
         return doc(firestore, 'tenants', tenantId);
     }, [firestore, tenantId]);
     
-    const { data: tenant, isLoading: isTenantLoading } = useDoc<Tenant>(tenantRef);
-
-    useEffect(() => {
-        // Only trigger the check if tenant data has loaded and we haven't checked before
-        if (tenant && !isTenantLoading && !noticeCheckedRef.current) {
-            if (tenant.noticeActive && tenant.noticeMessage) {
-                setNoticeMessage(tenant.noticeMessage);
-                setIsNoticeOpen(true);
-            }
-            // Mark as checked so it doesn't run again for this session/component mount
-            noticeCheckedRef.current = true;
-        }
-    }, [tenant, isTenantLoading]);
-
+    const { isLoading: isTenantLoading } = useDoc<Tenant>(tenantRef);
 
     if (isTenantLoading) {
         return <div className="flex h-screen w-screen items-center justify-center bg-background"><p>Loading application...</p></div>;
@@ -84,11 +66,6 @@ function TenantLayout({ children, tenantId }: { children: React.ReactNode, tenan
 
     return (
         <SidebarProvider>
-            <TenantNoticeDialog
-                isOpen={isNoticeOpen}
-                onOpenChange={setIsNoticeOpen}
-                message={noticeMessage}
-            />
             <AppSidebar tenantId={tenantId} />
             <div className="flex flex-col flex-1 min-w-0">
                 <AppHeader tenantId={tenantId} />
