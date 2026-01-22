@@ -22,6 +22,15 @@ type Tenant = {
   noticeActive?: boolean;
 };
 
+// Matches the User entity in backend.json
+type UserProfile = {
+    id: string;
+    tenantId: string;
+    name: string;
+    email: string;
+    phone?: string;
+};
+
 // A standalone component for the error state.
 function InvalidAccessState({ message, showSignOut }: { message: string, showSignOut: boolean }) {
     const auth = useAuth();
@@ -53,6 +62,7 @@ function TenantLayout({ children, tenantId }: { children: React.ReactNode, tenan
 
     const tenantRef = useMemoFirebase(() => {
         if (!firestore || !tenantId) return null;
+        // The document ID for a tenant is its domain/login ID.
         return doc(firestore, 'tenants', tenantId);
     }, [firestore, tenantId]);
     
@@ -63,15 +73,13 @@ function TenantLayout({ children, tenantId }: { children: React.ReactNode, tenan
     }
 
     if (!tenant) {
+        // This case should ideally be caught by the login page, but as a fallback.
         return <InvalidAccessState message="The tenant you are trying to access does not exist." showSignOut={true} />;
     }
 
     if (!tenant.enabled) {
         return <InvalidAccessState message="This tenant account has been disabled. Please contact your administrator." showSignOut={true} />;
     }
-    
-    // The responsibility of checking for a valid tenant is handled at the login screen.
-    // If a user gets here, we assume they have access.
 
     return (
         <SidebarProvider>
@@ -94,8 +102,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
+  const firestore = useFirestore();
 
   const tenantId = params?.tenantId as string;
+
+  // Fetch the user's profile from Firestore to get their assigned tenantId
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile, isLoading: isProfileLoading, error: profileError } = useDoc<UserProfile>(userProfileRef);
 
    useEffect(() => {
     if (isUserLoading || !tenantId) {
@@ -117,8 +134,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isUserLoading, user, pathname, tenantId, router]);
 
 
-  // While checking user auth, show a global loading screen.
-  if (isUserLoading || (!user && pathname !== `/${tenantId}/login` && pathname !== `/`)) {
+  const isLoading = isUserLoading || isProfileLoading;
+
+  // While checking user auth and profile, show a global loading screen.
+  if (isLoading || (!user && pathname !== `/${tenantId}/login` && pathname !== `/`)) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <p>Validating session...</p>
@@ -126,11 +145,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
   
-  // If we have a user, render the protected layout.
-  // Or if we are on a public/login page, render it directly.
+  // If we have a user, perform security checks before rendering the layout.
   if (user) {
+    // Handle case where profile fails to load
+    if (profileError) {
+        return <InvalidAccessState message={`There was an error loading your user profile: ${profileError.message}`} showSignOut={true} />;
+    }
+    
+    // Handle case where user exists in Auth, but not in 'users' collection
+    if (!isProfileLoading && !userProfile) {
+        return <InvalidAccessState message="Your user profile could not be found in the database. Please contact your administrator." showSignOut={true} />;
+    }
+    
+    // Handle case where profile is missing tenantId
+    if (userProfile && !userProfile.tenantId) {
+      return <InvalidAccessState message={`Your user profile is improperly configured and is missing a tenant assignment. Please contact your administrator.`} showSignOut={true} />;
+    }
+
+    // THE CRITICAL SECURITY CHECK:
+    // Ensure the tenantId in the user's profile matches the tenantId in the URL.
+    if (userProfile && userProfile.tenantId !== tenantId) {
+      const accessDeniedMessage = `You are trying to access the tenant "${tenantId}", but your account is assigned to the tenant "${userProfile.tenantId}". Please log out and sign in with the correct tenant ID.`;
+      return <InvalidAccessState message={accessDeniedMessage} showSignOut={true} />;
+    }
+
+    // If all checks pass, render the protected layout.
     return <TenantLayout tenantId={tenantId}>{children}</TenantLayout>;
   }
   
+  // If no user, and not on a protected route, render the children (e.g., login page)
   return <>{children}</>;
 }
