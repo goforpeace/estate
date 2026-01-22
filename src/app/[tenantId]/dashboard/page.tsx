@@ -12,14 +12,8 @@ import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { TenantNoticeDialog } from "@/components/TenantNoticeDialog";
 
 // --- Type Definitions ---
-type Tenant = {
-  id: string;
-  noticeMessage?: string;
-  noticeActive?: boolean;
-}
 type FlatSale = {
     id: string;
     projectId: string;
@@ -79,14 +73,6 @@ export default function DashboardPage() {
 
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-    const [noticeHasBeenShown, setNoticeHasBeenShown] = useState(false);
-
-    // --- Tenant and Notice Fetching ---
-    const tenantRef = useMemoFirebase(() => {
-        if (!firestore || !tenantId) return null;
-        return doc(firestore, 'tenants', tenantId);
-    }, [firestore, tenantId]);
-    const { data: tenantData, isLoading: tenantLoading } = useDoc<Tenant>(tenantRef);
 
     // --- Data Fetching ---
     const projectsQuery = useMemoFirebase(() => {
@@ -375,7 +361,7 @@ export default function DashboardPage() {
     }, [firestore, tenantId, customerSales, customerFinancials.totalRevenue]);
 
 
-    const isLoading = tenantLoading || salesLoading || expensesLoading || opCostsLoading || inflowLoading || projectsLoading || customersLoading;
+    const isLoading = salesLoading || expensesLoading || opCostsLoading || inflowLoading || projectsLoading || customersLoading;
     const projectOverviewLoading = projectInflowLoading;
     
     const summaryCards = [
@@ -401,26 +387,10 @@ export default function DashboardPage() {
             <span key={notice.id} className="mx-8 whitespace-nowrap">{notice.message}</span>
         ));
     }, [globalNotices]);
-    
-    const shouldShowTenantNotice = !tenantLoading && !!tenantData?.noticeActive && !!tenantData.noticeMessage && !noticeHasBeenShown;
-
-    const handleNoticeOpenChange = (open: boolean) => {
-        if (!open) {
-            setNoticeHasBeenShown(true);
-        }
-    };
 
 
   return (
     <>
-      {tenantData?.noticeMessage && (
-          <TenantNoticeDialog
-              isOpen={shouldShowTenantNotice}
-              onOpenChange={handleNoticeOpenChange}
-              message={tenantData.noticeMessage}
-          />
-      )}
-
       {!globalNoticesLoading && globalNotices && globalNotices.length > 0 && (
         <Card className="mb-6 bg-primary border-none text-primary-foreground overflow-hidden">
             <div className="p-3 flex items-center gap-4">
@@ -558,5 +528,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
