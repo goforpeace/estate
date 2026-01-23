@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc, useFirestore, useMemoFirebase, deleteDocumentNonBlocking, useAuth, useCollection, updateDocumentNonBlocking } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, deleteDocumentNonBlocking, useAuth, useCollection, updateDocumentNonBlocking, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, setDoc, where } from 'firebase/firestore';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
@@ -150,16 +150,19 @@ function TenantNoticesManager({ tenantId }: { tenantId: string }) {
         }
         showLoading("Adding notice...");
         try {
+            const newNoticeRef = doc(collection(firestore, `tenants/${tenantId}/notices`));
             const noticeData = {
+                id: newNoticeRef.id,
                 message: newMessage,
                 isActive: true,
                 createdAt: new Date().toISOString(),
                 tenantId: tenantId,
             };
-            await addDocumentNonBlocking(collection(firestore, `tenants/${tenantId}/notices`), noticeData);
+            await setDocumentNonBlocking(newNoticeRef, noticeData, {});
             toast({ title: "Notice Added" });
             setNewMessage("");
         } catch (error) {
+            console.error("Failed to add notice:", error);
             toast({ variant: "destructive", title: "Failed to add notice" });
         } finally {
             hideLoading();
