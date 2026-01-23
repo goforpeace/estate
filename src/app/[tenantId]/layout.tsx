@@ -11,15 +11,12 @@ import { doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { AppFooter } from '@/components/layout/footer';
-import { TenantNoticeHandler } from '@/components/TenantNoticeHandler';
 
 type Tenant = {
   id: string;
   name: string;
   enabled: boolean;
   domain: string;
-  noticeMessage?: string;
-  noticeActive?: boolean;
 };
 
 // Matches the User entity in backend.json
@@ -83,7 +80,6 @@ function TenantLayout({ children, tenantId }: { children: React.ReactNode, tenan
 
     return (
         <SidebarProvider>
-            <TenantNoticeHandler tenantId={tenantId} />
             <AppSidebar tenantId={tenantId} />
             <div className="flex flex-col flex-1 min-w-0">
                 <AppHeader tenantId={tenantId} />

@@ -30,14 +30,6 @@
         "contactPhone": {
           "type": "string",
           "description": "The phone number of the contact person for the tenant."
-        },
-        "noticeMessage": {
-          "type": "string",
-          "description": "A specific notice message for this tenant, shown as a pop-up on login."
-        },
-        "noticeActive": {
-          "type": "boolean",
-          "description": "Whether the tenant-specific notice is active."
         }
       },
       "required": [
@@ -755,6 +747,42 @@
         "createdAt"
       ]
     },
+    "TenantNotice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TenantNotice",
+      "type": "object",
+      "description": "Represents a specific notice for an individual tenant.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Notice entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "The ID of the tenant this notice belongs to."
+        },
+        "message": {
+          "type": "string",
+          "description": "The content of the notice."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether the notice is currently active and should be displayed."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the notice was created."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "message",
+        "isActive",
+        "createdAt"
+      ]
+    },
     "GlobalBranding": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "GlobalBranding",
@@ -1077,6 +1105,26 @@
           },
           "description": "Stores global notices to be displayed to all tenants.",
           "params": [
+            {
+              "name": "noticeId",
+              "description": "Unique identifier for the notice."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/notices/{noticeId}",
+        "definition": {
+          "entityName": "TenantNotice",
+          "schema": {
+            "$ref": "#/backend/entities/TenantNotice"
+          },
+          "description": "Stores specific notices for an individual tenant.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
             {
               "name": "noticeId",
               "description": "Unique identifier for the notice."

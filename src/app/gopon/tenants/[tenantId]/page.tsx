@@ -11,13 +11,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, UserPlus, Save, Trash2, UserX } from 'lucide-react';
+import { ArrowLeft, UserPlus, Save, Trash2, UserX, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useLoading } from '@/context/loading-context';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { format } from 'date-fns';
 
 type Tenant = {
   id: string;
@@ -26,8 +27,6 @@ type Tenant = {
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
-  noticeMessage?: string;
-  noticeActive?: boolean;
 };
 
 // Matches the User entity in backend.json
@@ -37,7 +36,14 @@ type UserProfile = {
     name: string;
     email: string;
     phone?: string;
-}
+};
+
+type TenantNotice = {
+  id: string;
+  message: string;
+  isActive: boolean;
+  createdAt: string;
+};
 
 function TenantDetailsCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial<Omit<Tenant, 'id'>>) => Promise<boolean> }) {
     const [name, setName] = useState(tenant.name);
@@ -122,59 +128,123 @@ function ContactPersonCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: 
     );
 }
 
-function NoticeCard({ tenant, onSave }: { tenant: Tenant, onSave: (data: Partial<Tenant>) => Promise<boolean> }) {
-    const [message, setMessage] = useState(tenant.noticeMessage || '');
-    const [isActive, setIsActive] = useState(tenant.noticeActive || false);
-    const { isLoading: isActionInProgress } = useLoading();
+function TenantNoticesManager({ tenantId }: { tenantId: string }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const { showLoading, hideLoading, isLoading: isActionInProgress } = useLoading();
+    const [newMessage, setNewMessage] = useState("");
+    const [noticeToDelete, setNoticeToDelete] = useState<TenantNotice | null>(null);
 
-    useEffect(() => {
-        setMessage(tenant.noticeMessage || '');
-        setIsActive(tenant.noticeActive || false);
-    }, [tenant]);
+    const noticesQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, `tenants/${tenantId}/notices`);
+    }, [firestore, tenantId]);
+    const { data: notices, isLoading: noticesLoading } = useCollection<TenantNotice>(noticesQuery);
 
-    const handleSave = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave({ 
-            noticeMessage: message,
-            noticeActive: isActive,
-        });
+    const sortedNotices = [...(notices || [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const handleAddNotice = async () => {
+        if (!firestore || !newMessage.trim()) {
+            toast({ variant: "destructive", title: "Message is empty" });
+            return;
+        }
+        showLoading("Adding notice...");
+        try {
+            const noticeData = {
+                message: newMessage,
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                tenantId: tenantId,
+            };
+            await addDocumentNonBlocking(collection(firestore, `tenants/${tenantId}/notices`), noticeData);
+            toast({ title: "Notice Added" });
+            setNewMessage("");
+        } catch (error) {
+            toast({ variant: "destructive", title: "Failed to add notice" });
+        } finally {
+            hideLoading();
+        }
     };
-    
-    const handleClear = () => {
-        onSave({ 
-            noticeMessage: '',
-            noticeActive: false,
-        });
+
+    const handleToggleStatus = (notice: TenantNotice) => {
+        if (!firestore) return;
+        const noticeRef = doc(firestore, `tenants/${tenantId}/notices`, notice.id);
+        updateDocumentNonBlocking(noticeRef, { isActive: !notice.isActive });
+        toast({ title: `Notice ${!notice.isActive ? 'activated' : 'deactivated'}.` });
+    };
+
+    const handleDeleteNotice = async () => {
+        if (!firestore || !noticeToDelete) return;
+        showLoading("Deleting notice...");
+        try {
+            await deleteDocumentNonBlocking(doc(firestore, `tenants/${tenantId}/notices`, noticeToDelete.id));
+            toast({ variant: "destructive", title: "Notice Deleted" });
+            setNoticeToDelete(null);
+        } catch (error) {
+            toast({ variant: "destructive", title: "Failed to delete notice" });
+        } finally {
+            hideLoading();
+        }
     };
 
     return (
-        <Card>
-            <form onSubmit={handleSave}>
-                <CardHeader>
-                    <CardTitle className="font-headline">Tenant Notice</CardTitle>
-                    <CardDescription>Create a pop-up notice that this tenant will see immediately after logging into their dashboard.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="notice-message">Notice Message</Label>
-                        <Textarea id="notice-message" placeholder="E.g., Your payment is due..." value={message} onChange={(e) => setMessage(e.target.value)} rows={4} />
-                    </div>
-                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                        <div className="space-y-0.5">
-                            <Label htmlFor="notice-active">Activate Notice</Label>
-                            <p className="text-xs text-muted-foreground">Show this notice to the tenant.</p>
-                        </div>
-                        <Switch id="notice-active" checked={isActive} onCheckedChange={setIsActive} />
-                    </div>
-                </CardContent>
-                <CardFooter className="justify-between">
-                    <Button type="submit" disabled={isActionInProgress}><Save className="mr-2 h-4 w-4" /> Save Notice</Button>
-                    <Button type="button" variant="ghost" onClick={handleClear} disabled={isActionInProgress}>Deactivate</Button>
-                </CardFooter>
-            </form>
+        <Card className="lg:col-span-2">
+            <AlertDialog open={!!noticeToDelete} onOpenChange={(isOpen) => !isOpen && setNoticeToDelete(null)}>
+                <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>This will permanently delete this notice.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteNotice}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <CardHeader>
+                <CardTitle className="font-headline">Tenant Notices</CardTitle>
+                <CardDescription>Create notices that will appear on this tenant's dashboard.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex items-start gap-2">
+                    <Textarea placeholder="Type your new notice here..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                    <Button onClick={handleAddNotice} disabled={isActionInProgress || !newMessage.trim()}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                </div>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Message</TableHead>
+                            <TableHead>Created</TableHead>
+                            <TableHead>Active</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {noticesLoading ? (
+                            <TableRow><TableCell colSpan={4} className="h-24 text-center">Loading notices...</TableCell></TableRow>
+                        ) : sortedNotices.length > 0 ? (
+                            sortedNotices.map((notice) => (
+                                <TableRow key={notice.id}>
+                                    <TableCell className="max-w-xs truncate">{notice.message}</TableCell>
+                                    <TableCell>{format(new Date(notice.createdAt), 'dd MMM, yyyy')}</TableCell>
+                                    <TableCell><Switch checked={notice.isActive} onCheckedChange={() => handleToggleStatus(notice)} /></TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setNoticeToDelete(notice)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow><TableCell colSpan={4} className="h-24 text-center">No notices found.</TableCell></TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
         </Card>
     );
 }
+
 
 export default function ManageTenantPage() {
   const params = useParams();
@@ -326,7 +396,7 @@ export default function ManageTenantPage() {
         </Button>
       </PageHeader>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card>
             <CardHeader>
                 <CardTitle className="font-headline">User List</CardTitle>
                 <CardDescription>Users associated with this tenant.</CardDescription>
@@ -401,11 +471,11 @@ export default function ManageTenantPage() {
           </form>
         </Card>
 
+        <TenantNoticesManager tenantId={tenant.id} />
+
         <TenantDetailsCard tenant={tenant} onSave={handleUpdateTenant} />
         
         <ContactPersonCard tenant={tenant} onSave={handleUpdateTenant} />
-        
-        <NoticeCard tenant={tenant} onSave={handleUpdateTenant} />
 
         <Card className="lg:col-span-3 border-destructive">
             <CardHeader>

@@ -57,6 +57,13 @@ type GlobalNotice = {
   createdAt: string;
 };
 
+type TenantNotice = {
+  id: string;
+  message: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
 
 // --- Helper Functions ---
 const formatCurrency = (value: number) => {
@@ -111,6 +118,12 @@ export default function DashboardPage() {
         return query(collection(firestore, 'notices'), where('isActive', '==', true));
     }, [firestore]);
     const { data: globalNotices, isLoading: globalNoticesLoading } = useCollection<GlobalNotice>(globalNoticesQuery);
+    
+    const tenantNoticesQuery = useMemoFirebase(() => {
+        if (!firestore || !tenantId) return null;
+        return query(collection(firestore, `tenants/${tenantId}/notices`), where('isActive', '==', true));
+    }, [firestore, tenantId]);
+    const { data: tenantNotices, isLoading: tenantNoticesLoading } = useCollection<TenantNotice>(tenantNoticesQuery);
 
     const [totalInflow, setTotalInflow] = useState(0);
     const [inflowLoading, setInflowLoading] = useState(true);
@@ -407,6 +420,21 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </div>
+        </Card>
+      )}
+
+      {!tenantNoticesLoading && tenantNotices && tenantNotices.length > 0 && (
+        <Card className="mb-6 bg-accent border-none text-accent-foreground">
+             <CardHeader>
+                <CardTitle className="font-headline flex items-center gap-3"><MessageSquare className="h-6 w-6" /> Important Notices</CardTitle>
+             </CardHeader>
+             <CardContent className="space-y-4">
+                {tenantNotices.map(notice => (
+                    <div key={notice.id} className="p-4 bg-background/20 rounded-lg">
+                        <p className="whitespace-pre-wrap">{notice.message}</p>
+                    </div>
+                ))}
+             </CardContent>
         </Card>
       )}
 
