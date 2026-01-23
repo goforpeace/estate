@@ -1,4 +1,3 @@
-
 'use client';
 
 import { PageHeader } from "@/components/page-header";
@@ -410,13 +409,13 @@ export default function DashboardPage() {
             <div className="p-3 flex items-center gap-4">
                 <MessageSquare className="h-5 w-5 flex-shrink-0" />
                 <div className="flex-1 w-full overflow-hidden">
-                    <div className="flex animate-ticker-scroll">
-                        <div className="flex-shrink-0 flex items-center">
+                    <div className="animate-ticker-scroll whitespace-nowrap">
+                        <span className="inline-flex items-center">
                             {globalNoticeContent}
-                        </div>
-                        <div className="flex-shrink-0 flex items-center" aria-hidden="true">
+                        </span>
+                        <span className="inline-flex items-center" aria-hidden="true">
                             {globalNoticeContent}
-                        </div>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -431,7 +430,7 @@ export default function DashboardPage() {
              <CardContent className="space-y-4">
                 {tenantNotices.map(notice => (
                     <div key={notice.id} className="p-4 bg-background/20 rounded-lg">
-                        <p className="whitespace-pre-wrap">{notice.message}</p>
+                        <div className="text-sm" dangerouslySetInnerHTML={{ __html: notice.message }} />
                     </div>
                 ))}
              </CardContent>

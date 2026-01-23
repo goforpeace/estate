@@ -209,10 +209,11 @@ function TenantNoticesManager({ tenantId }: { tenantId: string }) {
                 <CardDescription>Create notices that will appear on this tenant's dashboard.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="flex items-start gap-2">
-                    <Textarea placeholder="Type your new notice here..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
-                    <Button onClick={handleAddNotice} disabled={isActionInProgress || !newMessage.trim()}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                <div className="space-y-2">
+                    <Textarea placeholder="Type your notice here..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">HTML tags are supported for formatting (e.g., &lt;b&gt;bold&lt;/b&gt;, &lt;i&gt;italic&lt;/i&gt;).</p>
                 </div>
+                 <Button onClick={handleAddNotice} disabled={isActionInProgress || !newMessage.trim()}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
                 <Table>
                     <TableHeader>
                         <TableRow>
