@@ -410,8 +410,8 @@ export default function DashboardPage() {
                 <MessageSquare className="h-5 w-5 flex-shrink-0" />
                 <div className="flex-1 w-full overflow-hidden">
                     <div className="ticker-track">
-                        <div className="inline-flex items-center" >{globalNoticeItems}</div>
-                        <div className="inline-flex items-center" aria-hidden="true">{globalNoticeItems}</div>
+                        {globalNoticeItems}
+                        {globalNoticeItems}
                     </div>
                 </div>
             </div>
@@ -426,7 +426,7 @@ export default function DashboardPage() {
              <CardContent className="space-y-4">
                 {tenantNotices.map(notice => (
                     <div key={notice.id} className="p-4 bg-background/20 rounded-lg">
-                        <p className="text-sm whitespace-pre-wrap">{notice.message}</p>
+                        <div className="text-sm prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: notice.message.replace(/\n/g, '<br />') }} />
                     </div>
                 ))}
              </CardContent>

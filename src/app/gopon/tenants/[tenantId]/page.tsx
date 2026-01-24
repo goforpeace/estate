@@ -163,9 +163,9 @@ function TenantNoticesManager({ tenantId }: { tenantId: string }) {
             await setDocumentNonBlocking(newNoticeRef, noticeData, {});
             toast({ title: "Notice Added" });
             setNewMessage("");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to add notice:", error);
-            toast({ variant: "destructive", title: "Failed to add notice" });
+            toast({ variant: "destructive", title: "Failed to add notice", description: error.message });
         } finally {
             hideLoading();
         }
@@ -218,6 +218,7 @@ function TenantNoticesManager({ tenantId }: { tenantId: string }) {
                         placeholder="Type your notice here..."
                         rows={5}
                     />
+                    <p className="text-xs text-muted-foreground">You can use simple HTML tags like &lt;b&gt;bold&lt;/b&gt;, &lt;i&gt;italic&lt;/i&gt;, or &lt;u&gt;underline&lt;/u&gt; for formatting.</p>
                 </div>
                  <Button onClick={handleAddNotice} disabled={isActionInProgress || isNewMessageEmpty}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
                 <Table>
