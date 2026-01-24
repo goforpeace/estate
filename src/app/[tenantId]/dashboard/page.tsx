@@ -426,7 +426,7 @@ export default function DashboardPage() {
              <CardContent className="space-y-4">
                 {tenantNotices.map(notice => (
                     <div key={notice.id} className="p-4 bg-background/20 rounded-lg">
-                        <div className="text-sm" dangerouslySetInnerHTML={{ __html: notice.message }} />
+                        <p className="text-sm whitespace-pre-wrap">{notice.message}</p>
                     </div>
                 ))}
              </CardContent>

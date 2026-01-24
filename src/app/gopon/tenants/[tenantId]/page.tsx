@@ -19,7 +19,6 @@ import { useLoading } from '@/context/loading-context';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { format } from 'date-fns';
-import { RichTextEditor } from '@/components/ui/rich-text-editor';
 
 type Tenant = {
   id: string;
@@ -144,7 +143,7 @@ function TenantNoticesManager({ tenantId }: { tenantId: string }) {
 
     const sortedNotices = [...(notices || [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    const isNewMessageEmpty = !newMessage.replace(/<[^>]*>?/gm, "").trim();
+    const isNewMessageEmpty = !newMessage.trim();
 
     const handleAddNotice = async () => {
         if (!firestore || isNewMessageEmpty) {
@@ -213,10 +212,11 @@ function TenantNoticesManager({ tenantId }: { tenantId: string }) {
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
-                    <RichTextEditor 
+                    <Textarea 
                         value={newMessage}
-                        onChange={setNewMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
                         placeholder="Type your notice here..."
+                        rows={5}
                     />
                 </div>
                  <Button onClick={handleAddNotice} disabled={isActionInProgress || isNewMessageEmpty}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
