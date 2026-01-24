@@ -394,7 +394,7 @@ export default function DashboardPage() {
       Completed: "outline",
     } as const;
 
-    const globalNoticeContent = useMemo(() => {
+    const globalNoticeItems = useMemo(() => {
         if (!globalNotices || globalNotices.length === 0) return null;
         return globalNotices.map(notice => (
             <span key={notice.id} className="mx-8 whitespace-nowrap">{notice.message}</span>
@@ -409,13 +409,9 @@ export default function DashboardPage() {
             <div className="p-3 flex items-center gap-4">
                 <MessageSquare className="h-5 w-5 flex-shrink-0" />
                 <div className="flex-1 w-full overflow-hidden">
-                    <div className="animate-ticker-scroll whitespace-nowrap">
-                        <span className="inline-flex items-center">
-                            {globalNoticeContent}
-                        </span>
-                        <span className="inline-flex items-center" aria-hidden="true">
-                            {globalNoticeContent}
-                        </span>
+                    <div className="ticker-track">
+                        <div className="inline-flex items-center" >{globalNoticeItems}</div>
+                        <div className="inline-flex items-center" aria-hidden="true">{globalNoticeItems}</div>
                     </div>
                 </div>
             </div>

@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import 'react-quill/dist/quill.snow.css';
+
 @layer base {
   :root {
     --background: 218 25% 96%;
@@ -65,20 +67,24 @@
   body {
     @apply bg-background text-foreground;
   }
+  .ql-editor {
+    min-height: 120px;
+  }
 }
 
 @layer utilities {
   @keyframes ticker-scroll {
     0% {
-      transform: translateX(0);
+      transform: translateX(0%);
     }
     100% {
       transform: translateX(-50%);
     }
   }
 
-  .animate-ticker-scroll {
+  .ticker-track {
     animation: ticker-scroll 40s linear infinite;
-    display: inline-block;
+    display: flex;
+    white-space: nowrap;
   }
 }

@@ -19,6 +19,7 @@ import { useLoading } from '@/context/loading-context';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { format } from 'date-fns';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 
 type Tenant = {
   id: string;
@@ -143,8 +144,10 @@ function TenantNoticesManager({ tenantId }: { tenantId: string }) {
 
     const sortedNotices = [...(notices || [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+    const isNewMessageEmpty = !newMessage.replace(/<[^>]*>?/gm, "").trim();
+
     const handleAddNotice = async () => {
-        if (!firestore || !newMessage.trim()) {
+        if (!firestore || isNewMessageEmpty) {
             toast({ variant: "destructive", title: "Message is empty" });
             return;
         }
@@ -210,10 +213,13 @@ function TenantNoticesManager({ tenantId }: { tenantId: string }) {
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
-                    <Textarea placeholder="Type your notice here..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
-                    <p className="text-xs text-muted-foreground">HTML tags are supported for formatting (e.g., &lt;b&gt;bold&lt;/b&gt;, &lt;i&gt;italic&lt;/i&gt;).</p>
+                    <RichTextEditor 
+                        value={newMessage}
+                        onChange={setNewMessage}
+                        placeholder="Type your notice here..."
+                    />
                 </div>
-                 <Button onClick={handleAddNotice} disabled={isActionInProgress || !newMessage.trim()}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                 <Button onClick={handleAddNotice} disabled={isActionInProgress || isNewMessageEmpty}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -229,7 +235,7 @@ function TenantNoticesManager({ tenantId }: { tenantId: string }) {
                         ) : sortedNotices.length > 0 ? (
                             sortedNotices.map((notice) => (
                                 <TableRow key={notice.id}>
-                                    <TableCell className="max-w-xs truncate">{notice.message}</TableCell>
+                                    <TableCell className="max-w-xs truncate">{notice.message.replace(/<[^>]*>?/gm, '')}</TableCell>
                                     <TableCell>{format(new Date(notice.createdAt), 'dd MMM, yyyy')}</TableCell>
                                     <TableCell><Switch checked={notice.isActive} onCheckedChange={() => handleToggleStatus(notice)} /></TableCell>
                                     <TableCell className="text-right">
