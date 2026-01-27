@@ -7,7 +7,7 @@ import { collection, query, getDocs, where, doc } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { DollarSign, TrendingUp, TrendingDown, Landmark, ArrowLeftRight, Database, MapPin, Tag, Calendar, Building, Target, Wallet, CircleDollarSign, User, Phone, Home, MessageSquare } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -63,14 +63,6 @@ type TenantNotice = {
   createdAt: string;
 };
 
-
-// --- Helper Functions ---
-const formatCurrency = (value: number) => {
-    if (Math.abs(value) >= 100000) {
-        return `৳${(value / 100000).toFixed(2)} Lacs`;
-    }
-    return `৳${value.toLocaleString('en-IN')}`;
-};
 
 // --- Main Component ---
 export default function DashboardPage() {
@@ -383,7 +375,7 @@ export default function DashboardPage() {
         { title: "Total Outflow", value: financials.totalOutflow, description: "Total cash paid out", icon: TrendingDown, color: "bg-amber-100 text-amber-800", valueColor: "text-amber-900" },
         { title: "Net Cash Flow", value: financials.netCashFlow, description: "Inflow - Outflow", icon: ArrowLeftRight, color: "bg-red-100 text-red-800", valueColor: financials.netCashFlow >= 0 ? "text-emerald-900" : "text-red-900" },
         { title: "Total Project Expenses", value: financials.totalProjectExpenses, description: "Total recorded project expenses", icon: DollarSign, color: "bg-gray-100 text-gray-800", valueColor: "text-gray-900" },
-        { title: "Monthly Operating Cost", value: financials.monthlyOperatingCost, description: `Last Month: ৳${financials.lastMonthOperatingCost.toLocaleString()}`, icon: Landmark, color: "bg-amber-100 text-amber-800", valueColor: "text-amber-900" },
+        { title: "Monthly Operating Cost", value: financials.monthlyOperatingCost, description: `Last Month: ${formatCurrency(financials.lastMonthOperatingCost)}`, icon: Landmark, color: "bg-amber-100 text-amber-800", valueColor: "text-amber-900" },
         { title: "Gross Profit", value: financials.grossProfit, description: "Total Revenue - Project Expenses", icon: TrendingUp, color: "bg-emerald-100 text-emerald-800", valueColor: financials.grossProfit >= 0 ? "text-emerald-900" : "text-red-900" },
         { title: "Actual Profit", value: financials.actualProfit, description: "Revenue - (Proj. + Op. Expenses)", icon: DollarSign, color: "bg-red-100 text-red-800", valueColor: financials.actualProfit >= 0 ? "text-emerald-900" : "text-red-900" }
     ];
@@ -488,13 +480,13 @@ export default function DashboardPage() {
                         <div className="flex items-start gap-3"><Calendar className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Handover Date</p><p className="font-medium">{new Date(selectedProject.expectedHandoverDate).toLocaleDateString('en-GB')}</p></div></div>
                         <div className="flex items-start gap-3"><Building className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Total Flats</p><p className="font-medium">{selectedProject.flats?.length || 0}</p></div></div>
                         
-                        <div className="flex items-start gap-3"><Target className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Target Sell</p><p className="font-medium">TK {selectedProject.targetSell.toLocaleString('en-IN')}</p></div></div>
-                        <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1 text-green-600" /><div><p className="text-muted-foreground">Total Revenue (Sold)</p><p className="font-medium">TK {projectFinancials.revenue.toLocaleString('en-IN')}</p></div></div>
-                        <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1 text-red-600" /><div><p className="text-muted-foreground">Total Expenses</p><p className="font-medium">TK {projectFinancials.totalExpenses.toLocaleString('en-IN')}</p></div></div>
-                        <div className="flex items-start gap-3"><CircleDollarSign className="h-5 w-5 text-muted-foreground mt-1 text-blue-600" /><div><p className="text-muted-foreground">Profit / Loss</p><p className={`font-medium ${projectFinancials.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>TK {projectFinancials.profit.toLocaleString('en-IN')}</p></div></div>
-                        <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Inflow (Payments Rec.)</p><p className="font-medium">TK {projectInflow.toLocaleString('en-IN')}</p></div></div>
-                        <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Outflow (Bills Paid)</p><p className="font-medium">TK {projectFinancials.outflow.toLocaleString('en-IN')}</p></div></div>
-                        <div className="flex items-start gap-3"><Wallet className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Net Cash Flow</p><p className={`font-medium ${projectFinancials.cashFlow >= 0 ? '' : 'text-red-700'}`}>TK {projectFinancials.cashFlow.toLocaleString('en-IN')}</p></div></div>
+                        <div className="flex items-start gap-3"><Target className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Target Sell</p><p className="font-medium">{formatCurrency(selectedProject.targetSell)}</p></div></div>
+                        <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1 text-green-600" /><div><p className="text-muted-foreground">Total Revenue (Sold)</p><p className="font-medium">{formatCurrency(projectFinancials.revenue)}</p></div></div>
+                        <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1 text-red-600" /><div><p className="text-muted-foreground">Total Expenses</p><p className="font-medium">{formatCurrency(projectFinancials.totalExpenses)}</p></div></div>
+                        <div className="flex items-start gap-3"><CircleDollarSign className="h-5 w-5 text-muted-foreground mt-1 text-blue-600" /><div><p className="text-muted-foreground">Profit / Loss</p><p className={`font-medium ${projectFinancials.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(projectFinancials.profit)}</p></div></div>
+                        <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Inflow (Payments Rec.)</p><p className="font-medium">{formatCurrency(projectInflow)}</p></div></div>
+                        <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Outflow (Bills Paid)</p><p className="font-medium">{formatCurrency(projectFinancials.outflow)}</p></div></div>
+                        <div className="flex items-start gap-3"><Wallet className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Net Cash Flow</p><p className={`font-medium ${projectFinancials.cashFlow >= 0 ? '' : 'text-red-700'}`}>{formatCurrency(projectFinancials.cashFlow)}</p></div></div>
                          <div className="lg:col-span-4 mt-2">
                              <Button asChild variant="outline" size="sm">
                                 <Link href={`/${tenantId}/projects/${selectedProjectId}`}>View Full Project Details</Link>
@@ -528,13 +520,13 @@ export default function DashboardPage() {
                          <div className="flex items-start gap-3"><Phone className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Phone</p><p className="font-medium">{selectedCustomer.phoneNumber}</p></div></div>
                          <div className="flex items-start gap-3"><Home className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Address</p><p className="font-medium">{selectedCustomer.address}</p></div></div>
                          <div className="flex items-start gap-3"><Building className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Properties Purchased</p><p className="font-medium">{customerSales.length}</p></div></div>
-                         <div className="flex items-start gap-3"><Database className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Total Sale Value</p><p className="font-medium">TK {customerFinancials.totalRevenue.toLocaleString('en-IN')}</p></div></div>
+                         <div className="flex items-start gap-3"><Database className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Total Sale Value</p><p className="font-medium">{formatCurrency(customerFinancials.totalRevenue)}</p></div></div>
                          
                          {!customerFinancialsLoading && (
                             <>
-                                <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1 text-green-600" /><div><p className="text-muted-foreground">Total Paid</p><p className="font-medium">TK {customerExtraFinancials.totalPaid.toLocaleString('en-IN')}</p></div></div>
-                                <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1 text-red-600" /><div><p className="text-muted-foreground">Total Due</p><p className="font-medium">TK {customerExtraFinancials.dueAmount.toLocaleString('en-IN')}</p></div></div>
-                                <div className="flex items-start gap-3"><Wallet className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Last Paid Amount</p><p className="font-medium">{customerExtraFinancials.lastPaymentAmount ? `TK ${customerExtraFinancials.lastPaymentAmount.toLocaleString('en-IN')}` : 'N/A'}</p></div></div>
+                                <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1 text-green-600" /><div><p className="text-muted-foreground">Total Paid</p><p className="font-medium">{formatCurrency(customerExtraFinancials.totalPaid)}</p></div></div>
+                                <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1 text-red-600" /><div><p className="text-muted-foreground">Total Due</p><p className="font-medium">{formatCurrency(customerExtraFinancials.dueAmount)}</p></div></div>
+                                <div className="flex items-start gap-3"><Wallet className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Last Paid Amount</p><p className="font-medium">{customerExtraFinancials.lastPaymentAmount ? formatCurrency(customerExtraFinancials.lastPaymentAmount) : 'N/A'}</p></div></div>
                                 <div className="flex items-start gap-3"><Calendar className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Last Payment Date</p><p className="font-medium">{customerExtraFinancials.lastPaymentDate ? new Date(customerExtraFinancials.lastPaymentDate).toLocaleDateString('en-GB') : 'N/A'}</p></div></div>
                             </>
                          )}

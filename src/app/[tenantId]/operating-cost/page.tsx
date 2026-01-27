@@ -23,6 +23,7 @@ import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { useLoading } from "@/context/loading-context";
+import { formatCurrency } from "@/lib/utils";
 
 // --- Type Definitions ---
 type OperatingCost = {
@@ -186,7 +187,7 @@ function OperatingCostForm({ tenantId, onFinished, cost }: { tenantId: string; o
         />
         <div className="grid grid-cols-2 gap-4">
             <FormField control={form.control} name="date" render={({ field }) => (<FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Amount (TK)</FormLabel><FormControl><Input type="number" placeholder="10000" {...field} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Amount (৳)</FormLabel><FormControl><Input type="number" placeholder="10000" {...field} /></FormControl><FormMessage /></FormItem>)} />
         </div>
         <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Describe the cost..." {...field} /></FormControl><FormMessage /></FormItem>)} />
         <FormField control={form.control} name="reference" render={({ field }) => (<FormItem><FormLabel>Reference</FormLabel><FormControl><Input placeholder="e.g. Invoice #, Receipt #" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -327,7 +328,7 @@ export default function OperatingCostPage() {
                {viewCost && (
                 <div className="grid gap-4 py-4 text-sm">
                     <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Item</Label><div>{viewCost.itemName}</div></div>
-                    <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Amount</Label><div>TK {viewCost.amount.toLocaleString('en-IN')}</div></div>
+                    <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Amount</Label><div>{formatCurrency(viewCost.amount)}</div></div>
                     <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Date</Label><div>{format(new Date(viewCost.date), 'dd MMM, yyyy')}</div></div>
                     <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Reference</Label><div>{viewCost.reference || 'N/A'}</div></div>
                     <div className="grid grid-cols-[100px_1fr] items-start gap-4"><Label className="text-right text-muted-foreground pt-1">Description</Label><p className="whitespace-pre-wrap">{viewCost.description || 'No description provided.'}</p></div>
@@ -355,7 +356,7 @@ export default function OperatingCostPage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Item</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead className="text-right">Amount (TK)</TableHead>
+                <TableHead className="text-right">Amount (৳)</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
@@ -368,7 +369,7 @@ export default function OperatingCostPage() {
                     <TableCell>{format(new Date(cost.date), 'dd MMM, yyyy')}</TableCell>
                     <TableCell className="font-medium">{cost.itemName}</TableCell>
                     <TableCell className="text-muted-foreground truncate max-w-xs">{cost.description || 'N/A'}</TableCell>
-                    <TableCell className="text-right">{cost.amount.toLocaleString('en-IN')}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(cost.amount)}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

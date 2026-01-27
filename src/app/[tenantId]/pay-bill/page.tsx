@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { Combobox } from "@/components/ui/combobox";
 import { useLoading } from "@/context/loading-context";
+import { formatCurrency } from "@/lib/utils";
 
 // --- Type Definitions ---
 type Vendor = { id: string; name: string; enterpriseName: string; };
@@ -109,7 +110,7 @@ export default function PayBillPage() {
             return;
         }
         if (data.amountPaid > dueAmount) {
-             toast({ variant: 'destructive', title: 'Invalid Amount', description: `Payment cannot exceed the due amount of TK ${dueAmount.toLocaleString()}.` });
+             toast({ variant: 'destructive', title: 'Invalid Amount', description: `Payment cannot exceed the due amount of ${formatCurrency(dueAmount)}.` });
             return;
         }
         
@@ -210,7 +211,7 @@ export default function PayBillPage() {
                                             <Combobox
                                                 options={availableExpenses.map(e => {
                                                     const expenseDue = e.amount - (e.paidAmount || 0);
-                                                    return { value: e.id, label: `${e.expenseCategoryName} (Due: ${expenseDue.toLocaleString()})` };
+                                                    return { value: e.id, label: `${e.expenseCategoryName} (Due: ${formatCurrency(expenseDue)})` };
                                                 })}
                                                 value={field.value}
                                                 onChange={field.onChange}
@@ -226,13 +227,13 @@ export default function PayBillPage() {
 
                              {selectedExpense && (
                                 <div className="p-4 bg-secondary rounded-lg text-secondary-foreground">
-                                    <h4 className="font-bold text-lg">Amount Due: TK {dueAmount.toLocaleString()}</h4>
-                                    <p className="text-xs">Total: {selectedExpense.amount.toLocaleString()} / Paid: {(selectedExpense.paidAmount || 0).toLocaleString()}</p>
+                                    <h4 className="font-bold text-lg">Amount Due: {formatCurrency(dueAmount)}</h4>
+                                    <p className="text-xs">Total: {formatCurrency(selectedExpense.amount)} / Paid: {formatCurrency(selectedExpense.paidAmount || 0)}</p>
                                 </div>
                             )}
 
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <FormField control={form.control} name="amountPaid" render={({ field }) => (<FormItem><FormLabel>Amount to Pay (TK)</FormLabel><FormControl><Input type="number" placeholder="5000" {...field} disabled={!selectedExpense} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="amountPaid" render={({ field }) => (<FormItem><FormLabel>Amount to Pay (৳)</FormLabel><FormControl><Input type="number" placeholder="5000" {...field} disabled={!selectedExpense} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="date" render={({ field }) => (<FormItem><FormLabel>Payment Date</FormLabel><FormControl><Input type="date" {...field} disabled={!selectedExpense} /></FormControl><FormMessage /></FormItem>)} />
                             </div>
 

@@ -40,6 +40,7 @@ import { type FlatSale } from '../sales/page';
 import { Combobox } from '@/components/ui/combobox';
 import { useLoading } from '@/context/loading-context';
 import { Separator } from '@/components/ui/separator';
+import { formatCurrency } from '@/lib/utils';
 
 
 type Project = { id: string; name: string; flats: { name: string }[] };
@@ -187,7 +188,7 @@ const AddPaymentForm = ({
             toast({
                 variant: 'destructive',
                 title: 'Invalid Amount',
-                description: `Payment of TK ${Number(data.amount).toLocaleString()} exceeds the remaining due amount of TK ${maxAllowedPayment.toLocaleString()}.`,
+                description: `Payment of ${formatCurrency(Number(data.amount))} exceeds the remaining due amount of ${formatCurrency(maxAllowedPayment)}.`,
             });
             return;
         }
@@ -319,16 +320,16 @@ const AddPaymentForm = ({
                         <CardContent className="p-4 pt-0 text-sm space-y-2">
                             <div className="flex justify-between">
                                 <span>Total Sale Value:</span>
-                                <span className="font-medium font-mono">TK {saleInfo.totalAmount.toLocaleString('en-IN')}</span>
+                                <span className="font-medium font-mono">{formatCurrency(saleInfo.totalAmount)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span>Total Paid:</span>
-                                <span className="font-medium font-mono text-green-700">TK {saleInfo.totalPaid.toLocaleString('en-IN')}</span>
+                                <span className="font-medium font-mono text-green-700">{formatCurrency(saleInfo.totalPaid)}</span>
                             </div>
                             <Separator className="my-2" />
                             <div className="flex justify-between font-bold">
                                 <span>Amount Due:</span>
-                                <span className="font-mono text-destructive">TK {saleInfo.dueAmount.toLocaleString('en-IN')}</span>
+                                <span className="font-mono text-destructive">{formatCurrency(saleInfo.dueAmount)}</span>
                             </div>
                         </CardContent>
                     </Card>
@@ -696,7 +697,7 @@ export default function PaymentsPage() {
                 <TableHead>Flat</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead className="text-right">Amount (TK)</TableHead>
+                <TableHead className="text-right">Amount (৳)</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
@@ -713,7 +714,7 @@ export default function PaymentsPage() {
                         <TableCell>{payment.flatName}</TableCell>
                         <TableCell>{payment.date ? format(new Date(payment.date), 'dd MMM, yyyy') : 'Invalid Date'}</TableCell>
                         <TableCell>{payment.paymentType}</TableCell>
-                        <TableCell className="text-right">{payment.amount.toLocaleString('en-IN')}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

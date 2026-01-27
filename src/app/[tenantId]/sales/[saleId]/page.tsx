@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { type FlatSale } from '../page';
 import { useMemo } from 'react';
 import { Separator } from '@/components/ui/separator';
+import { formatCurrency } from '@/lib/utils';
 
 type Project = { id: string; name: string; location: string, flats: {name: string, sizeSft: number}[] };
 type Customer = { id: string; name: string; address: string; phoneNumber: string };
@@ -82,12 +83,12 @@ export default function SaleDetailsPage() {
                     <CardTitle className="font-headline">Financial Overview</CardTitle>
                  </CardHeader>
                  <CardContent className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                    <div className="flex items-start gap-3"><DollarSign className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Base Sale Amount:</span><br/><span className="font-medium">TK {sale.amount.toLocaleString('en-IN')}</span></p></div>
-                    <div className="flex items-start gap-3"><Tag className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Per SFT Price:</span><br/><span className="font-medium">TK {sale.perSftPrice.toLocaleString('en-IN')}</span></p></div>
-                    <div className="flex items-start gap-3"><ParkingCircle className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Parking Price:</span><br/><span className="font-medium">TK {sale.parkingPrice?.toLocaleString('en-IN') || 'N/A'}</span></p></div>
-                    <div className="flex items-start gap-3"><Wrench className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Utility Cost:</span><br/><span className="font-medium">TK {sale.utilityCost?.toLocaleString('en-IN') || 'N/A'}</span></p></div>
-                    <div className="flex items-start gap-3"><HandCoins className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Booking Money:</span><br/><span className="font-medium">TK {sale.bookingMoney?.toLocaleString('en-IN') || 'N/A'}</span></p></div>
-                    <div className="flex items-start gap-3"><Calendar className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Installment:</span><br/><span className="font-medium">TK {sale.monthlyInstallment?.toLocaleString('en-IN') || 'N/A'}</span></p></div>
+                    <div className="flex items-start gap-3"><DollarSign className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Base Sale Amount:</span><br/><span className="font-medium">{formatCurrency(sale.amount)}</span></p></div>
+                    <div className="flex items-start gap-3"><Tag className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Per SFT Price:</span><br/><span className="font-medium">{formatCurrency(sale.perSftPrice)}</span></p></div>
+                    <div className="flex items-start gap-3"><ParkingCircle className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Parking Price:</span><br/><span className="font-medium">{sale.parkingPrice ? formatCurrency(sale.parkingPrice) : 'N/A'}</span></p></div>
+                    <div className="flex items-start gap-3"><Wrench className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Utility Cost:</span><br/><span className="font-medium">{sale.utilityCost ? formatCurrency(sale.utilityCost) : 'N/A'}</span></p></div>
+                    <div className="flex items-start gap-3"><HandCoins className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Booking Money:</span><br/><span className="font-medium">{sale.bookingMoney ? formatCurrency(sale.bookingMoney) : 'N/A'}</span></p></div>
+                    <div className="flex items-start gap-3"><Calendar className="h-5 w-5 text-muted-foreground mt-1" /><p><span className="text-muted-foreground">Installment:</span><br/><span className="font-medium">{sale.monthlyInstallment ? formatCurrency(sale.monthlyInstallment) : 'N/A'}</span></p></div>
                  </CardContent>
 
                  {sale.additionalCosts && sale.additionalCosts.length > 0 && (
@@ -100,7 +101,7 @@ export default function SaleDetailsPage() {
                             {sale.additionalCosts.map((cost, index) => (
                                 <div key={index} className="flex justify-between">
                                     <span>{cost.description}</span>
-                                    <span className="font-medium">TK {cost.price.toLocaleString('en-IN')}</span>
+                                    <span className="font-medium">{formatCurrency(cost.price)}</span>
                                 </div>
                             ))}
                         </CardContent>
@@ -110,18 +111,18 @@ export default function SaleDetailsPage() {
                 <CardFooter className="flex-col items-end bg-muted/50 p-4 mt-4">
                     <div className="flex justify-between w-full max-w-xs text-sm">
                         <span>Sale Amount:</span>
-                        <span>TK {sale.amount.toLocaleString('en-IN')}</span>
+                        <span>{formatCurrency(sale.amount)}</span>
                     </div>
                     {additionalCostsTotal > 0 && (
                         <div className="flex justify-between w-full max-w-xs text-sm">
                             <span>Additional Costs:</span>
-                            <span>TK {additionalCostsTotal.toLocaleString('en-IN')}</span>
+                            <span>{formatCurrency(additionalCostsTotal)}</span>
                         </div>
                     )}
                     <Separator className="my-2 max-w-xs" />
                     <div className="flex justify-between w-full max-w-xs font-bold text-lg">
                         <span>Grand Total:</span>
-                        <span>TK {grandTotal.toLocaleString('en-IN')}</span>
+                        <span>{formatCurrency(grandTotal)}</span>
                     </div>
                 </CardFooter>
             </Card>

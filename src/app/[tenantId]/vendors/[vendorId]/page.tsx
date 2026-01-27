@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { formatCurrency } from '@/lib/utils';
 
 
 type Vendor = {
@@ -265,17 +266,17 @@ export default function VendorDetailsPage() {
                     <div className="flex items-center">
                         <DollarSign className="h-4 w-4 text-muted-foreground mr-2" />
                         <span className="text-sm">Total Billed</span>
-                        <span className="ml-auto font-semibold font-headline">TK {totalBilled.toLocaleString()}</span>
+                        <span className="ml-auto font-semibold font-headline">{formatCurrency(totalBilled)}</span>
                     </div>
                      <div className="flex items-center">
                         <TrendingUp className="h-4 w-4 text-muted-foreground mr-2" />
                         <span className="text-sm">Total Paid</span>
-                        <span className="ml-auto font-semibold font-headline text-green-600">TK {totalPaid.toLocaleString()}</span>
+                        <span className="ml-auto font-semibold font-headline text-green-600">{formatCurrency(totalPaid)}</span>
                     </div>
                      <div className="flex items-center">
                         <TrendingDown className="h-4 w-4 text-muted-foreground mr-2" />
                         <span className="text-sm">Total Due</span>
-                        <span className="ml-auto font-semibold font-headline text-red-600">TK {totalDue.toLocaleString()}</span>
+                        <span className="ml-auto font-semibold font-headline text-red-600">{formatCurrency(totalDue)}</span>
                     </div>
                 </CardContent>
             </Card>
@@ -295,7 +296,7 @@ export default function VendorDetailsPage() {
                                 <TableHead>Project</TableHead>
                                 <TableHead>Category</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Amount (TK)</TableHead>
+                                <TableHead className="text-right">Amount (৳)</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -309,7 +310,7 @@ export default function VendorDetailsPage() {
                                         <TableCell>{projectsMap.get(expense.projectId) || 'N/A'}</TableCell>
                                         <TableCell>{expense.expenseCategoryName}</TableCell>
                                         <TableCell><Badge variant={getStatusVariant(expense.status)}>{expense.status}</Badge></TableCell>
-                                        <TableCell className="text-right">{expense.amount.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right">{formatCurrency(expense.amount)}</TableCell>
                                     </TableRow>
                                 ))
                             ) : (
@@ -340,7 +341,7 @@ export default function VendorDetailsPage() {
                                 <TableHead>Project</TableHead>
                                 <TableHead>Category</TableHead>
                                 <TableHead>Reference</TableHead>
-                                <TableHead className="text-right">Amount (TK)</TableHead>
+                                <TableHead className="text-right">Amount (৳)</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -354,7 +355,7 @@ export default function VendorDetailsPage() {
                                         <TableCell>{projectsMap.get(payment.projectId) || 'N/A'}</TableCell>
                                         <TableCell>{payment.expenseCategoryName}</TableCell>
                                         <TableCell>{payment.reference || 'N/A'}</TableCell>
-                                        <TableCell className="text-right">{payment.amount.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
                                     </TableRow>
                                 ))
                             ) : (

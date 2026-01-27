@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useMemo, useState, useEffect } from 'react';
+import { formatCurrency } from '@/lib/utils';
 
 // Matches the Project entity in backend.json
 type Project = {
@@ -175,13 +176,13 @@ export default function ProjectDetailsPage() {
             <div className="flex items-start gap-3"><Building className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Total Flats</p><p className="font-medium">{project.flats?.length || 0}</p></div></div>
             
             {/* Financials */}
-            <div className="flex items-start gap-3"><Target className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Target Sell</p><p className="font-medium">TK {project.targetSell.toLocaleString('en-IN')}</p></div></div>
-            <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1 text-green-600" /><div><p className="text-muted-foreground">Total Revenue (Sold)</p><p className="font-medium">TK {totalRevenue.toLocaleString('en-IN')}</p></div></div>
-            <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1 text-red-600" /><div><p className="text-muted-foreground">Total Expenses</p><p className="font-medium">TK {totalExpenses.toLocaleString('en-IN')}</p></div></div>
-            <div className="flex items-start gap-3"><CircleDollarSign className="h-5 w-5 text-muted-foreground mt-1 text-blue-600" /><div><p className="text-muted-foreground">Profit / Loss</p><p className={`font-medium ${profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>TK {profit.toLocaleString('en-IN')}</p></div></div>
-            <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Inflow (Payments Rec.)</p><p className="font-medium">TK {inflow.toLocaleString('en-IN')}</p></div></div>
-            <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Outflow (Bills Paid)</p><p className="font-medium">TK {totalOutflow.toLocaleString('en-IN')}</p></div></div>
-            <div className="flex items-start gap-3"><Wallet className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Net Cash Flow</p><p className={`font-medium ${cashFlow >= 0 ? '' : 'text-red-700'}`}>TK {cashFlow.toLocaleString('en-IN')}</p></div></div>
+            <div className="flex items-start gap-3"><Target className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Target Sell</p><p className="font-medium">{formatCurrency(project.targetSell)}</p></div></div>
+            <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1 text-green-600" /><div><p className="text-muted-foreground">Total Revenue (Sold)</p><p className="font-medium">{formatCurrency(totalRevenue)}</p></div></div>
+            <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1 text-red-600" /><div><p className="text-muted-foreground">Total Expenses</p><p className="font-medium">{formatCurrency(totalExpenses)}</p></div></div>
+            <div className="flex items-start gap-3"><CircleDollarSign className="h-5 w-5 text-muted-foreground mt-1 text-blue-600" /><div><p className="text-muted-foreground">Profit / Loss</p><p className={`font-medium ${profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(profit)}</p></div></div>
+            <div className="flex items-start gap-3"><TrendingUp className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Inflow (Payments Rec.)</p><p className="font-medium">{formatCurrency(inflow)}</p></div></div>
+            <div className="flex items-start gap-3"><TrendingDown className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Outflow (Bills Paid)</p><p className="font-medium">{formatCurrency(totalOutflow)}</p></div></div>
+            <div className="flex items-start gap-3"><Wallet className="h-5 w-5 text-muted-foreground mt-1" /><div><p className="text-muted-foreground">Net Cash Flow</p><p className={`font-medium ${cashFlow >= 0 ? '' : 'text-red-700'}`}>{formatCurrency(cashFlow)}</p></div></div>
           </CardContent>
         </Card>
 

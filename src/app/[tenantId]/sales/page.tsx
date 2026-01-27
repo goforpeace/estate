@@ -23,6 +23,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { useLoading } from "@/context/loading-context";
+import { formatCurrency } from "@/lib/utils";
 
 // Matches the Project entity
 type Project = {
@@ -212,12 +213,12 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
                                     </FormItem>
                                 )}
                             />
-                            <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Total Amount (TK)</FormLabel><FormControl><Input type="number" placeholder="15000000" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="perSftPrice" render={({ field }) => (<FormItem><FormLabel>Per SFT Price (TK)</FormLabel><FormControl><Input type="number" placeholder="10000" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="parkingPrice" render={({ field }) => (<FormItem><FormLabel>Parking Price (TK)</FormLabel><FormControl><Input type="number" placeholder="500000" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="utilityCost" render={({ field }) => (<FormItem><FormLabel>Utility Cost (TK)</FormLabel><FormControl><Input type="number" placeholder="200000" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="bookingMoney" render={({ field }) => (<FormItem><FormLabel>Booking Money (TK)</FormLabel><FormControl><Input type="number" placeholder="2000000" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="monthlyInstallment" render={({ field }) => (<FormItem><FormLabel>Monthly Installment (TK)</FormLabel><FormControl><Input type="number" placeholder="100000" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Total Amount (৳)</FormLabel><FormControl><Input type="number" placeholder="15000000" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="perSftPrice" render={({ field }) => (<FormItem><FormLabel>Per SFT Price (৳)</FormLabel><FormControl><Input type="number" placeholder="10000" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="parkingPrice" render={({ field }) => (<FormItem><FormLabel>Parking Price (৳)</FormLabel><FormControl><Input type="number" placeholder="500000" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="utilityCost" render={({ field }) => (<FormItem><FormLabel>Utility Cost (৳)</FormLabel><FormControl><Input type="number" placeholder="200000" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="bookingMoney" render={({ field }) => (<FormItem><FormLabel>Booking Money (৳)</FormLabel><FormControl><Input type="number" placeholder="2000000" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="monthlyInstallment" render={({ field }) => (<FormItem><FormLabel>Monthly Installment (৳)</FormLabel><FormControl><Input type="number" placeholder="100000" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             
                             <div className="space-y-4 rounded-lg border p-4 md:col-span-2">
                                 <h3 className="font-medium">Additional Costs</h3>
@@ -226,7 +227,7 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
                                         <div key={field.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
                                             <p className="flex-1 text-sm">
                                                 <span className="font-medium">{field.description}</span>
-                                                - TK {field.price.toLocaleString('en-IN')}
+                                                - {formatCurrency(field.price)}
                                             </p>
                                             <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => remove(index)}>
                                                 <XCircle className="h-4 w-4" />
@@ -250,7 +251,7 @@ function SaleForm({ tenantId, onFinished, sale, projects, customers, existingSal
                                         <Input id="new-cost-description" placeholder="e.g., Extra cabinet" value={newCostDescription} onChange={(e) => setNewCostDescription(e.target.value)} />
                                     </div>
                                     <div className="grid gap-1.5 w-36">
-                                        <Label htmlFor="new-cost-price" className="text-xs">Price (TK)</Label>
+                                        <Label htmlFor="new-cost-price" className="text-xs">Price (৳)</Label>
                                         <Input id="new-cost-price" type="number" placeholder="25000" value={newCostPrice} onChange={(e) => setNewCostPrice(e.target.value)} />
                                     </div>
                                     <Button type="button" variant="outline" onClick={handleAddCost}>Add Cost</Button>
@@ -457,7 +458,7 @@ export default function SalesPage() {
                 <TableHead>Customer</TableHead>
                 <TableHead>Project</TableHead>
                 <TableHead>Flat</TableHead>
-                <TableHead className="text-right">Total Amount (TK)</TableHead>
+                <TableHead className="text-right">Total Amount (৳)</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
@@ -470,7 +471,7 @@ export default function SalesPage() {
                     <TableCell className="font-medium">{customersMap.get(sale.customerId) || 'Unknown Customer'}</TableCell>
                     <TableCell>{projectsMap.get(sale.projectId) || 'Unknown Project'}</TableCell>
                     <TableCell>{sale.flatName}</TableCell>
-                    <TableCell className="text-right">{sale.amount.toLocaleString('en-IN')}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(sale.amount)}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

@@ -44,6 +44,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { format } from "date-fns";
 import { Combobox } from "@/components/ui/combobox";
 import { useLoading } from "@/context/loading-context";
+import { formatCurrency } from "@/lib/utils";
 
 // Matches the Flat entity in backend.json but is nested here
 const flatSchema = z.object({
@@ -203,7 +204,7 @@ function ProjectForm({ tenantId, onFinished, project }: { tenantId: string; onFi
                 name="targetSell"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Target Sell (TK)</FormLabel>
+                    <FormLabel>Target Sell (৳)</FormLabel>
                     <FormControl>
                         <Input type="number" placeholder="10000000" {...field} />
                     </FormControl>
@@ -448,7 +449,7 @@ export default function ProjectsPage() {
                 <TableHead>Location</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Flats</TableHead>
-                <TableHead className="text-right">Target Sell (TK)</TableHead>
+                <TableHead className="text-right">Target Sell (৳)</TableHead>
                 <TableHead>Handover Date</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
@@ -478,7 +479,7 @@ export default function ProjectsPage() {
                     </TableCell>
                     <TableCell>{project.flats?.length || 0}</TableCell>
                     <TableCell className="text-right">
-                      {project.targetSell.toLocaleString("en-IN")}
+                      {formatCurrency(project.targetSell)}
                     </TableCell>
                     <TableCell>
                       {new Date(project.expectedHandoverDate).toLocaleDateString()}

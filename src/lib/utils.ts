@@ -5,6 +5,23 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function formatCurrency(value: number): string {
+  if (value === null || value === undefined) {
+      return '৳0';
+  }
+  const absValue = Math.abs(value);
+  
+  if (absValue >= 10000000) { // 1 Crore (10,000,000)
+      const formattedValue = (value / 10000000).toFixed(2);
+      return `৳${formattedValue} Cr`;
+  }
+  if (absValue >= 100000) { // 1 Lakh (100,000)
+      const formattedValue = (value / 100000).toFixed(2);
+      return `৳${formattedValue} Lacs`;
+  }
+  return `৳${value.toLocaleString('en-IN')}`;
+}
+
 
 export function numberToWords(num: number): string {
   const a = [

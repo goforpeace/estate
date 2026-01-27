@@ -25,6 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
 import { useLoading } from "@/context/loading-context";
+import { formatCurrency } from "@/lib/utils";
 
 // --- Type Definitions ---
 type Project = { id: string; name: string; };
@@ -266,7 +267,7 @@ function ExpenseForm({ tenantId, onFinished, expense, projects, vendors }: { ten
                         </FormItem>
                     )} />
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Price / Amount (TK)</FormLabel><FormControl><Input type="number" placeholder="5000" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Price / Amount (৳)</FormLabel><FormControl><Input type="number" placeholder="5000" {...field} /></FormControl><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="qty" render={({ field }) => (<FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" placeholder="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="date" render={({ field }) => (<FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
@@ -316,7 +317,7 @@ function EditExpensePaymentForm({ tenantId, payment, onFinished }: { tenantId: s
                 const newPaidAmount = currentPaid + amountDifference;
                 
                 if (newPaidAmount > expenseData.amount) {
-                    throw new Error(`Payment would exceed the total expense amount of TK ${expenseData.amount}.`);
+                    throw new Error(`Payment would exceed the total expense amount of ${formatCurrency(expenseData.amount)}.`);
                 }
 
                 let newStatus: OutflowTransaction['status'] = 'Partially Paid';
@@ -342,7 +343,7 @@ function EditExpensePaymentForm({ tenantId, payment, onFinished }: { tenantId: s
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Amount (TK)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Amount (৳)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="date" render={({ field }) => (<FormItem><FormLabel>Payment Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="reference" render={({ field }) => (<FormItem><FormLabel>Reference</FormLabel><FormControl><Input placeholder="Cheque #, etc." {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="note" render={({ field }) => (<FormItem><FormLabel>Note</FormLabel><FormControl><Textarea placeholder="Payment note..." {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -661,7 +662,7 @@ export default function ExpensesPage() {
                     </DialogHeader>
                     {viewPayment && (
                         <div className="grid gap-4 py-4 text-sm">
-                            <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Amount</Label><div>TK {viewPayment.amount.toLocaleString('en-IN')}</div></div>
+                            <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Amount</Label><div>{formatCurrency(viewPayment.amount)}</div></div>
                             <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Date</Label><div>{format(new Date(viewPayment.date), 'dd MMM, yyyy')}</div></div>
                             <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Project</Label><div>{projectsMap.get(viewPayment.projectId) || 'N/A'}</div></div>
                             <div className="grid grid-cols-[100px_1fr] items-center gap-4"><Label className="text-right text-muted-foreground">Vendor</Label><div>{vendorsMap.get(viewPayment.vendorId) || 'N/A'}</div></div>
@@ -686,7 +687,7 @@ export default function ExpensesPage() {
                                 <TableHead>Vendor</TableHead>
                                 <TableHead>Category</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Total / Due (TK)</TableHead>
+                                <TableHead className="text-right">Total / Due (৳)</TableHead>
                                 <TableHead><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -704,9 +705,9 @@ export default function ExpensesPage() {
                                         <TableCell>{expense.expenseCategoryName}</TableCell>
                                         <TableCell><Badge variant={getStatusVariant(expense.status)}>{expense.status}</Badge></TableCell>
                                         <TableCell className="text-right">
-                                            {expense.amount.toLocaleString('en-IN')}
+                                            {formatCurrency(expense.amount)}
                                             <br/>
-                                            <span className="text-xs text-muted-foreground">{due.toLocaleString('en-IN')} Due</span>
+                                            <span className="text-xs text-muted-foreground">{formatCurrency(due)} Due</span>
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <DropdownMenu>
@@ -767,7 +768,7 @@ export default function ExpensesPage() {
                                 <TableHead>Vendor</TableHead>
                                 <TableHead>Category</TableHead>
                                 <TableHead>Reference</TableHead>
-                                <TableHead className="text-right">Amount (TK)</TableHead>
+                                <TableHead className="text-right">Amount (৳)</TableHead>
                                 <TableHead><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -782,7 +783,7 @@ export default function ExpensesPage() {
                                         <TableCell>{vendorsMap.get(payment.vendorId) || 'N/A'}</TableCell>
                                         <TableCell>{payment.expenseCategoryName}</TableCell>
                                         <TableCell>{payment.reference || 'N/A'}</TableCell>
-                                        <TableCell className="text-right">{payment.amount.toLocaleString('en-IN')}</TableCell>
+                                        <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
                                         <TableCell className="text-right">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>

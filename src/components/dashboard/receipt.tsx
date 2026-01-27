@@ -3,7 +3,7 @@
 
 import { forwardRef } from 'react';
 import { InflowTransaction } from '@/app/[tenantId]/payments/page';
-import { numberToWords } from '@/lib/utils';
+import { numberToWords, formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -78,7 +78,7 @@ export const Receipt = forwardRef<
                                 Apartment No: {transaction.flatName}
                             </p>
                         </td>
-                        <td className="p-3 text-right align-top font-medium">TK {transaction.amount.toLocaleString('en-IN')}</td>
+                        <td className="p-3 text-right align-top font-medium">{formatCurrency(transaction.amount)}</td>
                     </tr>
                 </tbody>
             </table>
@@ -90,11 +90,11 @@ export const Receipt = forwardRef<
                 <div className="w-2/5">
                     <div className="flex justify-between py-2 border-b">
                         <span className="font-medium text-gray-600">Subtotal</span>
-                        <span className="font-medium">TK {transaction.amount.toLocaleString('en-IN')}</span>
+                        <span className="font-medium">{formatCurrency(transaction.amount)}</span>
                     </div>
                     <div className="flex justify-between py-3 bg-gray-100 px-3">
                         <span className="font-bold text-gray-800">Total</span>
-                        <span className="font-bold text-lg">TK {transaction.amount.toLocaleString('en-IN')} /=</span>
+                        <span className="font-bold text-lg">{formatCurrency(transaction.amount)} /=</span>
                     </div>
                 </div>
             </div>

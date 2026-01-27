@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { PrintReceiptDialog } from '@/components/dashboard/payments/PrintReceiptDialog';
 import { useToast } from '@/hooks/use-toast';
 import { type InflowTransaction } from '../../payments/page';
+import { formatCurrency } from '@/lib/utils';
 
 
 type Customer = {
@@ -76,11 +77,11 @@ function SaleInfoCard({ tenantId, sale, projectName }: { tenantId: string, sale:
             <CardContent className="space-y-4">
                 <div>
                      <div className="flex justify-between items-center mb-1 text-xs text-muted-foreground">
-                        <span>Paid: TK {totalPaid.toLocaleString()}</span>
-                        <span>Due: TK {dueAmount.toLocaleString()}</span>
+                        <span>Paid: {formatCurrency(totalPaid)}</span>
+                        <span>Due: {formatCurrency(dueAmount)}</span>
                     </div>
                     <Progress value={progress} className="h-2" />
-                    <p className="text-xs text-right mt-1 text-muted-foreground">Total: TK {sale.amount.toLocaleString()}</p>
+                    <p className="text-xs text-right mt-1 text-muted-foreground">Total: {formatCurrency(sale.amount)}</p>
                 </div>
             </CardContent>
         </Card>
@@ -325,7 +326,7 @@ export default function CustomerDetailsPage() {
                         <TableHead>Project</TableHead>
                         <TableHead>Flat</TableHead>
                         <TableHead>Type</TableHead>
-                        <TableHead className="text-right">Amount (TK)</TableHead>
+                        <TableHead className="text-right">Amount (৳)</TableHead>
                         <TableHead><span className="sr-only">Actions</span></TableHead>
                     </TableRow>
                 </TableHeader>
@@ -340,7 +341,7 @@ export default function CustomerDetailsPage() {
                                 <TableCell>{projectsMap.get(payment.projectId)?.name || 'N/A'}</TableCell>
                                 <TableCell>{payment.flatName}</TableCell>
                                 <TableCell>{payment.paymentType}</TableCell>
-                                <TableCell className="text-right">{payment.amount.toLocaleString()}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
                                 <TableCell className="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
