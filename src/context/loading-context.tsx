@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
 type LoadingContextType = {
@@ -24,8 +24,14 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  const value = useMemo(() => ({
+    isLoading,
+    showLoading,
+    hideLoading
+  }), [isLoading, showLoading, hideLoading]);
+
   return (
-    <LoadingContext.Provider value={{ showLoading, hideLoading, isLoading }}>
+    <LoadingContext.Provider value={value}>
       {children}
       {isLoading && <LoadingOverlay text={loadingText} />}
     </LoadingContext.Provider>
