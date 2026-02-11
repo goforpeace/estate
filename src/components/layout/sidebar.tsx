@@ -9,7 +9,7 @@ import {
     SidebarMenuButton,
     SidebarFooter
   } from "@/components/ui/sidebar"
-import { Building2, LayoutDashboard, Users, Waypoints, HandCoins, Settings, LogOut, CreditCard, Briefcase, MinusCircle, Banknote, Wallet } from "lucide-react"
+import { Building2, LayoutDashboard, Users, Waypoints, HandCoins, Settings, LogOut, CreditCard, Briefcase, MinusCircle, Banknote, Wallet, Info } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/firebase"
@@ -25,6 +25,7 @@ const navItems = [
     { href: "/pay-bill", icon: Banknote, label: "Pay Bill" },
     { href: "/operating-cost", icon: Wallet, label: "Operating Cost" },
     { href: "/vendors", icon: Briefcase, label: "Vendors" },
+    { href: "/features", icon: Info, label: "Features" },
     { href: "/organization", icon: Settings, label: "Organization" },
 ]
 
@@ -38,7 +39,8 @@ const icons: { [key: string]: React.ElementType } = {
   Settings,
   MinusCircle,
   Banknote,
-  Wallet
+  Wallet,
+  Info,
 };
 
 
