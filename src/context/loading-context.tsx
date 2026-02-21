@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
@@ -12,28 +13,26 @@ type LoadingContextType = {
 const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 
 export function LoadingProvider({ children }: { children: ReactNode }) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingText, setLoadingText] = useState('Loading...');
+  const [loadingState, setLoadingState] = useState({ isLoading: false, text: 'Loading...' });
 
   const showLoading = useCallback((text = 'Loading...') => {
-    setLoadingText(text);
-    setIsLoading(true);
+    setLoadingState({ isLoading: true, text });
   }, []);
 
   const hideLoading = useCallback(() => {
-    setIsLoading(false);
+    setLoadingState(prev => prev.isLoading ? { ...prev, isLoading: false } : prev);
   }, []);
 
   const value = useMemo(() => ({
-    isLoading,
+    isLoading: loadingState.isLoading,
     showLoading,
     hideLoading
-  }), [isLoading, showLoading, hideLoading]);
+  }), [loadingState.isLoading, showLoading, hideLoading]);
 
   return (
     <LoadingContext.Provider value={value}>
       {children}
-      {isLoading && <LoadingOverlay text={loadingText} />}
+      {loadingState.isLoading && <LoadingOverlay text={loadingState.text} />}
     </LoadingContext.Provider>
   );
 }

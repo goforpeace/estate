@@ -1,3 +1,4 @@
+
 'use client'
 
 import { PageHeader } from "@/components/page-header";
@@ -387,6 +388,7 @@ export default function ExpensesPage() {
     const [expensePaymentsLoading, setExpensePaymentsLoading] = useState(true);
 
     useEffect(() => {
+        let isMounted = true;
         if (!firestore || !tenantId || expenses === undefined) {
             setExpensePaymentsLoading(false);
             return;
@@ -412,22 +414,28 @@ export default function ExpensesPage() {
 
             try {
                 await Promise.all(promises);
-                allPayments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                setExpensePayments(allPayments);
+                if (isMounted) {
+                    allPayments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                    setExpensePayments(allPayments);
+                }
             } catch (e: any) {
                 console.error("Error fetching expense payments:", e);
-                toast({
-                    variant: "destructive",
-                    title: "Error loading payment log",
-                    description: e.message || "Could not fetch all payment records."
-                });
+                if (isMounted) {
+                    toast({
+                        variant: "destructive",
+                        title: "Error loading payment log",
+                        description: e.message || "Could not fetch all payment records."
+                    });
+                }
             } finally {
-                setExpensePaymentsLoading(false);
+                if (isMounted) {
+                    setExpensePaymentsLoading(false);
+                }
             }
         };
 
         fetchAllPayments();
-
+        return () => { isMounted = false; };
     }, [firestore, tenantId, expenses, toast]);
 
 

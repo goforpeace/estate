@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { PageHeader } from '@/components/page-header';
@@ -456,6 +457,7 @@ export default function PaymentsPage() {
   
 
   useEffect(() => {
+    let isMounted = true;
     if (!firestore || !tenantId || sales === undefined) {
         setPaymentsLoading(sales === undefined);
         if(sales === null) {
@@ -488,20 +490,27 @@ export default function PaymentsPage() {
             const paymentsBySale = await Promise.all(paymentPromises);
             const flattenedPayments = paymentsBySale.flat();
 
-            setPayments(flattenedPayments);
+            if (isMounted) {
+                setPayments(flattenedPayments);
+            }
         } catch (error) {
             console.error("Error fetching payments:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Error fetching payments',
-                description: 'Could not load payment records.'
-            });
+            if (isMounted) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Error fetching payments',
+                    description: 'Could not load payment records.'
+                });
+            }
         } finally {
-            setPaymentsLoading(false);
+            if (isMounted) {
+                setPaymentsLoading(false);
+            }
         }
     };
 
     fetchPayments();
+    return () => { isMounted = false; };
   }, [firestore, tenantId, sales, toast]);
 
   const isLoading = projectsLoading || customersLoading || salesLoading || paymentsLoading;

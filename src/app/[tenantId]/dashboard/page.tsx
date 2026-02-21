@@ -1,3 +1,4 @@
+
 'use client';
 
 import { PageHeader } from "@/components/page-header";
@@ -120,6 +121,7 @@ export default function DashboardPage() {
     const [inflowLoading, setInflowLoading] = useState(true);
 
     useEffect(() => {
+        let isMounted = true;
         if (!firestore || !sales) {
             setInflowLoading(sales === undefined);
             if(sales === null) {
@@ -135,7 +137,6 @@ export default function DashboardPage() {
             return;
         }
 
-        let isMounted = true;
         const fetchAllPayments = async () => {
             setInflowLoading(true);
             const paymentPromises = sales.map(sale => {
@@ -225,6 +226,7 @@ export default function DashboardPage() {
     const [projectInflowLoading, setProjectInflowLoading] = useState(false);
 
     useEffect(() => {
+        let isMounted = true;
         if (!firestore || !projectSales || !selectedProjectId) {
             setProjectInflow(0);
             setProjectInflowLoading(false);
@@ -237,7 +239,6 @@ export default function DashboardPage() {
             return;
         }
 
-        let isMounted = true;
         const fetchProjectPayments = async () => {
             setProjectInflowLoading(true);
             const paymentPromises = projectSales.map(sale => {
@@ -309,13 +310,13 @@ export default function DashboardPage() {
     const [customerFinancialsLoading, setCustomerFinancialsLoading] = useState(false);
 
     useEffect(() => {
+        let isMounted = true;
         if (!firestore || !tenantId || !customerSales.length) {
             setCustomerExtraFinancials({ totalPaid: 0, dueAmount: 0, lastPaymentAmount: null, lastPaymentDate: null });
             setCustomerFinancialsLoading(false);
             return;
         }
 
-        let isMounted = true;
         const fetchCustomerPayments = async () => {
             setCustomerFinancialsLoading(true);
             const paymentPromises = customerSales.map(sale => {
